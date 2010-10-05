@@ -9,7 +9,7 @@ This is a online GPS tracking system based on using mobile phones with embedded 
 Trigger events can be sent by SMS, eMail and also can be reported to Twitter. Text of such messages support templates with substitution of useful data.
 Currently we have only Java and maemo (N810) clients, but plan to create Android one.
 
-An example of written track http://gtracker.ru/view/3d98efc6e366324bdd71d0ef915b3499
+An example of written track (zoom out it, please): http://gtracker.ru/view/3d98efc6e366324bdd71d0ef915b3499
 * About 600 kilometers long
 * Written using Nokia E71
 * Coordinates was written with 1 minute period 
