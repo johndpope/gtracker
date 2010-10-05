@@ -1,8 +1,8 @@
--- MySQL dump 10.13  Distrib 5.1.41, for debian-linux-gnu (x86_64)
+-- MySQL dump 10.13  Distrib 5.1.37, for debian-linux-gnu (x86_64)
 --
 -- Host: localhost    Database: gtracker
 -- ------------------------------------------------------
--- Server version	5.1.41-3ubuntu12.3
+-- Server version	5.1.37-1ubuntu5.4-log
 
 /*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
 /*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
@@ -35,7 +35,7 @@ CREATE TABLE `coordinate` (
   KEY `track_id_idx` (`track_id`) USING BTREE,
   KEY `device_id_idx` (`device_id`) USING BTREE,
   CONSTRAINT `FK_coordinate_track_id` FOREIGN KEY (`track_id`) REFERENCES `track` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=312527 DEFAULT CHARSET=utf8 ROW_FORMAT=DYNAMIC;
+) ENGINE=InnoDB AUTO_INCREMENT=305235 DEFAULT CHARSET=utf8 ROW_FORMAT=DYNAMIC;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -50,7 +50,7 @@ CREATE TABLE `device` (
   `name` char(12) NOT NULL,
   `alias` varchar(50) DEFAULT NULL,
   `online` tinyint(1) NOT NULL,
-  `timezone` varchar(128) NOT NULL DEFAULT 'Europe/Moscow',
+  `timezone` varchar(128) DEFAULT 'Europe/Moscow',
   `registered` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `color` varchar(6) DEFAULT '000000',
   `weight` int(11) DEFAULT '3',
@@ -58,7 +58,7 @@ CREATE TABLE `device` (
   `twitter_auth` text,
   PRIMARY KEY (`id`),
   UNIQUE KEY `value` (`name`)
-) ENGINE=InnoDB AUTO_INCREMENT=427 DEFAULT CHARSET=utf8;
+) ENGINE=InnoDB AUTO_INCREMENT=461 DEFAULT CHARSET=utf8;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -75,7 +75,7 @@ CREATE TABLE `lang` (
   `value` varchar(256) DEFAULT NULL,
   `extern` tinyint(1) DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=MyISAM AUTO_INCREMENT=242 DEFAULT CHARSET=latin1;
+) ENGINE=MyISAM AUTO_INCREMENT=242 DEFAULT CHARSET=utf8;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -91,7 +91,7 @@ CREATE TABLE `meta` (
   `name` varchar(128) DEFAULT NULL,
   `value` text,
   PRIMARY KEY (`id`)
-) ENGINE=MyISAM DEFAULT CHARSET=latin1;
+) ENGINE=MyISAM DEFAULT CHARSET=utf8;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -104,7 +104,7 @@ DROP TABLE IF EXISTS `news`;
 CREATE TABLE `news` (
   `date` datetime DEFAULT NULL,
   `post` text
-) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -124,7 +124,7 @@ CREATE TABLE `reference` (
   KEY `FK_reference_track_id` (`track_id`),
   CONSTRAINT `FK_reference_device_id` FOREIGN KEY (`device_id`) REFERENCES `device` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
   CONSTRAINT `FK_reference_track_id` FOREIGN KEY (`track_id`) REFERENCES `track` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=8 DEFAULT CHARSET=latin1;
+) ENGINE=InnoDB AUTO_INCREMENT=37 DEFAULT CHARSET=utf8;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -144,7 +144,7 @@ CREATE TABLE `track` (
   PRIMARY KEY (`id`),
   KEY `FK_track_device_id` (`device_id`),
   CONSTRAINT `FK_track_device_id` FOREIGN KEY (`device_id`) REFERENCES `device` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=453 DEFAULT CHARSET=utf8 ROW_FORMAT=DYNAMIC;
+) ENGINE=InnoDB AUTO_INCREMENT=354 DEFAULT CHARSET=utf8 ROW_FORMAT=DYNAMIC;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -158,20 +158,35 @@ CREATE TABLE `trigger` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `device_id` int(10) unsigned NOT NULL,
   `enabled` tinyint(1) NOT NULL DEFAULT '0',
-  `name` varchar(128) CHARACTER SET cp1251 NOT NULL,
+  `name` varchar(128) NOT NULL,
   `type` enum('online','offline','enter','leave','sos','periodic') DEFAULT NULL,
   `use_email` tinyint(1) NOT NULL DEFAULT '0',
   `email` varchar(256) DEFAULT NULL,
   `use_phone` tinyint(1) NOT NULL DEFAULT '0',
   `phone` varchar(256) DEFAULT NULL,
   `use_twitter` tinyint(1) DEFAULT '0',
-  `text` text CHARACTER SET cp1251,
+  `text` text,
   `config` varchar(256) DEFAULT NULL,
   `schedule` text,
   PRIMARY KEY (`id`),
   KEY `FK_trigger_device_id` (`device_id`),
   CONSTRAINT `FK_trigger_device_id` FOREIGN KEY (`device_id`) REFERENCES `device` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=latin1 ROW_FORMAT=DYNAMIC;
+) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8 ROW_FORMAT=DYNAMIC;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `user`
+--
+
+DROP TABLE IF EXISTS `user`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `user` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `name` varchar(256) NOT NULL,
+  `password` varchar(32) NOT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=MyISAM DEFAULT CHARSET=utf8;
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
 
@@ -183,4 +198,4 @@ CREATE TABLE `trigger` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2010-07-17 11:00:02
+-- Dump completed on 2010-10-05 23:45:02
