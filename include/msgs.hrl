@@ -1,0 +1,10 @@
+-define(AUTH_MSG,           $A).
+-define(AUTH_ACK_MSG,       $B).
+-define(COORD_MSG,          $C).
+-define(ERROR_MSG,          $D).
+-define(HEARTBEAT_MSG,      $E).
+-define(SOS_MSG,            $F).
+-define(START_NEW_TRACK,    $G).
+-define(RENAME_TRACK,       $H).
+-define(TRACK_STATUS,       $I).
+-define(HEARTBEAT_RESPONSE, $J).

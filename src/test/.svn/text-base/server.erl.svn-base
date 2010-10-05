@@ -1,0 +1,40 @@
+#!/usr/bin/escript
+
+-module(server).
+-export([main/1, loop/3]).
+
+
+main([]) ->
+   {ok, Nmea} = file:read_file("./nmea.txt"),
+   case gen_tcp:listen(5678, [binary, {active, true}, {packet, raw}]) of
+      {ok, ListenSocket} ->
+         server(ListenSocket, Nmea);
+      {error, Reason} ->
+         io:format("ERROR: ~p~n", [Reason])
+   end.
+
+server(ListenSocket, Data) ->
+   case gen_tcp:accept(ListenSocket) of
+      {ok, S} ->
+         Pid = spawn(fun() -> loop(S, Data, Data) end),
+         gen_tcp:controlling_process(S, Pid),
+         server(ListenSocket, Data);
+      Other ->
+         io:format("ERROR: ~p~n", [Other])
+   end.
+
+loop(Socket, Nmea, <<>>) ->
+   loop(Socket, Nmea, Nmea);
+
+loop(Socket, Nmea, Bin) when size(Bin) < 64 ->
+   gen_tcp:send(Socket, Bin),
+   loop(Socket, Nmea, Nmea);
+
+loop(Socket, Nmea, <<Chunk:64/binary, Rest/binary>>) ->
+   receive
+      {tcp_closed, _S} ->
+         ok
+   after 100 ->
+      gen_tcp:send(Socket, Chunk),
+      loop(Socket, Nmea, Rest)
+   end.

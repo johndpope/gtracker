@@ -1,0 +1,9 @@
+{application, gtracker, [
+      {description,  "gtracker server"    },
+      {vsn,          "0.11"               },
+      {id,           "gtracker"           },
+      {registered,   [gtracker_listener, gtracker_mysql, gtracker_trigger] },
+      {applications, [kernel, stdlib, sasl]              },
+      {mod,          {gtracker_app, []}                  }
+   ]
+}.
