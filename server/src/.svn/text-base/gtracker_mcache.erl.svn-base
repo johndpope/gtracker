@@ -1,0 +1,67 @@
+-module(gtracker_mcache).
+
+-behaviour(mds_gen_server).
+
+-include("common_defs.hrl").
+
+-export([start/1, stop/0, on_start/1, on_stop/2, on_msg/3, on_amsg/2, on_info/2]).
+
+-import(mds_utils, [get_param/2, get_param/3]).
+-import(gtracker_common, [join_pg/2, leave_pg/2, bin_to_urlencoded/1]).
+
+-define(MOD, {local, ?MODULE}).
+-define(MSG(Group, Msg), {pg_message, _, Group, Msg}              ).
+
+-record(dev_info, {did}).
+-record(state, {db, gt_pgroup, dev_cache}).
+
+start(Opts) ->
+   mds_gen_server:start(?MOD, Opts).
+
+stop() ->
+   mds_gen_server:stop(?MOD).
+
+on_start(Opts) ->
+   inets:start(),
+   SelfOpts = get_param(self, Opts),
+   PGroup = get_param(gt_pgroup, SelfOpts, ?DEF_GT_PGROUP),
+   DB = get_param(db, SelfOpts),
+   join_pg(PGroup, self()),
+   {ok, #state{db = DB, gt_pgroup = PGroup, dev_cache = ets:new(dev_cache, [set, {keypos, 2}])}}.
+
+on_stop(Reason, #state{gt_pgroup = PGroup}) ->
+   leave_pg(PGroup, self()),
+   log(info, "Stopped <~p>.", [Reason]),
+   ok.
+
+on_msg(Msg, _From, State) ->
+   log(info, "Unknown sync received ~p", [Msg]),
+   {reply, ok, State}.
+
+on_amsg(Msg, State) ->
+   log(info, "Unknown async message ~p.", [Msg]),
+   {noreply, State}.
+
+on_info(?MSG(_GroupName, Stat), State) ->
+   {noreply, State};
+
+on_info(Msg, State) ->
+   log(info, "Unknown info received ~p", [Msg]),
+   {noreply, State}.
+
+%=======================================================================================================================
+%  log helpers
+%=======================================================================================================================
+log(LogLevel, Format, Data) ->
+   mds_gen_server:log(?MODULE, LogLevel, Format, Data).
+
+log(LogLevel, Text) ->
+   mds_gen_server:log(?MODULE, LogLevel, Text).
+
+%=======================================================================================================================
+%  unit testing facilities
+%=======================================================================================================================
+-ifdef(EUNIT).
+-include_lib("eunit/include/eunit.hrl").
+
+-endif.
