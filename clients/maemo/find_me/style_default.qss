@@ -1,0 +1,15 @@
+QLabel#State
+{
+   font-weight: 700;
+}
+
+#Window
+{
+   min-width: 700px;
+   min-height: 230px;
+}
+
+#Window *
+{
+   font-size: 42px;
+}

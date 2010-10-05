@@ -1,0 +1,8 @@
+MIDlet-1: gTracker,/gtracker48x48.png,com.gtracker.gTrackerMIDlet
+MIDlet-Jar-Size: 80876
+MIDlet-Jar-URL: gTracker.jar
+MIDlet-Name: gTracker
+MIDlet-Vendor: www.gtracker.ru
+MIDlet-Version: 0.2.92
+MicroEdition-Configuration: CLDC-1.1
+MicroEdition-Profile: MIDP-2.0
