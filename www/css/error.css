@@ -1,0 +1,31 @@
+/*
+ * Main-> Error block
+ */
+div#error {
+   padding-top: 40pt;
+   padding-bottom: 40pt;
+   color: #1D1E1F;
+}
+
+div#error_img {
+   float: left;
+   width: 450px;
+   height: 312px;
+   background-image: url('http://gtracker.ru/static/homer.png');
+}
+
+div#error_text {
+   font-size: 1.5em;
+}
+
+
+div#error_text i {
+   font-weight: normal;
+   font-style: normal;
+}
+
+div#error_text h1 {
+   color: #1D1E1F;
+   font-size: 3em;
+}
+

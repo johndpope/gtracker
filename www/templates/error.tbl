@@ -1,0 +1,3 @@
+<div id="error_img"></div>
+<div id="error_text"><h1>{$l.oops}!</h1> {$l.oops_msg}</div>
+<div class="clear"></div>

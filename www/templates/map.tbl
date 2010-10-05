@@ -1,0 +1,14 @@
+<table class="container">
+        <tr>
+                <td><div class="map"></div></td>
+
+                <td class="sidebar">
+                        <div class="append">
+                                <form action="#" method="get">
+                                        <input type="text" class="input" value="" maxlength="12" size="18"/>
+                                        <input type="submit" class="submit" value="{$l.go}"/>
+                                </form>
+                        </div>
+                </td>
+        </tr>
+</table>

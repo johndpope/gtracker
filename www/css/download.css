@@ -1,0 +1,7 @@
+div#download p b {
+        display: block;
+        border: 1px dashed #413a37;
+        padding: 5pt;
+        margin-top: 5pt;
+        font-family: 'Lucida Console', 'Courier New';
+}

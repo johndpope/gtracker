@@ -1,0 +1,36 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="{$lang}" lang="{$lang}">
+
+<head>
+        <!-- title -->
+        <title>No TITLE</title>
+
+        <!-- meta defines -->
+        <meta http-equiv="content-type" content="text/html; charset=UTF-8"/>
+
+        <!-- page icon -->
+        <link rel="shortcut icon" type="image/png" href="/static/favicon.png"/>
+
+        <!-- css include -->
+{foreach from=$css_include item=css}
+        <link rel="stylesheet" type="text/css" href="/css/{$css}"/>
+{/foreach}
+
+        <!-- extern javascript -->
+{foreach from=$js_ext_include item=js}
+        <script type="text/javascript" src="{$js}"></script>
+{/foreach}
+
+        <!-- local javascript -->
+{foreach from=$js_include item=js}
+        <script type="text/javascript" src="/js/{$js}"></script>
+{/foreach}
+</head>
+
+<body>
+<div class="wrapper">
+        [[Hello]] [[Man]] [[settings]]
+</div>
+</body>
+</html>

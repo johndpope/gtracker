@@ -1,0 +1,12 @@
+Tue Apr 13 12:09:14 MSD 2010
+ * Map examples for google and for yandex: revision 310
+ * php and smarty required
+ * Opt AllowOverride All required in Apache2 config:
+   <Directory /var/www/>
+      Options Indexes FollowSymLinks MultiViews
+      AllowOverride All
+      Order allow,deny
+      allow from all
+   </Directory>
+ * Modrewrite should be enabled (sudo a2enmod rewrite)
+ * lang files shouldn't have spaces before <?php and after ?>

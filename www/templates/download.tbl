@@ -1,0 +1,8 @@
+<h1>{$l.maemo_client}</h1>
+<p>{$l.maemo_cinfo} <br/><br/>{$l.version}: 1.1.9<br/><a href="/client/findme_1.1.9-1_armel.deb">{$l.download}</a></p>
+
+<h1>{$l.j2me_client}</h1>
+<p>{$l.j2me_cinfo} <br/><br/>{$l.version}: 0.2.90<br/><a href="/client/gtracker.jar">{$l.download}</a></p>
+
+<h1>{$l.for_dev}</h1>
+<p>{$l.dev_info}</p>

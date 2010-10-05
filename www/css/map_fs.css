@@ -1,0 +1,34 @@
+#map {
+        background: #eee;
+        position: absolute;
+        left: 0;
+        right: 0;
+        top: 0;
+        bottom: 0;
+        z-index: 1;
+}
+
+#info {
+        background: #CED6DE url('/static/handle_bg.png') repeat-x;
+        border: 2px solid #52657A;
+        border-radius: 5pt;
+        right: 10pt;
+        top: 10pt;
+        position: absolute;
+        z-index: 10;
+}
+
+#info ul {
+        padding: 0 10pt;
+        list-style: none;
+}
+
+#info .menu li {
+        display: inline;
+        cursor: pointer;
+        padding: 0 2pt;
+}
+
+#info .menu li:hover {
+        color: #52657A;
+}

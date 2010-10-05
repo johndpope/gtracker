@@ -1,0 +1,23 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="{$lang}" lang="{$lang}">
+<head>
+{include file="head.tbl"}
+</head>
+
+<body>
+   <div class="wrapper">
+      <div id="top" class="block">
+         {include file="top.tbl"}
+      </div>
+
+      <div id="{$page}" class="block content">
+         {include file="$page.tbl"}
+      </div>
+
+      <div id="bottom" class="block">
+         {include file="bottom.tbl"}
+      </div>
+   </div>
+</body>
+</html>

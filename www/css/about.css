@@ -1,0 +1,33 @@
+div#about p b {
+        font-style: normal;
+}
+
+div#about p i {
+        font-weight: normal;
+        font-style: normal;
+}
+
+div#about p span.left {
+        display: block;
+        width: 120pt;
+        float: left;
+}
+
+div.browser {
+        margin-top: 5pt;
+        margin-right: 5pt;
+        float: left;
+        width: 32px;
+        height: 32px;
+}
+
+div.chrome {
+        background: url(/static/chrome.png);
+}
+
+div.firefox {
+        background: url(/static/firefox.png);
+}
+
+div.donkey {
+}

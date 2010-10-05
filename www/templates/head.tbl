@@ -1,0 +1,73 @@
+   <title>{$l.service} {$l.beta}</title>
+
+   <!-- meta defines -->
+   <meta http-equiv="content-type" content="text/html; charset=UTF-8"/>
+{foreach from=$meta item=meta_i key=meta_k}
+   <meta name="{$meta_k}" content="{$meta_i}"/>
+{/foreach}
+
+   <!-- page icon -->
+   <link rel="shortcut icon" type="image/png" href="/static/favicon.png"/>
+
+   <!-- css include -->
+   <link rel="stylesheet" type="text/css" href="/css/base.css"/>
+   <link rel="stylesheet" type="text/css" href="/css/{$page}.css"/>
+
+   <!-- javascripts -->
+   <script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.min.js"></script>
+{foreach from=$js item=js_i}
+   <script type="text/javascript" src="/js/{$js_i}.js"></script>
+{/foreach}
+
+{if isset($map) }
+   {if $map == 'yandex'}
+      <script src="http://api-maps.yandex.ru/1.1/index.xml?key={$yandex_key}" type="text/javascript"></script>
+      <script type="text/javascript" src="/js/yandex_map.js"></script>
+   {elseif $map == 'google'}
+      <script type="text/javascript" src="http://maps.google.com/maps/api/js?sensor=false"></script>
+      <script type="text/javascript" src="/js/google_map.js"></script>
+   {elseif $map == 'osm'}
+      <script type="text/javascript" src="http://www.openlayers.org/api/OpenLayers.js"></script>
+      <script type="text/javascript" src="/js/osm_map.js"></script>
+   {/if}
+
+   <script type="text/javascript">
+   {literal}
+      $(document).ready(function() {
+         $.tr_load({
+   {/literal}
+      offline:          '{$l.offline}',
+      online:           '{$l.online}',
+      error:            '{$l.error}',
+      device:           '{$l.device}',
+      status:           '{$l.status}',
+      close:            '{$l.close}',
+      hide_show:        '{$l.hide_show}',
+      archive:          '{$l.archive}',
+      end:              '{$l.end}',
+      begin:            '{$l.begin}',
+      remove:           '{$l.remove}',
+      rename:           '{$l.rename}',
+      new_name:         '{$l.new_name}',
+      loading:          '{$l.loading}',
+      no_tracks:        '{$l.no_tracks}',
+      already_exists:   '{$l.already_exists}',
+      confirm_remove:   '{$l.confirm_remove}',
+      ok:               '{$l.ok}',
+      cancel:           '{$l.cancel}',
+      settings:         '{$l.settings}',
+      auto_pan:         '{$l.auto_pan}',
+      track_color:      '{$l.track_color}',
+      track_weight:     '{$l.track_weight}',
+      speed:            '{$l.speed}',
+      kmh:              '{$l.kmh}',
+      interval:         '{$l.interval}',
+      make_link:        '{$l.make_link}',
+      your_link:        '{$l.your_link}'
+   {literal}
+         });
+         Page.init($('div#map'));
+      });
+   {/literal}
+   </script>
+{/if}

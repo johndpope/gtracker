@@ -1,0 +1,8 @@
+MIDlet-1: gtracker,/64x64/findme.png,com.gtracker.gTrackerMIDlet
+MIDlet-Jar-Size: 108556
+MIDlet-Jar-URL: gtracker.jar
+MIDlet-Name: gtracker
+MIDlet-Vendor: www.gtracker.ru
+MIDlet-Version: 0.3.68
+MicroEdition-Configuration: CLDC-1.1
+MicroEdition-Profile: MIDP-2.0

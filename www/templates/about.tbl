@@ -1,0 +1,20 @@
+<h1>{$l.where_i}</h1>
+<p>{$l.about_desc}</p>
+
+<h1>{$l.how_it_work}</h1>
+<p>{$l.hiw_desc}</p>
+
+<h1>{$l.bug_report}</h1>
+<p>{$l.bug_report_desc}</p>
+
+<h1>{$l.developers}</h1>
+<p>
+   <span class="left">{$l.contact}:</span>Dmitry Melnikov<br/>
+   <span class="left">{$l.mail}:</span><a href="mailto:dmitryme@gmail.com?subject=gtracker.ru issue">dmitryme@gmail.com</a><br/>
+   <span class="left">{$l.area}:</span>{$l.dev1}<br/>
+</p>
+<p>
+   <span class="left">{$l.contact}:</span>Sergey Kovalevich<br/>
+   <span class="left">{$l.mail}:</span><a href="mailto:inndie@gmail.com?subject=gtracker.ru issue">inndie@gmail.com</a><br/>
+   <span class="left">{$l.area}:</span>{$l.dev2}<br/>
+</p>

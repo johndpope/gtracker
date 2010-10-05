@@ -1,0 +1,144 @@
+/*
+ * Base html elements
+ */
+html, body {
+        margin: 0;
+        padding: 0;
+        font-family: "Arial", "Sans-serif";
+        font-size: 9pt;
+        background: #91A2B5 url('/static/bg.png') repeat-x;
+}
+
+span {
+        margin: 0;
+        padding: 0;
+        outline: 0;
+        border: 0;
+        vertical-align: baseline;
+}
+
+a {
+        text-decoration: none;
+}
+
+a:hover {
+        text-decoration: underline;
+}
+
+h1 {
+        color: #5F5C59;
+        font-weight: bold;
+        font-style: normal;
+        font-size: 2em;
+        margin: 0 5pt;
+        padding: 0;
+}
+
+p {
+        padding: 5pt 0;
+        margin: 0 5pt 15pt 5pt;
+        border-top: 1px dotted #5F5C59;
+}
+
+/*
+ * Utilities
+ */
+div.clear {
+        clear: both;
+}
+
+/*
+ * Body layout
+ */
+div.wrapper {
+        position: relative;
+        min-width: 800px;
+        margin: 0 50pt;
+}
+
+/*
+ * Body blocks
+ */
+div.block {
+        padding: 10pt;
+        clear: both;
+}
+
+/*
+ * Top block
+ */
+span#logo {
+        text-shadow: 1px 1px 1px rgba(255,255,255,.4);
+        color: #52657A;
+        font-weight: 700;
+        font-size: 4em;
+}
+
+span#logo span#beta {
+        font-size: 50%;
+        position: relative;
+        top: -1em;
+}
+
+span#description {
+        font-weight: bold;
+        font-size: 1.8em;
+        color: #fff;
+        position: relative;
+        top: 0.4em;
+        left: -5em;
+        display: none;
+}
+
+ul#nav {
+        float: right;
+        font-size: 1.3em;
+        font-weight: 700;
+        list-style-type: none;
+        position: relative;
+        top: 0.5em;
+}
+
+ul#nav li {
+        display: block;
+        overflow: hidden;
+        padding: 0;
+        float: left;
+        margin-right: 12pt;
+        color: #52657A;
+}
+
+ul#nav li a {
+        color: #000;
+        text-shadow: 1px 1px 1px rgba(255,255,255,.4);
+}
+
+/*
+ * Main block
+ */
+div.content {
+        font-size: 1.2em;
+        background: #ECF0F3;
+        color: #000;
+        border: 4px solid #52657A;
+}
+
+div.content p a {
+        color: #32457A;
+        text-decoration: underline;
+        padding-top: 10pt;
+}
+
+div.content p a:hover {
+        color: #303131;
+}
+
+/*
+ * Bottom block
+ */
+div#bottom {
+        clear: both;
+        color: #52657A;
+        font-weight: 700;
+        text-align: left;
+}

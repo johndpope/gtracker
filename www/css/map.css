@@ -1,0 +1,180 @@
+/*
+ * Main container
+ */
+.container {
+        width: 100%;
+        padding: 0;
+        margin: 0;
+}
+
+.container * {
+        padding: 0;
+        margin: 0;
+}
+
+.help {
+        width: 22px;
+        height: 22px;
+        margin: 5pt;
+        background: url(/static/help.png);
+}
+
+/*
+ * Main->Map block
+ */
+.sidebar {
+        padding-left: 10pt;
+        width: 190pt;
+        color: #393C5B;
+        vertical-align: top;
+}
+
+.append {
+        padding: 5pt;
+        margin: 0 0 5pt 0;
+        background: #91A2B5;
+}
+
+.append .submit {
+        width: 60pt;
+}
+
+.append .input {
+        text-align: center;
+        width: 110pt;
+}
+
+/*****************************************/
+.map {
+        background: #eee;
+        width: 100%;
+        min-height: 480px;
+        border: 2px solid #52657A;
+        margin: 0px;
+        padding: 0px;
+}
+
+/*****************************************/
+.jqifade {
+        position: absolute;
+        background-color: #ECF0F3;
+}
+
+.jqi {
+        width: 300px;
+        position: absolute;
+        background: #ECF0F3;
+        border: 4px solid #52657A;
+        text-align: left;
+        padding: 5pt;
+        margin: 0 0 0 0;
+}
+
+.jqi .jqiclose {
+        display: none;
+}
+
+.jqi .jqimessage {
+        padding: 10pt;
+        color: #000;
+}
+
+.jqi .jqibuttons {
+        text-align: right;
+}
+
+/*****************************************/
+.handle {
+        background: #CED6DE url('/static/handle_bg.png') repeat-x;
+        border-radius: 5pt;
+        font-size: 0.9em;
+        padding: 5pt;
+        margin: 0 0 5pt 0;
+}
+
+.handle .image {
+        background: #000;
+        float: left;
+        width: 48px;
+        height: 48px;
+        margin-right: 5pt;
+}
+
+.handle ul {
+        list-style: none;
+        margin: 0;
+        padding: 5pt 0;
+}
+
+.handle ul.info .device, .handle .info .status, .handle .info .speed {
+        font-weight: bold;
+        text-align: right;
+}
+
+.handle ul.info div.name {
+        float: left;
+}
+
+.handle .menu {
+        clear: both;
+        text-align: center;
+}
+
+.handle .menu li {
+        display: inline;
+        cursor: pointer;
+        padding: 0 2pt;
+        font-size: 0.9em;
+        border-radius: 2pt;
+}
+
+.handle .menu li:hover {
+        color: #52657A;
+}
+
+.handle .menu .select {
+        background: #8599AD;
+        color: #fff;
+}
+
+.handle ul.list {
+        margin: 5pt 0 0 0;
+        padding: 5pt;
+        overflow: auto;
+        height: 240pt;
+        background: #ECF0F3;
+        border-bottom-left-radius: 5pt;
+        border-bottom-right-radius: 5pt;
+}
+
+.handle ul.list li {
+        padding: 2pt;
+}
+
+.handle ul.list li .info {
+        cursor: pointer;
+}
+
+.handle ul.list li .info .name {
+        font-weight: 700;
+}
+
+.handle ul.list li .control {
+        text-align: right;
+}
+
+.handle ul.list li .control div {
+        cursor: pointer;
+        display: inline;
+        margin: 2pt;
+        font-size: 0.8em;
+        color: #666;
+}
+
+.handle ul.list li .control div:hover {
+        text-decoration: underline;
+}
+
+.handle ul.list li:hover {
+        background: #CED6DE;
+}

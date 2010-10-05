@@ -1,0 +1,9 @@
+<span id="logo">{$l.service} <span id="beta">{$l.beta}</span></span><span id="description">{$l.desc}</span>
+
+<ul id="nav">
+{foreach from=$nav_items item=it}
+   <li>| <a href="/?page={$it}">{$l.$it}</a></li>
+{/foreach}
+   <!--li class="lang">| <a href="/?lang=ru">ru</a></li>
+   <li class="lang">| <a href="/?lang=en">en</a></li-->
+</ul>
