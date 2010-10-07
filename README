@@ -1,4 +1,4 @@
-This is a online GPS tracking system based on using mobile phones with embedded GPS chips. Java client also support using of external GPS sources via Bluetooth. Server is totally written on Erlang + MySQL database as data storage. Server supports geofence (http://en.wikipedia.org/wiki/Geofence), reverse geocoding (http://en.wikipedia.org/wiki/Reverse_geocoding), triggers based on events:
+This is a online GPS tracking system based on using mobile phones with embedded GPS chips for detection of its owner position and status. Java client also support using of external GPS sources via Bluetooth. Server is totally written on Erlang + MySQL database as data storage. Server supports geofence (http://en.wikipedia.org/wiki/Geofence), reverse geocoding (http://en.wikipedia.org/wiki/Reverse_geocoding), triggers based on events:
 * client enters area
 * client leaves area
 * client become online
