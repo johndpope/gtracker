@@ -278,7 +278,7 @@ processMsg(?RENAME_TRACK, <<BinTrackName/bitstring>>, State = #state{dev_name = 
    log(State, info, "~p wants to rename current track to ~p, but track has not started yet", [DevName, TrackName]),
    {return_error(?ERROR_TRACK_NOT_STARTED), State#state{ecnt = ErrCnt + 1}};
 
-processMsg(?RENAME_TRACK, <<BinTrackName/bitstring>>, State = #state{dev_name = DevName, gt_pgroup = PGroup})
+processMsg(?RENAME_TRACK, <<BinTrackName/bitstring>>, State = #state{dev_name = DevName})
 when size(BinTrackName) =< 50 ->
    TrackName = erlang:bitstring_to_list(BinTrackName),
    log(State, info, "~p wants to rename current track to ~p", [DevName, TrackName]),
@@ -302,7 +302,7 @@ processMsg(?START_NEW_TRACK, <<BinTrackName/bitstring>>, State = #state{dev_name
    log(State, info, "~p wants to start new track ~p, but there was no coordinates received.", [DevName, TrackName]),
    {return_error(?ERROR_TRACK_NOT_STARTED), State#state{ecnt = ErrCnt + 1}};
 
-processMsg(?START_NEW_TRACK, <<BinTrackName/bitstring>>, State = #state{dev_name = DevName, gt_pgroup = PGroup})
+processMsg(?START_NEW_TRACK, <<BinTrackName/bitstring>>, State = #state{dev_name = DevName})
 when size(BinTrackName) =< 50 ->
    TrackName = erlang:bitstring_to_list(BinTrackName),
    log(State, info, "~p wants to start new track ~p", [DevName, TrackName]),

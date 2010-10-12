@@ -35,7 +35,7 @@ on_start(Opts) ->
    ServerOpts = get_param(mds_server, Opts),
    Port = get_param(port, SelfOpts, ?PORT),
    Db = get_param(db, SelfOpts),
-   GtPGroup = get_param(gt_pgroup, SelfOpts, ?DEF_GT_PGROUP),
+   GtPGroup = get_param(notif, SelfOpts, ?DEF_GT_PGROUP),
    {ok, ListenSocket} = gen_tcp:listen(Port, [binary, {packet, 1}, {reuseaddr, true}, {active, once}]),
    RootDir = get_param(root_dir, ServerOpts),
    WorkingDir = get_param(working_dir, ServerOpts),

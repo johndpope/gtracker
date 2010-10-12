@@ -5,7 +5,7 @@
 -export([start/1, stop/0, on_start/1, on_stop/2, on_msg/3, on_amsg/2, on_info/2]).
 
 -import(mds_utils, [get_param/2, get_param/3]).
--import(gtracker_common, [gen_dev_name/0, binary_to_hex/1]).
+-import(gtracker_common, [gen_dev_name/0, join_pg/2, binary_to_hex/1]).
 
 -include("common_defs.hrl").
 
@@ -19,11 +19,6 @@
 %=======================================================================================================================
 %  public exports
 %=======================================================================================================================
-% Opts = [Option]
-% Option = {dump_timeout, Int()} | {auto_unload, Int()} | {failover_time, Int()}
-%  dump_timeout   - see gtracker_table for details
-%  auto_unload    - see gtracker_table for details
-%  failover_time  - period of time in seconds after what track become closed, else this track will be reopened
 start(Opts) ->
    mds_gen_server:start(?MOD, Opts).
 
@@ -33,19 +28,19 @@ stop() ->
 %=======================================================================================================================
 %  callbacks
 %=======================================================================================================================
-on_start(_Opts) ->
+on_start(Opts) ->
+   SelfOpts = get_param(self, Opts),
+   PGroup = get_param(notif, SelfOpts, ?DEF_GT_PGROUP),
    crypto:start(),
-   %ServerOpts = get_param(mds_server, Opts),
-   %SelfOpts = get_param(self, Opts, []),
-   %WorkingDir = filename:join(get_param(root_dir, ServerOpts), get_param(table_dir, SelfOpts, ?DEF_TABLE_DIR)),
    mnesia:start(),
    Res = (catch mnesia:table_info(device, all)),
    case Res of
-      {'EXIT',{aborted,{no_exists,device,all}}} ->
-         create_schema();
-      _ -> ok
+     {'EXIT',{aborted,{no_exists,device,all}}} ->
+        create_schema();
+     _ -> ok
    end,
    log(info, "Mnesia started."),
+   join_pg(PGroup, self()),
    {ok, #state{}}.
 
 on_stop(Reason, _State) ->
@@ -62,8 +57,9 @@ on_msg(get_device, _From, State) ->
    F = fun(Fun) ->
          DevName = gen_dev_name(),
          log(debug, "Device generated ~p.", [DevName]),
-         case mnesia:dirty_read({device, DevName}) of
+         case mnesia:dirty_index_read(device, DevName, #device.name) of
             [] ->
+               log(debug, "Store device ~p", [DevName]),
                Ref = binary_to_hex(erlang:md5(erlang:list_to_binary(DevName))),
                mnesia:dirty_write(#device{id = make_ref(), name = DevName, alias = DevName, reference = Ref, registered = now()}),
                {DevName, Ref};
@@ -82,7 +78,7 @@ on_msg(get_device, _From, State) ->
 
 on_msg({get_device, DevName}, _From, State) ->
    log(debug, "get_device. DevName: ~p, State: ~p", [DevName, dump_state(State)]),
-   try mnesia:dirty_read({device, DevName}) of
+   try mnesia:dirty_index_read(device, DevName, #device.name) of
       [] ->
          {reply, no_device, State};
       [Device = #device{name = DevName}] ->
@@ -94,7 +90,7 @@ on_msg({get_device, DevName}, _From, State) ->
    end;
 
 on_msg({get_triggers, DevName}, _From, State) ->
-   try mnesia:ditry_read({device, DevName}) of
+   try mnesia:dirty_index_read(device, DevName, #device.name) of
       [] ->
          {reply, no_triggers, State};
       [#device{triggers = T}] ->
@@ -103,7 +99,11 @@ on_msg({get_triggers, DevName}, _From, State) ->
       _:Err ->
          log(error, "get_triggers/1 failed: Error = ~p", [Err]),
          {reply, error, State}
-   end.
+   end;
+
+on_msg(Msg, _From, State) ->
+   log(error, "Unknown sync message ~p.", [Msg]),
+   {noreply, State}.
 
 on_amsg(Msg, State) ->
    log(error, "Unknown async message ~p.", [Msg]),
@@ -114,9 +114,11 @@ on_info(?MSG(_From, _GroupName, {online, DevName}), State) ->
    log(debug, "online. DevName: ~p, State: ~p", [DevName, dump_state(State)]),
    try mnesia:dirty_read({device, DevName}) of
       [] ->
-         log(error, "Unable to set device ~p online. Device not found.", [DevName]);
+         log(error, "Unable to set device ~p online. Device not found.", [DevName]),
+         {noreply, State};
       [Device] ->
-         mnesia:dirty_write(Device#device{online = true})
+         mnesia:dirty_write(Device#device{online = true}),
+         {noreply, State}
    catch
       _:Err ->
          log(error, "set_online failed: Error = ~p", [Err]),
@@ -128,9 +130,11 @@ on_info(?MSG(_From, _GroupName, {offline, DevName}), State) ->
    log(debug, "offline. DevName: ~p, State: ~p", [DevName, dump_state(State)]),
    try mnesia:dirty_read({device, DevName}) of
       [] ->
-         log(error, "Unable to set device ~p offline. Device not found.", [DevName]);
+         log(error, "Unable to set device ~p offline. Device not found.", [DevName]),
+         {noreply, State};
       [Device] ->
-         mnesia:dirty_write(Device#device{online = false})
+         mnesia:dirty_write(Device#device{online = false}),
+         {noreply, State}
    catch
       _:Err ->
          log(error, "set_offline failed: Error = ~p", [Err]),
@@ -157,7 +161,7 @@ create_schema() ->
    mnesia:stop(),
    mnesia:create_schema([]),
    mnesia:start(),
-   mnesia:create_table(device, [{disc_copies, [node()]}, {type, ordered_set}, {attributes, record_info(fields,device)}]),
+   mnesia:create_table(device, [{disc_copies, [node()]}, {index, [name]}, {type, ordered_set}, {attributes, record_info(fields,device)}]),
    mnesia:create_table(user, [{disc_copies, [node()]}, {type, ordered_set}, {attributes, record_info(fields, user)}]).
 
 dump_state(State) ->
@@ -171,7 +175,9 @@ dump_state(State) ->
 
 get_device_test() ->
    Pid = gtracker_edb:start([]),
-   Res = gen_server:call(Pid, get_device),
-   ?debugFmt("~p", [Res]).
+   timer:sleep(100),
+   {DevName, _} = gen_server:call(?MOD, get_device),
+   Device = gen_server:call(?MOD, {get_device, DevName}),
+   ?assertEqual(DevName, Device#device.name).
 
 -endif.

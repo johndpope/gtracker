@@ -39,7 +39,7 @@ on_start(Opts) ->
    User = get_param(dbuser, SelfOpts),
    Password = get_param(dbpasswd, SelfOpts),
    DbName = get_param(dbname, SelfOpts),
-   PGroup = get_param(gt_pgroup, SelfOpts, ?DEF_GT_PGROUP),
+   PGroup = get_param(notif, SelfOpts, ?DEF_GT_PGROUP),
    MaxTrackInterval = get_param(max_track_interval, SelfOpts, ?DEF_MAX_TRACK_INTERVAL),
    gtracker_mysql:start(Host, Port, User, Password, DbName, fun log_callback/4),
    log(info, "Connected to <~p> database as <~p> user on <~p> host.", [DbName, User, Host]),

@@ -1,4 +1,4 @@
--define(DEF_GT_PGROUP, gtracker_pgroup).
+-define(DEF_GT_PGROUP, gtracker_notif).
 -define(MSG(From, Group, Msg), {pg_message, From, Group, Msg}).
 
 -record(email, {enabled = false, value = undef}).

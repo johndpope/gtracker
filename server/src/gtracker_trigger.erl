@@ -24,7 +24,7 @@ stop() ->
 on_start(Opts) ->
    inets:start(),
    SelfOpts = get_param(self, Opts),
-   PGroup = get_param(gt_pgroup, SelfOpts, ?DEF_GT_PGROUP),
+   PGroup = get_param(notif, SelfOpts, ?DEF_GT_PGROUP),
    DB = get_param(db, SelfOpts),
    Notif = get_param(notif, SelfOpts, undef),
    join_pg(PGroup, self()),
