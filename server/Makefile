@@ -1,6 +1,9 @@
 all: build_deps
 	./rebar compile
 
+test:
+	./rebar eunit
+
 build_deps:
 	./rebar get-deps
 

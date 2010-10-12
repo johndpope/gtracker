@@ -217,7 +217,7 @@ processMsg(?AUTH_MSG, <<1:?VER, BinDevName:?BIN_DEV_NAME>>,
       no_device -> % wrong device name, hacker?
          log(State, warning, "Device name ~p not found. Error count ~p.", [DevName, ErrCnt + 1]),
          {return_error(?ERROR_WRONG_DEV_NAME), State#state{ecnt = ErrCnt + 1}};
-      #device{ref = Ref} ->
+      #device{reference = Ref} ->
          case register_device(DevName, L) of
             registered ->
                log(State, info, "Device ~p was activated at ~p.", [DevName, inet:peername(S)]),

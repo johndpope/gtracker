@@ -214,19 +214,19 @@ process_trigger(NotifService, DevCache, DevName, Alias, Lat, Lon, Timestamp, Twi
 process_trigger(_NotifService, _DevCache, _DevName, _Alias, _Lat, _Lon, _Timestamp, _TA, Trigger) ->
    log(warning, "Unknown trigger ~p.", [Trigger]).
 
-send(NotifService, DevName, TwitterAuth, Message, #trigger{email = EMail, phone = Phone, twitter = UseTwitter}) ->
+send(NotifService, DevName, TwitterAuth, Message, #trigger{email = EMail, sms = Sms, twitter = UseTwitter}) ->
    send_email(NotifService, EMail, DevName, Message),
-   send_sms(NotifService, Phone, DevName, Message),
+   send_sms(NotifService, Sms, DevName, Message),
    send_twit(NotifService, UseTwitter, TwitterAuth, DevName, Message).
 
-send_email(undef, _, _, _) ->
+send_email(#email{enabled = false}, _, _, _) ->
    ok;
 send_email(_, undef, _, _) ->
    ok;
 send_email(NotifService, To, Subj, Body) ->
    mds_gen_server:cast(NotifService, {eMail, To, Subj, Body}).
 
-send_sms(undef, _, _, _) ->
+send_sms(#sms{enabled = false}, _, _, _) ->
    ok;
 send_sms(_, undef, _, _) ->
    ok;
@@ -249,9 +249,9 @@ db_get_triggers(Db, DevName) ->
 db_get_device(Db, DevName) ->
    Res = mds_gen_server:call(Db, {get_device, DevName}),
    case Res of
-      #device{name = Name, alias = undef, tz = Tz, twitter_auth = TA} ->
+      #device{name = Name, alias = undef, timezone = Tz, twitter_auth = TA} ->
          {Name, Tz, TA};
-      #device{alias = Alias, tz = Tz, twitter_auth = TA} ->
+      #device{alias = Alias, timezone = Tz, twitter_auth = TA} ->
          {Alias, Tz, TA}
    end.
 

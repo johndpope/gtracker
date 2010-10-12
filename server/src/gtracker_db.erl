@@ -91,7 +91,7 @@ on_msg({get_device, DevName}, _From, State = #state{dev_cache = DevCache}) ->
    try gtracker_mysql:select_device(DevName) of
       no_device ->
          {reply, no_device, State};
-      Device = #device{id = DevId, ref = Ref} ->
+      Device = #device{id = DevId, reference = Ref} ->
          ets:insert(DevCache, #dev_info{name = DevName, id = DevId, ref = Ref}),
          {reply, Device, State}
    catch

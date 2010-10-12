@@ -235,9 +235,9 @@ select_device(DevName) ->
             id = DevId,
             name = bin_to_list(Name),
             alias = bin_to_list(Alias),
-            ref = Ref,
+            reference = Ref,
             online = State_to_atom(Online),
-            tz = bin_to_list(Timezone),
+            timezone = bin_to_list(Timezone),
             twitter_auth = bin_to_term(TwitterAuth)}
    end.
 
@@ -368,21 +368,12 @@ btrigger_to_term([]) ->
 btrigger_to_term([[Id, BinName, BinType, UseEmail, BinEmail, UsePhone, BinPhone, UseTwitter, BinText, BinConfig, BinSchedule]|Res]) ->
    Type = bstr_to_atom(BinType),
    [#trigger{id = Id,
+             enabled = true,
              name = bin_to_list(BinName),
              type = Type,
              ready = type_to_ready(Type),
-             email = case bin_to_bool(UseEmail) of
-                        true ->
-                           bin_to_list(BinEmail);
-                        false ->
-                           undef
-                        end,
-             phone = case bin_to_bool(UsePhone) of
-                        true ->
-                           bin_to_list(BinPhone);
-                        false ->
-                           undef
-                        end,
+             email = #email{enabled = bin_to_bool(UseEmail), value = bin_to_list(BinEmail)},
+             sms   = #sms{enabled = bin_to_bool(UsePhone),  value = bin_to_list(BinPhone)},
              twitter =  bin_to_bool(UseTwitter),
              text = bin_to_bin(BinText),
              config = bin_to_term(BinConfig),
