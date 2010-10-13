@@ -1,4 +1,4 @@
--module(gtracker_db).
+-module(gtracker_mysql).
 
 -behaviour(mds_gen_server).
 

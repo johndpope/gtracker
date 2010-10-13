@@ -1,16 +1,17 @@
+REBAR=../tools/rebar
 all: build_deps
-	./rebar compile
+	${REBAR} compile
 
 test:
-	./rebar eunit
+	${REBAR} eunit
 
 build_deps:
-	./rebar get-deps
+	${REBAR} get-deps
 
 release:
 	mkdir -p deps/gtracker
 	cp -r ebin include deps/gtracker
-	./rebar generate
+	${REBAR} generate
 
 clean:
-	./rebar clean
+	${REBAR} clean

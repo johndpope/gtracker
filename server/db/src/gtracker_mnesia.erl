@@ -1,4 +1,4 @@
--module(gtracker_edb).
+-module(gtracker_mnesia).
 
 -behaviour(mds_gen_server).
 
