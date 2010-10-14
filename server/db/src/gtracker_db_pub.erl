@@ -18,9 +18,14 @@ select_device(ServerRef, DevName) ->
 select_all_devices(ServerRef, OnlyActive)->
    gen_server:call(ServerRef, {get_all_devices, OnlyActive}).
 
+select_triggers(ServerRef, DevName) ->
+   gen_server:call(ServerRef, {get_triggers, DevName}).
+
 select_device_tracks(ServerRef, DevName) ->
-   not_impl_yet.
-%   gen_server:call(ServerRef, {select_device_tracks, DevName}).
+   gen_server:call(ServerRef, {select_device_tracks, DevName}).
 
 start_new_track(ServerRef, DevName) ->
-   not_impl_yet.
+   gen_server:call(ServerRef, {new_track, DevName}).
+
+rename_track(ServerRef, DevName, NewTrackName) ->
+   gen_server:call(ServerRef, {rename_track, DevName, NewTrackName}).

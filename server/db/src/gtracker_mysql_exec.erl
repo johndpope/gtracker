@@ -17,6 +17,7 @@
          ,add_reference/3
          ,select_triggers/1
          ,select_device/1
+         ,select_device_tracks/1
          ,select_all_devices/1
          ,insert_device/1
          ,set_online/1
@@ -61,6 +62,12 @@
                             "left outer join coordinate as c on t.id = c.track_id "
                             "where t.device_id = ~p "
                             "group by tid order by tid desc limit 1").
+
+-define(SELECT_DEVICE_TRACKS, "select t.id, t.status, min(c.time), max(c.time), t.name, t.avg_speed, t.length "
+                              "from track as t "
+                              "left outer join coordinate as c on t.id = c.track_id "
+                              "inner join device as d on (t.device_id = d.id) "
+                              "where d.name = '~s' group by t.id;").
 
 -define(INSERT_NEW_TRACK, "insert into track(device_id) "
                           "values(~p);").
@@ -139,6 +146,14 @@ select_last_track(DevId) ->
          {TrackId, undef};
       ?RESULT([[TrackId, {datetime, LastCoordTm}]]) ->
          {TrackId, LastCoordTm}
+   end.
+
+select_device_tracks(DevName) ->
+   case execute(?SELECT_DEVICE_TRACKS, [DevName]) of
+      ?RESULT([]) ->
+         no_tracks;
+      ?RESULT(Tracks) ->
+         bintrack_to_list(Tracks)
    end.
 
 % stop_track(TrackId) -> true | false
@@ -322,6 +337,18 @@ bindev_to_list([ [DevId, Name, Alias, Ref, Online, Timezone, TwitterAuth] | Rest
             online = state_to_atom(Online),
             timezone = bin_to_list(Timezone),
             twitter_auth = bin_to_term(TwitterAuth)} | bindev_to_list(Rest)].
+
+bintrack_to_list([]) ->
+   [];
+bintrack_to_list([ [TrackId, Status, Start, Stop, Name, AvgSpeed, Length] | Rest ]) ->
+   [ #track{
+         id = TrackId,
+         status = bstr_to_atom(Status),
+         start = Start,
+         stop = Stop,
+         name = bin_to_list(Name),
+         avg_speed = AvgSpeed,
+         length = Length } | bindev_to_list(Rest) ].
 
 % Binary string to Erlang list
 % bin_to_list(Binary()) -> undef | String()

@@ -121,11 +121,23 @@ on_msg({get_triggers, DevName}, _From, State) ->
          {reply, Triggers, State}
    catch
       _:Err ->
-         log(error, "get_triggers/1 failed: Error = ~p", [Err]),
+         log(error, "get_triggers failed: Error = ~p", [Err]),
          {reply, error, State}
    end;
 
-on_msg(Msg = {start_new_track, DevName, TrackName}, _From, #state{dev_cache = DevCache} = State) ->
+on_msg({select_device_tracks, DevName}, _From, State) ->
+   try gtracker_mysql_exec:select_tracks(DevName) of
+      no_tracks ->
+         {reply, no_tracks, State};
+      Tracks ->
+         {reply, Tracks, State}
+   catch
+      _:Err ->
+         log(error, "get_select_device_tracks failed: Error = ~p", [Err]),
+         {reply, error, State}
+   end;
+
+on_msg(Msg = {new_track, DevName, TrackName}, _From, #state{dev_cache = DevCache} = State) ->
    log(debug, "start_new_track. DevName: ~p, TrackName: ~p, State: ~p", [DevName, TrackName, dump_state(State)]),
    F =
    fun() ->

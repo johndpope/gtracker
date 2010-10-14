@@ -10,7 +10,7 @@
 
 -record(user, {name, password}).
 
--record(track, {name, filename, start, stop, length, avg_speed}).
+-record(track, {id, name, status = closed, filename = undef, start, stop, length, avg_speed}).
 
 -record(trigger, {id, enabled, name, type, email, sms, twitter, text, config, ready = true, executed_at = undef, schedule = allways}).
 
