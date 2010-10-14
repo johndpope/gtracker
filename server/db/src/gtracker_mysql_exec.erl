@@ -17,6 +17,7 @@
          ,add_reference/3
          ,select_triggers/1
          ,select_device/1
+         ,select_all_devices/1
          ,insert_device/1
          ,set_online/1
          ,set_offline/1
@@ -42,6 +43,11 @@
                         "from device as d "
                         "inner join reference as r on (d.id = r.device_id) "
                         "where r.track_id is NULL and d.name='~s';").
+
+-define(SELECT_ALL_DEVICES, "select d.id, d.name, d.alias, r.value as ref, d.online, d.timezone, d.twitter_auth "
+                        "from device as d "
+                        "inner join reference as r on (d.id = r.device_id) "
+                        "where r.track_id is NULL and d.online = ~p ;").
 
 -define(INSERT_DEVICE, "insert into device(name) values('~s');").
 
@@ -224,9 +230,6 @@ select_triggers(DevName) ->
 %    Ref = String()
 %    throws Error()
 select_device(DevName) ->
-   State_to_atom = fun(0) -> offline;
-                   (1) -> online
-                end,
    case execute(?SELECT_DEVICE, [DevName]) of
       ?RESULT([]) ->
          no_device;
@@ -236,9 +239,18 @@ select_device(DevName) ->
             name = bin_to_list(Name),
             alias = bin_to_list(Alias),
             reference = Ref,
-            online = State_to_atom(Online),
+            online = state_to_atom(Online),
             timezone = bin_to_list(Timezone),
             twitter_auth = bin_to_term(TwitterAuth)}
+   end.
+
+select_all_devices(OnlyOnline) ->
+   case execute(?SELECT_ALL_DEVICES, [OnlyOnline]) of
+      ?RESULT([]) ->
+         [];
+      ?RESULT(Devices) ->
+         io:format("~p", [Devices]),
+         bindev_to_list(Devices)
    end.
 
 % insert_device(DevName) -> Int()
@@ -289,9 +301,27 @@ execute(Query) ->
          Result
    end.
 
+state_to_atom(State) ->
+   case State of
+      0 -> offline;
+      1 -> online
+   end.
+
 get_last_inserted_id() ->
    ?RESULT([[Id]]) = execute("select last_insert_id();"),
    Id.
+
+bindev_to_list([]) ->
+   [];
+bindev_to_list([ [DevId, Name, Alias, Ref, Online, Timezone, TwitterAuth] | Rest ]) ->
+   [#device{
+            id = DevId,
+            name = bin_to_list(Name),
+            alias = bin_to_list(Alias),
+            reference = Ref,
+            online = state_to_atom(Online),
+            timezone = bin_to_list(Timezone),
+            twitter_auth = bin_to_term(TwitterAuth)} | bindev_to_list(Rest)].
 
 % Binary string to Erlang list
 % bin_to_list(Binary()) -> undef | String()

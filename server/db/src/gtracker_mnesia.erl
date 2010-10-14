@@ -9,7 +9,7 @@
 
 -include("common_defs.hrl").
 
--define(MOD, {global, ?MODULE}).
+-define(MOD, {global, gtracker_db}).
 -define(DEF_FAILOVER_PERIOD, 10).
 -define(DEF_TABLE_DIR, ".").
 -define(DEF_KEY_POS, 2).

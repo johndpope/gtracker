@@ -11,7 +11,7 @@
 -include("common_defs.hrl").
 
 -define(DEF_MAX_TRACK_INTERVAL, 60).  % one minute
--define(MOD,     {global, ?MODULE}).
+-define(MOD,     {global, gtracker_db}).
 
 -record(dev_info, {name, id, ref, track_id = undef}).
 -record(state, {
@@ -24,7 +24,7 @@
 %  public exports
 %=======================================================================================================================
 start(Opts) ->
-   mds_gen_server:start(?MOD, Opts).
+   mds_gen_server:start(?MOD, ?MODULE, Opts).
 
 stop() ->
    mds_gen_server:stop(?MOD).
@@ -97,6 +97,18 @@ on_msg({get_device, DevName}, _From, State = #state{dev_cache = DevCache}) ->
    catch
       _:Err ->
          log(error, "get_device/1 failed: Error = ~p", [Err]),
+         {reply, error, State}
+   end;
+
+% select all devices
+on_msg({get_all_devices, OnlyOnline}, _From, State = #state{dev_cache = DevCache}) ->
+   log(debug, "get_all_devices. OnlyOnline: ~p, State: ~p", [OnlyOnline, dump_state(State)]),
+   try gtracker_mysql_exec:select_all_devices(OnlyOnline) of
+      Result ->
+         {reply, Result, State}
+   catch
+      _:Err ->
+         log(error, "get_all_devices/1 failed: Error = ~p", [Err]),
          {reply, error, State}
    end;
 

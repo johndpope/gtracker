@@ -4,7 +4,7 @@
    [
       new_device/1
       ,select_device/2
-      ,select_all_devices/1
+      ,select_all_devices/2
    ]).
 
 new_device(ServerRef) ->
@@ -13,5 +13,5 @@ new_device(ServerRef) ->
 select_device(ServerRef, DevName) ->
    gen_server:call(ServerRef, {get_device, DevName}).
 
-select_all_devices(ServerRef)->
-   gen_server:call(ServerRef, get_all_devices).
+select_all_devices(ServerRef, OnlyActive)->
+   gen_server:call(ServerRef, {get_all_devices, OnlyActive}).
