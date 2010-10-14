@@ -249,7 +249,7 @@ insert_device(DevName) ->
    DevId = get_last_inserted_id(),
    Ref = binary_to_hex(erlang:md5(<<DevId>>)),
    execute(?INSERT_REFERENCE, [DevId, Ref]),
-   {DevId, Ref}.
+   DevId.
 
 % set_online(DevName) -> true | false
 %     DevName = String(), device name

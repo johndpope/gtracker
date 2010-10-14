@@ -41,7 +41,7 @@ on_start(Opts) ->
    DbName = get_param(dbname, SelfOpts),
    PGroup = get_param(notif, SelfOpts, ?DEF_GT_PGROUP),
    MaxTrackInterval = get_param(max_track_interval, SelfOpts, ?DEF_MAX_TRACK_INTERVAL),
-   gtracker_mysql:start(Host, Port, User, Password, DbName, fun log_callback/4),
+   gtracker_mysql_exec:start(Host, Port, User, Password, DbName, fun log_callback/4),
    log(info, "Connected to <~p> database as <~p> user on <~p> host.", [DbName, User, Host]),
    join_pg(PGroup, self()),
    log(info, "Process has joined group ~p.", [PGroup]),
@@ -61,24 +61,24 @@ on_msg(stop, _From, State) ->
    {stop, normal, stopped, State};
 
 %get new device callback
-on_msg(get_device, _From, State = #state{dev_cache = DevCache}) ->
+on_msg(new_device, _From, State = #state{dev_cache = DevCache}) ->
    F = fun(Fun) ->
          DevName = gen_dev_name(),
          log(debug, "Device generated ~p.", [DevName]),
-         case gtracker_mysql:select_device(DevName) of
+         case gtracker_mysql_exec:select_device(DevName) of
             no_device ->
-               gtracker_mysql:start_tran(),
-               {DevId, Ref} = gtracker_mysql:insert_device(DevName),
-               gtracker_mysql:commit_tran(),
-               {DevName, DevId, Ref};
+               gtracker_mysql_exec:start_tran(),
+               gtracker_mysql_exec:insert_device(DevName),
+               gtracker_mysql_exec:commit_tran(),
+               gtracker_mysql_exec:select_device(DevName);
             _Device ->
                Fun(Fun)
          end
       end,
    try F(F) of
-      {DevName, ID, Ref} ->
+     Device =  #device{name = DevName, id = ID, reference = Ref} ->
          ets:insert(DevCache, #dev_info{name = DevName, id = ID, ref = Ref}),
-         {reply, {DevName, Ref}, State}
+         {reply, Device, State}
    catch
       _:Err ->
          log(error, "get_device/0 failed: Error = ~p", [Err]),
@@ -88,7 +88,7 @@ on_msg(get_device, _From, State = #state{dev_cache = DevCache}) ->
 %check existing device callback
 on_msg({get_device, DevName}, _From, State = #state{dev_cache = DevCache}) ->
    log(debug, "get_device. DevName: ~p, State: ~p", [DevName, dump_state(State)]),
-   try gtracker_mysql:select_device(DevName) of
+   try gtracker_mysql_exec:select_device(DevName) of
       no_device ->
          {reply, no_device, State};
       Device = #device{id = DevId, reference = Ref} ->
@@ -102,7 +102,7 @@ on_msg({get_device, DevName}, _From, State = #state{dev_cache = DevCache}) ->
 
 % get triggers for device
 on_msg({get_triggers, DevName}, _From, State) ->
-   try gtracker_mysql:select_triggers(DevName) of
+   try gtracker_mysql_exec:select_triggers(DevName) of
       no_triggers ->
          {reply, no_triggers, State};
       Triggers ->
@@ -117,11 +117,11 @@ on_msg(Msg = {start_new_track, DevName, TrackName}, _From, #state{dev_cache = De
    log(debug, "start_new_track. DevName: ~p, TrackName: ~p, State: ~p", [DevName, TrackName, dump_state(State)]),
    F =
    fun() ->
-      gtracker_mysql:start_tran(),
+      gtracker_mysql_exec:start_tran(),
       {DevId, _} = get_dev_track(DevName, DevCache),
       stop_track(DevName, DevCache),
-      TrackId = gtracker_mysql:new_track(DevId, TrackName),
-      gtracker_mysql:commit_tran(),
+      TrackId = gtracker_mysql_exec:new_track(DevId, TrackName),
+      gtracker_mysql_exec:commit_tran(),
       TrackId
    end,
    try F() of
@@ -138,10 +138,10 @@ on_msg(Msg = {rename_track, DevName, TrackName}, _From, #state{dev_cache = DevCa
    log(debug, "rename_track. DevName: ~p, TrackName: ~p, State: ~p", [DevName, TrackName, dump_state(State)]),
    F =
    fun() ->
-      gtracker_mysql:start_tran(),
+      gtracker_mysql_exec:start_tran(),
       {_DevId, TrackId} = get_dev_track(DevName, DevCache),
-      gtracker_mysql:rename_track(TrackId, TrackName),
-      gtracker_mysql:commit_tran()
+      gtracker_mysql_exec:rename_track(TrackId, TrackName),
+      gtracker_mysql_exec:commit_tran()
    end,
    try F()
    catch
@@ -174,11 +174,11 @@ on_info(?MSG(_From, _GroupName, {coord, DevName, NewCoord = {_, _, _, Distance, 
    log(debug, "coord. DevName: ~p, NewCoord: ~p, State: ~p", [DevName, NewCoord, dump_state(State)]),
    DevId = get_device_id(DevCache, DevName),
    F = fun() ->
-      gtracker_mysql:start_tran(),
+      gtracker_mysql_exec:start_tran(),
       TrackId = get_track(DevName, Timestamp, State),
-      gtracker_mysql:insert_coord(TrackId, DevId, NewCoord),
-      gtracker_mysql:update_track(TrackId, Distance),
-      gtracker_mysql:commit_tran(),
+      gtracker_mysql_exec:insert_coord(TrackId, DevId, NewCoord),
+      gtracker_mysql_exec:update_track(TrackId, Distance),
+      gtracker_mysql_exec:commit_tran(),
       TrackId
    end,
    try F() of
@@ -194,7 +194,7 @@ on_info(?MSG(_From, _GroupName, {coord, DevName, NewCoord = {_, _, _, Distance, 
 %set device online
 on_info(?MSG(_From, _GroupName, {online, DevName}), State) ->
    log(debug, "online. DevName: ~p, State: ~p", [DevName, dump_state(State)]),
-   try gtracker_mysql:set_online(DevName) of
+   try gtracker_mysql_exec:set_online(DevName) of
       _ ->
          {noreply, State}
    catch
@@ -207,10 +207,10 @@ on_info(?MSG(_From, _GroupName, {online, DevName}), State) ->
 on_info(?MSG(_From, _GroupName, {offline, DevName}), #state{dev_cache = DevCache} = State) ->
    log(debug, "offline. DevName: ~p, State: ~p", [DevName, dump_state(State)]),
    F = fun() ->
-         gtracker_mysql:start_tran(),
-         gtracker_mysql:set_offline(DevName),
+         gtracker_mysql_exec:start_tran(),
+         gtracker_mysql_exec:set_offline(DevName),
          TrackId = stop_track(DevName, DevCache),
-         gtracker_mysql:commit_tran(),
+         gtracker_mysql_exec:commit_tran(),
          TrackId
    end,
    try F() of
@@ -226,15 +226,15 @@ on_info(?MSG(_From, _GroupName, {offline, DevName}), #state{dev_cache = DevCache
 %change device
 %on_info(?MSG(_From, _GroupName, {change_dev_name, OldDevName, NewDevName}), #state{dev_cache = DevCache} = State) ->
 %   F = fun() ->
-%         gtracker_mysql:start_tran(),
-%         gtracker_mysql:set_offline(OldDevName, DevCache),
+%         gtracker_mysql_exec:start_tran(),
+%         gtracker_mysql_exec:set_offline(OldDevName, DevCache),
 %         stop_track(OldDevName, DevCache),
 %         case gtraker_mysql:set_online(NewDevName) of
 %            true ->
-%               gtracker_mysql:commit_tran(),
+%               gtracker_mysql_exec:commit_tran(),
 %               changed;
 %            _ ->
-%               gtracker_mysql:rollback_tran(),
+%               gtracker_mysql_exec:rollback_tran(),
 %               already_online
 %         end
 %   end,
@@ -297,12 +297,12 @@ get_track(DevName, Timestamp, #state{max_track_interval = MaxTrackInterval, dev_
    end.
 
 start_track(DevId, MaxTrackInterval, Timestamp) ->
-   case gtracker_mysql:select_last_track(DevId) of
+   case gtracker_mysql_exec:select_last_track(DevId) of
      no_track -> % where are no tracks for such device
         log(info, "Device with id = ~p doesn't have tracks. Inserting new one...", [DevId]),
-        gtracker_mysql:new_track(DevId);
+        gtracker_mysql_exec:new_track(DevId);
      {TrackId, undef} -> % empty track
-        gtracker_mysql:reopen_track(TrackId),
+        gtracker_mysql_exec:reopen_track(TrackId),
         log(info, "Device with id = ~p has an empty track ~p. Will be reused.", [DevId, TrackId]),
         TrackId;
      {TrackId, LastCoordTm} ->
@@ -310,12 +310,12 @@ start_track(DevId, MaxTrackInterval, Timestamp) ->
        case calendar:datetime_to_gregorian_seconds(LastCoordTm) + MaxTrackInterval
           >= calendar:datetime_to_gregorian_seconds(Timestamp) of
           true -> % old track is to be restarted
-             gtracker_mysql:reopen_track(TrackId),
+             gtracker_mysql_exec:reopen_track(TrackId),
              log(debug, "Old track will be reused."),
              TrackId;
           false -> % new track will be started
              log(debug, "New track will be started."),
-             gtracker_mysql:new_track(DevId)
+             gtracker_mysql_exec:new_track(DevId)
        end
    end.
 
@@ -326,7 +326,7 @@ stop_track(DevName, DevCache) ->
       [{dev_info, DevName, _, _, undef}] ->
          no_track;
       [{dev_info, DevName, _, _, TrackId}] ->
-         gtracker_mysql:stop_track(TrackId),
+         gtracker_mysql_exec:stop_track(TrackId),
          TrackId
    end.
 
