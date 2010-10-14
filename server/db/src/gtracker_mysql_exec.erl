@@ -17,7 +17,7 @@
          ,add_reference/3
          ,select_triggers/1
          ,select_device/1
-         ,select_device_tracks/1
+         ,select_track/1
          ,select_all_devices/1
          ,insert_device/1
          ,set_online/1
@@ -61,6 +61,12 @@
                             "from track as t "
                             "left outer join coordinate as c on t.id = c.track_id "
                             "where t.device_id = ~p "
+                            "group by tid order by tid desc limit 1").
+
+-define(SELECT_TRACK,       "select t.id, t.status, min(c.time), max(c.time), t.name, t.avg_speed, t.length "
+                            "from track as t "
+                            "left outer join coordinate as c on t.id = c.track_id "
+                            "where t.id = ~p "
                             "group by tid order by tid desc limit 1").
 
 -define(SELECT_DEVICE_TRACKS, "select t.id, t.status, min(c.time), max(c.time), t.name, t.avg_speed, t.length "
@@ -154,6 +160,21 @@ select_device_tracks(DevName) ->
          no_tracks;
       ?RESULT(Tracks) ->
          bintrack_to_list(Tracks)
+   end.
+
+select_track(TrackId) ->
+   case execute(?SELECT_TRACK, [TrackId]) of
+      ?RESULT([]) ->
+         no_track;
+      ?RESULT([[TrackId, Status, Start, Stop, Name, AvgSpeed, Length]]) ->
+         #track{
+                id = TrackId,
+                status = bstr_to_atom(Status),
+                start = Start,
+                stop = Stop,
+                name = bin_to_list(Name),
+                avg_speed = AvgSpeed,
+                length = Length }
    end.
 
 % stop_track(TrackId) -> true | false

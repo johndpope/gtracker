@@ -101,7 +101,7 @@ on_msg({get_device, DevName}, _From, State = #state{dev_cache = DevCache}) ->
    end;
 
 % select all devices
-on_msg({get_all_devices, OnlyOnline}, _From, State = #state{dev_cache = DevCache}) ->
+on_msg({get_all_devices, OnlyOnline}, _From, State) ->
    log(debug, "get_all_devices. OnlyOnline: ~p, State: ~p", [OnlyOnline, dump_state(State)]),
    try gtracker_mysql_exec:select_all_devices(OnlyOnline) of
       Result ->
@@ -146,12 +146,12 @@ on_msg(Msg = {new_track, DevName, TrackName}, _From, #state{dev_cache = DevCache
       stop_track(DevName, DevCache),
       TrackId = gtracker_mysql_exec:new_track(DevId, TrackName),
       gtracker_mysql_exec:commit_tran(),
-      TrackId
+      gtracker_mysql_exec:select_track(TrackId)
    end,
    try F() of
-      TrackId ->
-         set_track_id(DevCache, DevName, TrackId),
-         {reply, ok, State}
+      Track = #track{id = Id} ->
+         set_track_id(DevCache, DevName, Id),
+         {reply, Track, State}
    catch
       _:Err ->
          log(error, "start_new_track failed: Error = ~p, Msg = ~p", [Err, Msg]),
@@ -165,7 +165,8 @@ on_msg(Msg = {rename_track, DevName, TrackName}, _From, #state{dev_cache = DevCa
       gtracker_mysql_exec:start_tran(),
       {_DevId, TrackId} = get_dev_track(DevName, DevCache),
       gtracker_mysql_exec:rename_track(TrackId, TrackName),
-      gtracker_mysql_exec:commit_tran()
+      gtracker_mysql_exec:commit_tran(),
+      gtracker_mysql_exec:select_track(TrackId)
    end,
    try F()
    catch
