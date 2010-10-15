@@ -62,6 +62,7 @@ on_msg(stop, _From, State) ->
 
 %get new device callback
 on_msg(new_device, _From, State = #state{dev_cache = DevCache}) ->
+   log(debug, "new_device(). State = ~p", [dump_state(State)]),
    F = fun(Fun) ->
          DevName = gen_dev_name(),
          log(debug, "Device generated ~p.", [DevName]),
@@ -87,7 +88,7 @@ on_msg(new_device, _From, State = #state{dev_cache = DevCache}) ->
 
 %check existing device callback
 on_msg({get_device, DevName}, _From, State = #state{dev_cache = DevCache}) ->
-   log(debug, "get_device. DevName: ~p, State: ~p", [DevName, dump_state(State)]),
+   log(debug, "get_device(~p). State = ~p", [DevName, dump_state(State)]),
    try gtracker_mysql_exec:select_device(DevName) of
       no_device ->
          {reply, no_device, State};
@@ -102,7 +103,7 @@ on_msg({get_device, DevName}, _From, State = #state{dev_cache = DevCache}) ->
 
 % select all devices
 on_msg({get_all_devices, OnlyOnline}, _From, State) ->
-   log(debug, "get_all_devices. OnlyOnline: ~p, State: ~p", [OnlyOnline, dump_state(State)]),
+   log(debug, "get_all_devices(~p). State = ~p", [OnlyOnline, dump_state(State)]),
    try gtracker_mysql_exec:select_all_devices(OnlyOnline) of
       Result ->
          {reply, Result, State}
@@ -114,6 +115,7 @@ on_msg({get_all_devices, OnlyOnline}, _From, State) ->
 
 % get triggers for device
 on_msg({get_triggers, DevName}, _From, State) ->
+   log(debug, "get_traiggers(~p). State = ~p", [DevName, dump_state(State)]),
    try gtracker_mysql_exec:select_triggers(DevName) of
       no_triggers ->
          {reply, no_triggers, State};
@@ -125,7 +127,8 @@ on_msg({get_triggers, DevName}, _From, State) ->
          {reply, error, State}
    end;
 
-on_msg({select_device_tracks, DevName}, _From, State) ->
+on_msg({select_tracks, DevName}, _From, State) ->
+   log(debug, "select_tracks(~p)", [DevName]),
    try gtracker_mysql_exec:select_tracks(DevName) of
       no_tracks ->
          {reply, no_tracks, State};
@@ -133,12 +136,12 @@ on_msg({select_device_tracks, DevName}, _From, State) ->
          {reply, Tracks, State}
    catch
       _:Err ->
-         log(error, "get_select_device_tracks failed: Error = ~p", [Err]),
+         log(error, "select_tracks failed: Error = ~p", [Err]),
          {reply, error, State}
    end;
 
 on_msg(Msg = {new_track, DevName, TrackName}, _From, #state{dev_cache = DevCache} = State) ->
-   log(debug, "start_new_track. DevName: ~p, TrackName: ~p, State: ~p", [DevName, TrackName, dump_state(State)]),
+   log(debug, "new_track(~p, ~p). State = ~p", [DevName, TrackName, dump_state(State)]),
    F =
    fun() ->
       gtracker_mysql_exec:start_tran(),
@@ -154,12 +157,12 @@ on_msg(Msg = {new_track, DevName, TrackName}, _From, #state{dev_cache = DevCache
          {reply, Track, State}
    catch
       _:Err ->
-         log(error, "start_new_track failed: Error = ~p, Msg = ~p", [Err, Msg]),
+         log(error, "new_track failed: Error = ~p, Msg = ~p", [Err, Msg]),
          {reply, error, State}
    end;
 
 on_msg(Msg = {rename_track, DevName, TrackName}, _From, #state{dev_cache = DevCache} = State) ->
-   log(debug, "rename_track. DevName: ~p, TrackName: ~p, State: ~p", [DevName, TrackName, dump_state(State)]),
+   log(debug, "rename_track(~p, ~p). State = ~p", [DevName, TrackName, dump_state(State)]),
    F =
    fun() ->
       gtracker_mysql_exec:start_tran(),

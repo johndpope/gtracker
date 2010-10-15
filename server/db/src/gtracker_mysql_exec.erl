@@ -18,6 +18,7 @@
          ,select_triggers/1
          ,select_device/1
          ,select_track/1
+         ,select_tracks/1
          ,select_all_devices/1
          ,insert_device/1
          ,set_online/1
@@ -63,17 +64,17 @@
                             "where t.device_id = ~p "
                             "group by tid order by tid desc limit 1").
 
--define(SELECT_TRACK,       "select t.id, t.status, min(c.time), max(c.time), t.name, t.avg_speed, t.length "
-                            "from track as t "
-                            "left outer join coordinate as c on t.id = c.track_id "
-                            "where t.id = ~p "
-                            "group by tid order by tid desc limit 1").
+-define(SELECT_TRACK, "select t.id, t.status, UNIX_TIMESTAMP(min(IFNULL(c.time, 0))), UNIX_TIMESTAMP(max(IFNULL(c.time, 0))), t.name, IFNULL(t.avg_speed, 0), t.length "
+                      "from track as t "
+                      "left outer join coordinate as c on t.id = c.track_id "
+                      "where t.id = ~p "
+                      "group by tid order by tid desc limit 1").
 
--define(SELECT_DEVICE_TRACKS, "select t.id, t.status, min(c.time), max(c.time), t.name, t.avg_speed, t.length "
-                              "from track as t "
-                              "left outer join coordinate as c on t.id = c.track_id "
-                              "inner join device as d on (t.device_id = d.id) "
-                              "where d.name = '~s' group by t.id;").
+-define(SELECT_TRACKS, "select t.id, t.status, UNIX_TIMESTAMP(min(IFNULL(c.time, 0))), UNIX_TIMESTAMP(max(IFNULL(c.time, 0))), t.name, IFNULL(t.avg_speed, 0), t.length "
+                       "from track as t "
+                       "left outer join coordinate as c on t.id = c.track_id "
+                       "inner join device as d on (t.device_id = d.id) "
+                       "where d.name = '~s' group by t.id;").
 
 -define(INSERT_NEW_TRACK, "insert into track(device_id) "
                           "values(~p);").
@@ -154,8 +155,8 @@ select_last_track(DevId) ->
          {TrackId, LastCoordTm}
    end.
 
-select_device_tracks(DevName) ->
-   case execute(?SELECT_DEVICE_TRACKS, [DevName]) of
+select_tracks(DevName) ->
+   case execute(?SELECT_TRACKS, [DevName]) of
       ?RESULT([]) ->
          no_tracks;
       ?RESULT(Tracks) ->
@@ -170,8 +171,8 @@ select_track(TrackId) ->
          #track{
                 id = TrackId,
                 status = bstr_to_atom(Status),
-                start = Start,
-                stop = Stop,
+                start = gtracker_common:unix_seconds_to_datetime(Start),
+                stop = gtracker_common:unix_seconds_to_datetime(Stop),
                 name = bin_to_list(Name),
                 avg_speed = AvgSpeed,
                 length = Length }
@@ -365,11 +366,11 @@ bintrack_to_list([ [TrackId, Status, Start, Stop, Name, AvgSpeed, Length] | Rest
    [ #track{
          id = TrackId,
          status = bstr_to_atom(Status),
-         start = Start,
-         stop = Stop,
-         name = bin_to_list(Name),
+         start = gtracker_common:unix_seconds_to_datetime(Start),
+         stop = gtracker_common:unix_seconds_to_datetime(Stop),
+         name = Name,
          avg_speed = AvgSpeed,
-         length = Length } | bindev_to_list(Rest) ].
+         length = Length } | bintrack_to_list(Rest) ].
 
 % Binary string to Erlang list
 % bin_to_list(Binary()) -> undef | String()

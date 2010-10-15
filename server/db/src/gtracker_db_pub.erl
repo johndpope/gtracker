@@ -5,8 +5,10 @@
       new_device/1
       ,select_device/2
       ,select_all_devices/2
-      ,select_device_tracks/2
+      ,select_tracks/2
       ,start_new_track/2
+      ,select_triggers/2
+      ,rename_track/3
    ]).
 
 new_device(ServerRef) ->
@@ -21,8 +23,8 @@ select_all_devices(ServerRef, OnlyActive)->
 select_triggers(ServerRef, DevName) ->
    gen_server:call(ServerRef, {get_triggers, DevName}).
 
-select_device_tracks(ServerRef, DevName) ->
-   gen_server:call(ServerRef, {select_device_tracks, DevName}).
+select_tracks(ServerRef, DevName) ->
+   gen_server:call(ServerRef, {select_tracks, DevName}).
 
 start_new_track(ServerRef, DevName) ->
    gen_server:call(ServerRef, {new_track, DevName}).
