@@ -19,9 +19,9 @@
          ,select_device/1
          ,select_track/1
          ,select_tracks/1
-         ,select_all_devices/1
+         ,select_devices/1
          ,insert_device/1
-         ,set_online/1
+         ,set_online/2
          ,set_offline/1
       ]).
 
@@ -41,12 +41,12 @@
 -define(COMMIT_TRAN, execute("commit;", [])).
 -define(ROLLBACK_TRAN, execute("rollback;", [])).
 
--define(SELECT_DEVICE, "select d.id, d.name, d.alias, r.value as ref, d.online, d.timezone, d.twitter_auth "
+-define(SELECT_DEVICE, "select d.id, d.name, d.alias, r.value as ref, d.online, d.registered_by, d.timezone, d.twitter_auth "
                         "from device as d "
                         "inner join reference as r on (d.id = r.device_id) "
                         "where r.track_id is NULL and d.name='~s';").
 
--define(SELECT_ALL_DEVICES, "select d.id, d.name, d.alias, r.value as ref, d.online, d.timezone, d.twitter_auth "
+-define(SELECT_DEVICES, "select d.id, d.name, d.alias, r.value as ref, d.online, d.registered_by, d.timezone, d.twitter_auth "
                         "from device as d "
                         "inner join reference as r on (d.id = r.device_id) "
                         "where r.track_id is NULL and d.online = ~p ;").
@@ -56,7 +56,9 @@
 -define(INSERT_COORD,  "insert into coordinate(track_id, device_id, latitude, longitude, speed, time) "
                        "values(~p, ~p, ~p, ~p, ~p, FROM_UNIXTIME(~p)); ").
 
--define(DEVICE_ONLINE, "update device set online = ~p where device.name='~s';").
+-define(DEVICE_ONLINE, "update device set online = true, registered_by = '~s' where device.name='~s';").
+
+-define(DEVICE_OFFLINE, "update device set online = false, registered_by = NULL where device.name='~s';").
 
 -define(SELECT_LAST_TRACK,  "select t.id as tid, max(c.time) as time "
                             "from track as t "
@@ -87,6 +89,8 @@
                         "avg_speed = (select avg(speed) from coordinate where track_id = ~p) "
                         "where id = ~p;").
 
+-define(RENAME_TRACK, "update track set name = ~p where id = ~p;").
+
 -define(CLOSE_TRACK, "update track set status = 'closed' where id = ~p").
 -define(OPEN_TRACK, "update track set status = 'opened' where id = ~p").
 
@@ -97,8 +101,6 @@
                            "from `trigger` as t "
                            "inner join device on t.device_id = device.id "
                            "where device.name = ~p and t.enabled=TRUE;").
-
--define(RENAME_TRACK, "update track set name = ~p where id = ~p;").
 
 
 % start(Host, Post, User, Password, DbName, LogCallback) -> ok
@@ -270,19 +272,20 @@ select_device(DevName) ->
    case execute(?SELECT_DEVICE, [DevName]) of
       ?RESULT([]) ->
          no_device;
-      ?RESULT([[DevId, Name, Alias, Ref, Online, Timezone, TwitterAuth]]) ->
+      ?RESULT([[DevId, Name, Alias, Ref, Online, RegisterBy, Timezone, TwitterAuth]]) ->
          #device{
             id = DevId,
             name = bin_to_list(Name),
             alias = bin_to_list(Alias),
             reference = Ref,
             online = state_to_atom(Online),
+            registered_by = bin_to_pid(RegisterBy),
             timezone = bin_to_list(Timezone),
             twitter_auth = bin_to_term(TwitterAuth)}
    end.
 
-select_all_devices(OnlyOnline) ->
-   case execute(?SELECT_ALL_DEVICES, [OnlyOnline]) of
+select_devices(OnlyOnline) ->
+   case execute(?SELECT_DEVICES, [OnlyOnline]) of
       ?RESULT([]) ->
          [];
       ?RESULT(Devices) ->
@@ -303,8 +306,8 @@ insert_device(DevName) ->
 % set_online(DevName) -> true | false
 %     DevName = String(), device name
 %    throws Error()
-set_online(DevName) ->
-   case execute(?DEVICE_ONLINE, [1, DevName]) of
+set_online(DevName, Pid) ->
+   case execute(?DEVICE_ONLINE, [pid_to_list(Pid), DevName]) of
       ?UPDATED(1) ->
          true;
       _ ->
@@ -315,7 +318,7 @@ set_online(DevName) ->
 %     DevName = String(), device name
 %    throws Error()
 set_offline(DevName) ->
-   case execute(?DEVICE_ONLINE, [0, DevName]) of
+   case execute(?DEVICE_OFFLINE, [DevName]) of
       ?UPDATED(1) ->
          true;
       _ ->
@@ -350,13 +353,14 @@ get_last_inserted_id() ->
 
 bindev_to_list([]) ->
    [];
-bindev_to_list([ [DevId, Name, Alias, Ref, Online, Timezone, TwitterAuth] | Rest ]) ->
+bindev_to_list([ [DevId, Name, Alias, Ref, Online, RegisterBy, Timezone, TwitterAuth] | Rest ]) ->
    [#device{
             id = DevId,
             name = bin_to_list(Name),
             alias = bin_to_list(Alias),
             reference = Ref,
             online = state_to_atom(Online),
+            registered_by = bin_to_pid(RegisterBy),
             timezone = bin_to_list(Timezone),
             twitter_auth = bin_to_term(TwitterAuth)} | bindev_to_list(Rest)].
 
@@ -371,6 +375,14 @@ bintrack_to_list([ [TrackId, Status, Start, Stop, Name, AvgSpeed, Length] | Rest
          name = Name,
          avg_speed = AvgSpeed,
          length = Length } | bintrack_to_list(Rest) ].
+
+bin_to_pid(BinPid) ->
+   case bin_to_list(BinPid) of
+      undef ->
+         undef;
+      ListPid ->
+         list_to_pid(ListPid)
+   end.
 
 % Binary string to Erlang list
 % bin_to_list(Binary()) -> undef | String()

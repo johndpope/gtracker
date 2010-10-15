@@ -17,6 +17,12 @@ new_device(ServerRef) ->
 select_device(ServerRef, DevName) ->
    gen_server:call(ServerRef, {get_device, DevName}).
 
+set_device_online(ServerRef, DevName, Pid) ->
+   gen_server:call(ServerRef, {online, DevName, Pid}).
+
+set_device_offline(ServerRef, DevName) ->
+   ServerRef ! {offline, DevName}.
+
 select_all_devices(ServerRef, OnlyActive)->
    gen_server:call(ServerRef, {get_all_devices, OnlyActive}).
 

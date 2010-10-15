@@ -53,7 +53,7 @@ on_stop(Reason, _State) ->
 on_msg(stop, _From, State) ->
    {stop, normal, stopped, State};
 
-on_msg(get_device, _From, State) ->
+on_msg(new_device, _From, State) ->
    F = fun(Fun) ->
          DevName = gen_dev_name(),
          log(debug, "Device generated ~p.", [DevName]),

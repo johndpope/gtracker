@@ -179,6 +179,27 @@ on_msg(Msg = {rename_track, DevName, TrackName}, _From, #state{dev_cache = DevCa
    end,
    {reply, ok, State};
 
+%set device online
+on_msg({online, DevName, Pid}, _From, State) ->
+   log(debug, "online(~p, ~p). State: ~p", [DevName, Pid, dump_state(State)]),
+   F = fun() ->
+         Device = gtracker_mysl_exec:select_device(DevName),
+         case Device#device.registered_by of
+            undef ->
+               gtracker_mysql_exec:set_online(DevName, Pid);
+            Pid ->
+               {reply, online, State};
+            RegPid when RegPid =/= Pid ->
+               {reply, already_registered, State}
+         end
+      end,
+   try F()
+   catch
+      _:Err ->
+         log(error, "set_online failed: Error = ~p", [Err]),
+         {reply, error, State}
+   end;
+
 % terminator
 on_msg(_Msg, _From, State) ->
    {reply, unknown_msg, State}.
@@ -219,21 +240,9 @@ on_info(?MSG(_From, _GroupName, {coord, DevName, NewCoord = {_, _, _, Distance, 
          {noreply, State}
    end;
 
-%set device online
-on_info(?MSG(_From, _GroupName, {online, DevName}), State) ->
-   log(debug, "online. DevName: ~p, State: ~p", [DevName, dump_state(State)]),
-   try gtracker_mysql_exec:set_online(DevName) of
-      _ ->
-         {noreply, State}
-   catch
-      _:Err ->
-         log(error, "set_online failed: Error = ~p", [Err]),
-         {noreply, State}
-   end;
-
 %set device offline
 on_info(?MSG(_From, _GroupName, {offline, DevName}), #state{dev_cache = DevCache} = State) ->
-   log(debug, "offline. DevName: ~p, State: ~p", [DevName, dump_state(State)]),
+   log(debug, "offline(~p). State: ~p", [DevName, dump_state(State)]),
    F = fun() ->
          gtracker_mysql_exec:start_tran(),
          gtracker_mysql_exec:set_offline(DevName),
