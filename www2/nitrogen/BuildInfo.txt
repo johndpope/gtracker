@@ -1,0 +1,5 @@
+Nitrogen Version:
+2.0.2
+
+Built On (uname -v):
+#65-Ubuntu SMP Thu Sep 16 16:21:34 UTC 2010

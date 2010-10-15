@@ -1,0 +1,130 @@
+/***** CSS RESET *****/
+html,body,div,span,applet,object,iframe,h1,h2,h3,h4,h5,h6,p,blockquote,pre,a,abbr,acronym,address,big,cite,code,del,dfn,em,font,img,ins,kbd,q,s,samp,small,strike,strong,sub,sup,tt,var,b,u,i,center,dl,dt,dd,ol,ul,li,fieldset,form,label,legend,table,caption,tbody,tfoot,thead,tr,th,td{margin:0;padding:0;border:0;outline:0;font-size:100%;vertical-align:baseline;background:transparent}body{line-height:1}ol,ul{list-style:none}blockquote,q{quotes:none}blockquote:before,blockquote:after,q:before,q:after{content:'';content:none}:focus{outline:0}ins{text-decoration:none}del{text-decoration:line-through}table{border-collapse:collapse;border-spacing:0}
+
+/***** STYLE *****/
+
+html { 
+/*   font-family: "Lucida Grande", "Segoe UI", Tahoma, Helvetica, Arial, sans-serif;  */
+   font-family: "Arial", "Sans-serif";
+   font-size: 9pt;
+   margin: 0;
+   padding: 0;
+   background: #91A2B5 url('/images/background.png') repeat-x;
+}
+
+a {
+   text-decoration: none;
+}
+
+a:hover {
+   text-decoration: underline;
+}
+
+.session {
+   top: 0;
+   left: 0;
+   right: 0;
+   background: #000;
+   color: #ccc;
+   padding: 5pt;
+   line-height: 2.2em;
+}
+
+.session .user {
+   display: inline;
+}
+
+.session .user img {
+   vertical-align: middle;
+   margin: 0;
+   padding: 0 5pt 0 0;
+   padding-right: 5pt;
+}
+
+.session a {
+   font-weight: 700;
+   color: #91A2B5;
+   padding-left: 5pt;
+   padding-right: 5pt;
+}
+
+.session a.registration {
+   font-weight: 700;
+   color: #B56172;
+   padding-left: 5pt;
+   padding-right: 5pt;
+   float: right;
+}
+
+.session a.logout {
+   float: right;
+}
+
+.form {
+   border: solid 1px white;
+   background: #ccc;
+   color: #336;
+}
+
+.wrapper {
+   position: relative;
+   min-width: 800px;
+   margin: 0 50pt;
+}
+
+.block {
+   padding: 10pt;
+   clear: both;
+}
+
+.logo {
+   text-shadow: 1px 1px 1px rgba(255,255,255,.4);
+   color: #52657A;
+   font-weight: 700;
+   font-size: 4em;
+   float: left;
+   vertical-align: baseline;
+   outline: 0;
+   margin-bottom: 10pt;
+}
+
+.navigation {
+   float: right;
+   font-size: 1.3em;
+   font-weight: 700;
+   list-style-type: none;
+   position: relative;
+   top: 1em;
+}
+
+.navigation li {
+   display: block;
+   overflow: hidden;
+   padding: 0;
+   float: left;
+   margin-right: 12pt;
+   color: #52657A;
+}
+
+.navigation li a {
+   color: #000;
+   text-shadow: 1px 1px 1px rgba(255,255,255,.4);
+}
+
+.content {
+   font-size: 1.2em;
+   background: #ECF0F3;
+   color: #000;
+   border: 4px solid #52657A;
+}
+
+div.content p a {
+   color: #32457A;
+   text-decoration: underline;
+   padding-top: 10pt;
+}
+
+div.content p a:hover {
+   color: #303131;
+}
+

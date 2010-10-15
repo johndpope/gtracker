@@ -1,0 +1,20 @@
+.registration
+{
+   width: 500px;
+   margin: 0 auto;
+}
+
+.registration_logo
+{
+   text-shadow: 1px 1px 1px rgba(255,255,255,.4);
+   color: #52657A;
+   font-weight: 700;
+   font-size: 3em;
+   vertical-align: baseline;
+   text-align: center;
+   padding: 20pt 5pt 5pt 5pt;
+}
+
+.registration_form {
+   padding: 10pt;
+}

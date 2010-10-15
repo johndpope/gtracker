@@ -1,0 +1,465 @@
+
+=INFO REPORT==== 14-Oct-2010::16:48:20 ===
+Ctlfile : /home/indie/.yaws/yaws/default/CTL
+
+=INFO REPORT==== 14-Oct-2010::16:48:20 ===
+Yaws: Listening to 0.0.0.0:8081 for <1> virtual servers:
+ - http://gtracker.ru:8081 under /home/indie/nitrogen/site/static
+
+=INFO REPORT==== 14-Oct-2010::16:53:53 ===
+Ctlfile : /home/indie/.yaws/yaws/default/CTL
+
+=INFO REPORT==== 14-Oct-2010::16:53:53 ===
+Yaws: Listening to 0.0.0.0:8081 for <1> virtual servers:
+ - http://gtracker.ru:8081 under /home/indie/nitrogen/site/static
+
+=INFO REPORT==== 14-Oct-2010::17:06:33 ===
+{error,error,undef,
+       [{index,event,[login]},
+        {wf_core,run_catched,0},
+        {wf_core,run,0},
+        {yaws_server,deliver_dyn_part,8},
+        {yaws_server,aloop,3},
+        {yaws_server,acceptor0,2},
+        {proc_lib,init_p_do_apply,3}]}
+
+=INFO REPORT==== 14-Oct-2010::17:06:38 ===
+{error,error,undef,
+       [{index,event,[login]},
+        {wf_core,run_catched,0},
+        {wf_core,run,0},
+        {yaws_server,deliver_dyn_part,8},
+        {yaws_server,aloop,3},
+        {yaws_server,acceptor0,2},
+        {proc_lib,init_p_do_apply,3}]}
+
+=INFO REPORT==== 14-Oct-2010::17:07:19 ===
+Ctlfile : /home/indie/.yaws/yaws/default/CTL
+
+=INFO REPORT==== 14-Oct-2010::17:07:19 ===
+Yaws: Listening to 0.0.0.0:8081 for <1> virtual servers:
+ - http://gtracker.ru:8081 under /home/indie/nitrogen/site/static
+
+=INFO REPORT==== 14-Oct-2010::17:07:26 ===
+{error,error,undef,
+       [{index,event,[login]},
+        {wf_core,run_catched,0},
+        {wf_core,run,0},
+        {yaws_server,deliver_dyn_part,8},
+        {yaws_server,aloop,3},
+        {yaws_server,acceptor0,2},
+        {proc_lib,init_p_do_apply,3}]}
+
+=INFO REPORT==== 14-Oct-2010::17:08:49 ===
+Ctlfile : /home/indie/.yaws/yaws/default/CTL
+
+=INFO REPORT==== 14-Oct-2010::17:08:49 ===
+Yaws: Listening to 0.0.0.0:8081 for <1> virtual servers:
+ - http://gtracker.ru:8081 under /home/indie/nitrogen/site/static
+
+=INFO REPORT==== 14-Oct-2010::17:10:22 ===
+{error,error,undef,
+       [{index,event,[login]},
+        {wf_core,run_catched,0},
+        {wf_core,run,0},
+        {yaws_server,deliver_dyn_part,8},
+        {yaws_server,aloop,3},
+        {yaws_server,acceptor0,2},
+        {proc_lib,init_p_do_apply,3}]}
+
+=INFO REPORT==== 14-Oct-2010::17:12:17 ===
+{error,error,undef,
+       [{index,event,[login]},
+        {wf_core,run_catched,0},
+        {wf_core,run,0},
+        {yaws_server,deliver_dyn_part,8},
+        {yaws_server,aloop,3},
+        {yaws_server,acceptor0,2},
+        {proc_lib,init_p_do_apply,3}]}
+
+=INFO REPORT==== 14-Oct-2010::17:12:20 ===
+{error,error,undef,
+       [{index,event,[login]},
+        {wf_core,run_catched,0},
+        {wf_core,run,0},
+        {yaws_server,deliver_dyn_part,8},
+        {yaws_server,aloop,3},
+        {yaws_server,acceptor0,2},
+        {proc_lib,init_p_do_apply,3}]}
+
+=INFO REPORT==== 14-Oct-2010::17:18:20 ===
+{error,error,undef,
+       [{index,event,[login]},
+        {wf_core,run_catched,0},
+        {wf_core,run,0},
+        {yaws_server,deliver_dyn_part,8},
+        {yaws_server,aloop,3},
+        {yaws_server,acceptor0,2},
+        {proc_lib,init_p_do_apply,3}]}
+
+=INFO REPORT==== 14-Oct-2010::17:18:27 ===
+{error,error,undef,
+       [{index,event,[login]},
+        {wf_core,run_catched,0},
+        {wf_core,run,0},
+        {yaws_server,deliver_dyn_part,8},
+        {yaws_server,aloop,3},
+        {yaws_server,acceptor0,2},
+        {proc_lib,init_p_do_apply,3}]}
+
+=INFO REPORT==== 14-Oct-2010::17:18:28 ===
+{error,error,undef,
+       [{index,event,[login]},
+        {wf_core,run_catched,0},
+        {wf_core,run,0},
+        {yaws_server,deliver_dyn_part,8},
+        {yaws_server,aloop,3},
+        {yaws_server,acceptor0,2},
+        {proc_lib,init_p_do_apply,3}]}
+
+=INFO REPORT==== 14-Oct-2010::17:20:47 ===
+{error,error,undef,
+       [{index,event,[login]},
+        {wf_core,run_catched,0},
+        {wf_core,run,0},
+        {yaws_server,deliver_dyn_part,8},
+        {yaws_server,aloop,3},
+        {yaws_server,acceptor0,2},
+        {proc_lib,init_p_do_apply,3}]}
+
+=INFO REPORT==== 14-Oct-2010::17:20:55 ===
+{error,error,undef,
+       [{index,event,[login]},
+        {wf_core,run_catched,0},
+        {wf_core,run,0},
+        {yaws_server,deliver_dyn_part,8},
+        {yaws_server,aloop,3},
+        {yaws_server,acceptor0,2},
+        {proc_lib,init_p_do_apply,3}]}
+
+=INFO REPORT==== 14-Oct-2010::17:21:35 ===
+{error,error,undef,
+       [{index,event,[login]},
+        {wf_core,run_catched,0},
+        {wf_core,run,0},
+        {yaws_server,deliver_dyn_part,8},
+        {yaws_server,aloop,3},
+        {yaws_server,acceptor0,2},
+        {proc_lib,init_p_do_apply,3}]}
+
+=INFO REPORT==== 14-Oct-2010::17:21:41 ===
+{error,error,undef,
+       [{index,event,[login]},
+        {wf_core,run_catched,0},
+        {wf_core,run,0},
+        {yaws_server,deliver_dyn_part,8},
+        {yaws_server,aloop,3},
+        {yaws_server,acceptor0,2},
+        {proc_lib,init_p_do_apply,3}]}
+
+=INFO REPORT==== 14-Oct-2010::17:21:44 ===
+{error,error,undef,
+       [{index,event,[login]},
+        {wf_core,run_catched,0},
+        {wf_core,run,0},
+        {yaws_server,deliver_dyn_part,8},
+        {yaws_server,aloop,3},
+        {yaws_server,acceptor0,2},
+        {proc_lib,init_p_do_apply,3}]}
+
+=INFO REPORT==== 14-Oct-2010::17:22:37 ===
+{error,error,undef,
+       [{index,event,[login]},
+        {wf_core,run_catched,0},
+        {wf_core,run,0},
+        {yaws_server,deliver_dyn_part,8},
+        {yaws_server,aloop,3},
+        {yaws_server,acceptor0,2},
+        {proc_lib,init_p_do_apply,3}]}
+
+=INFO REPORT==== 14-Oct-2010::17:35:02 ===
+{error,error,undef,
+       [{session,page_init,[]},
+        {index,'-body/0-lc$^0/1-0-',1},
+        {index,body,0},
+        {element_function,call_next_function,1},
+        {wf_render_elements,call_element_render,2},
+        {wf_render_elements,render_element,1},
+        {wf_render_elements,render_elements,2},
+        {lists,foldl,3}]}
+
+=INFO REPORT==== 14-Oct-2010::17:38:57 ===
+{error,throw,
+       {default_query_handler,too_many_matches,user_text_box},
+       [{default_query_handler,get_value,3},
+        {index,event,1},
+        {wf_core,run_catched,0},
+        {wf_core,run,0},
+        {yaws_server,deliver_dyn_part,8},
+        {yaws_server,aloop,3},
+        {yaws_server,acceptor0,2},
+        {proc_lib,init_p_do_apply,3}]}
+
+=INFO REPORT==== 14-Oct-2010::17:43:28 ===
+{error,error,badarg,
+       [{erlang,md5,[undefined]},
+        {md5,hex,1},
+        {index,event,1},
+        {wf_core,run_catched,0},
+        {wf_core,run,0},
+        {yaws_server,deliver_dyn_part,8},
+        {yaws_server,aloop,3},
+        {yaws_server,acceptor0,2}]}
+
+=INFO REPORT==== 14-Oct-2010::17:43:38 ===
+{error,error,badarg,
+       [{erlang,md5,[undefined]},
+        {md5,hex,1},
+        {index,event,1},
+        {wf_core,run_catched,0},
+        {wf_core,run,0},
+        {yaws_server,deliver_dyn_part,8},
+        {yaws_server,aloop,3},
+        {yaws_server,acceptor0,2}]}
+
+=INFO REPORT==== 14-Oct-2010::17:46:44 ===
+{error,error,badarg,
+       [{erlang,md5,[undefined]},
+        {md5,hex,1},
+        {index,event,1},
+        {wf_core,run_catched,0},
+        {wf_core,run,0},
+        {yaws_server,deliver_dyn_part,8},
+        {yaws_server,aloop,3},
+        {yaws_server,acceptor0,2}]}
+
+=INFO REPORT==== 14-Oct-2010::17:47:29 ===
+{error,error,function_clause,
+       [{wf_convert,inner_to_list,
+                    [{span,is_element,element_span,undefined,undefined,
+                           undefined,true,[],[],"User: ",true}]},
+        {wf_convert,'-to_list/1-lc$^0/1-0-',1},
+        {wf_convert,to_list,1},
+        {wf_convert,html_encode,2},
+        {element_span,render_element,1},
+        {wf_render_elements,call_element_render,2},
+        {wf_render_elements,render_element,1},
+        {wf_render_elements,render_elements,2}]}
+
+=INFO REPORT==== 14-Oct-2010::17:49:26 ===
+{error,throw,
+       {default_query_handler,too_many_matches,user_text_box},
+       [{default_query_handler,get_value,3},
+        {index,event,1},
+        {wf_core,run_catched,0},
+        {wf_core,run,0},
+        {yaws_server,deliver_dyn_part,8},
+        {yaws_server,aloop,3},
+        {yaws_server,acceptor0,2},
+        {proc_lib,init_p_do_apply,3}]}
+
+=INFO REPORT==== 14-Oct-2010::17:49:28 ===
+{error,throw,
+       {default_query_handler,too_many_matches,user_text_box},
+       [{default_query_handler,get_value,3},
+        {index,event,1},
+        {wf_core,run_catched,0},
+        {wf_core,run,0},
+        {yaws_server,deliver_dyn_part,8},
+        {yaws_server,aloop,3},
+        {yaws_server,acceptor0,2},
+        {proc_lib,init_p_do_apply,3}]}
+
+=INFO REPORT==== 14-Oct-2010::17:49:35 ===
+{error,throw,
+       {default_query_handler,too_many_matches,user_text_box},
+       [{default_query_handler,get_value,3},
+        {index,event,1},
+        {wf_core,run_catched,0},
+        {wf_core,run,0},
+        {yaws_server,deliver_dyn_part,8},
+        {yaws_server,aloop,3},
+        {yaws_server,acceptor0,2},
+        {proc_lib,init_p_do_apply,3}]}
+
+=INFO REPORT==== 14-Oct-2010::17:49:43 ===
+{error,throw,
+       {default_query_handler,too_many_matches,user_text_box},
+       [{default_query_handler,get_value,3},
+        {index,event,1},
+        {wf_core,run_catched,0},
+        {wf_core,run,0},
+        {yaws_server,deliver_dyn_part,8},
+        {yaws_server,aloop,3},
+        {yaws_server,acceptor0,2},
+        {proc_lib,init_p_do_apply,3}]}
+
+=INFO REPORT==== 14-Oct-2010::18:00:03 ===
+{error,error,badarg,
+       [{erlang,md5,[undefined]},
+        {md5,hex,1},
+        {index,event,1},
+        {wf_core,run_catched,0},
+        {wf_core,run,0},
+        {yaws_server,deliver_dyn_part,8},
+        {yaws_server,aloop,3},
+        {yaws_server,acceptor0,2}]}
+
+=INFO REPORT==== 14-Oct-2010::18:10:10 ===
+Page not found: "/registration"
+
+=INFO REPORT==== 14-Oct-2010::18:11:34 ===
+Page not found: "/registration"
+
+=INFO REPORT==== 14-Oct-2010::18:11:48 ===
+{error,error,badarg,
+       [{erlang,md5,[undefined]},
+        {md5,hex,1},
+        {index,event,1},
+        {wf_core,run_catched,0},
+        {wf_core,run,0},
+        {yaws_server,deliver_dyn_part,8},
+        {yaws_server,aloop,3},
+        {yaws_server,acceptor0,2}]}
+
+=INFO REPORT==== 14-Oct-2010::18:13:06 ===
+Page not found: "/registration"
+
+=INFO REPORT==== 14-Oct-2010::18:14:01 ===
+Page not found: "/map"
+
+=INFO REPORT==== 14-Oct-2010::18:14:05 ===
+Page not found: "/download"
+
+=INFO REPORT==== 14-Oct-2010::18:15:24 ===
+Page not found: "/map"
+
+=INFO REPORT==== 14-Oct-2010::18:17:23 ===
+Page not found: "/download"
+
+=INFO REPORT==== 14-Oct-2010::18:17:26 ===
+Page not found: "/registration"
+
+=INFO REPORT==== 14-Oct-2010::18:24:59 ===
+Page not found: "/map"
+
+=INFO REPORT==== 14-Oct-2010::18:43:20 ===
+Page not found: "/about"
+
+=INFO REPORT==== 14-Oct-2010::18:43:24 ===
+Page not found: "/map"
+
+=INFO REPORT==== 14-Oct-2010::19:46:39 ===
+{error,error,badarg,
+       [{erlang,md5,[undefined]},
+        {md5,hex,1},
+        {session,event,1},
+        {wf_core,run_catched,0},
+        {wf_core,run,0},
+        {yaws_server,deliver_dyn_part,8},
+        {yaws_server,aloop,3},
+        {yaws_server,acceptor0,2}]}
+
+=INFO REPORT==== 14-Oct-2010::19:46:41 ===
+{error,error,badarg,
+       [{erlang,md5,[undefined]},
+        {md5,hex,1},
+        {session,event,1},
+        {wf_core,run_catched,0},
+        {wf_core,run,0},
+        {yaws_server,deliver_dyn_part,8},
+        {yaws_server,aloop,3},
+        {yaws_server,acceptor0,2}]}
+
+=INFO REPORT==== 15-Oct-2010::14:18:53 ===
+{error,error,
+       {badrecord,link},
+       [{session,display_logout,0},
+        {wf_handler,call,3},
+        {session,display,0},
+        {element_function,call_next_function,1},
+        {wf_render_elements,call_element_render,2},
+        {wf_render_elements,render_element,1},
+        {wf_render_elements,render_elements,2},
+        {lists,foldl,3}]}
+
+=INFO REPORT==== 15-Oct-2010::14:47:25 ===
+Page not found: "/registration"
+
+=INFO REPORT==== 15-Oct-2010::15:23:01 ===
+{error,error,undef,
+       [{registration,event,[register_user]},
+        {wf_core,run_catched,0},
+        {wf_core,run,0},
+        {yaws_server,deliver_dyn_part,8},
+        {yaws_server,aloop,3},
+        {yaws_server,acceptor0,2},
+        {proc_lib,init_p_do_apply,3}]}
+
+=INFO REPORT==== 15-Oct-2010::15:24:00 ===
+{error,error,undef,
+       [{registration,event,[register_user]},
+        {wf_core,run_catched,0},
+        {wf_core,run,0},
+        {yaws_server,deliver_dyn_part,8},
+        {yaws_server,aloop,3},
+        {yaws_server,acceptor0,2},
+        {proc_lib,init_p_do_apply,3}]}
+
+=INFO REPORT==== 15-Oct-2010::15:27:08 ===
+{error,error,undef,
+       [{registration,event,[register_user]},
+        {wf_core,run_catched,0},
+        {wf_core,run,0},
+        {yaws_server,deliver_dyn_part,8},
+        {yaws_server,aloop,3},
+        {yaws_server,acceptor0,2},
+        {proc_lib,init_p_do_apply,3}]}
+
+=INFO REPORT==== 15-Oct-2010::16:41:19 ===
+{error,error,badarg,
+       [{erlang,length,[undefined]},
+        {validator_min_length,validate,2},
+        {wf_validation,'-validate/0-fun-0-',2},
+        {lists,foldl,3},
+        {wf_validation,validate,0},
+        {wf_core,run_postback_request,0},
+        {wf_core,run_catched,0},
+        {wf_core,run,0}]}
+
+=INFO REPORT==== 15-Oct-2010::16:41:20 ===
+{error,error,badarg,
+       [{erlang,length,[undefined]},
+        {validator_min_length,validate,2},
+        {wf_validation,'-validate/0-fun-0-',2},
+        {lists,foldl,3},
+        {wf_validation,validate,0},
+        {wf_core,run_postback_request,0},
+        {wf_core,run_catched,0},
+        {wf_core,run,0}]}
+
+=INFO REPORT==== 15-Oct-2010::16:41:24 ===
+{error,error,badarg,
+       [{erlang,length,[undefined]},
+        {validator_min_length,validate,2},
+        {wf_validation,'-validate/0-fun-0-',2},
+        {lists,foldl,3},
+        {wf_validation,validate,0},
+        {wf_core,run_postback_request,0},
+        {wf_core,run_catched,0},
+        {wf_core,run,0}]}
+
+=INFO REPORT==== 15-Oct-2010::17:33:50 ===
+Page not found: "/about"
+
+=INFO REPORT==== 15-Oct-2010::21:04:32 ===
+Page not found: "/about"
+
+=INFO REPORT==== 15-Oct-2010::21:04:36 ===
+Page not found: "/download"
+
+=INFO REPORT==== 15-Oct-2010::21:04:38 ===
+Page not found: "/map"
+
+=INFO REPORT==== 15-Oct-2010::21:05:44 ===
+Page not found: "/download"

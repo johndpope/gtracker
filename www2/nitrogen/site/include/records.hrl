@@ -1,0 +1,1 @@
+-record(map, {?ELEMENT_BASE(element_map), attr1, attr2}).

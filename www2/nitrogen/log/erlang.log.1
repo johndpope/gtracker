@@ -1,0 +1,888 @@
+
+=====
+===== LOGGING STARTED Thu Oct 14 16:47:35 MSD 2010
+=====
+Exec: /home/indie/nitrogen/erts-5.8.1/bin/erlexec -boot /home/indie/nitrogen/releases/2.0.2/nitrogen -embedded  -config /home/indie/nitrogen/etc/app.config -config /home/indie/nitrogen/etc/yaws.config -args_file /home/indie/nitrogen/etc/vm.args -- console
+Root: /home/indie/nitrogen
+{error_logger,{{2010,10,14},{16,47,36}},supervisor_report,[{supervisor,{local,net_sup}},{errorContext,start_error},{reason,{'EXIT',{undef,[{auth,start_link,[]},{supervisor,do_start_child,2},{supervisor,start_children,3},{supervisor,init_children,2},{gen_server,init_it,6},{proc_lib,init_p_do_apply,3}]}}},{offender,[{pid,undefined},{name,auth},{mfargs,{auth,start_link,[]}},{restart_type,permanent},{shutdown,2000},{child_type,worker}]}]}
+{error_logger,{{2010,10,14},{16,47,36}},supervisor_report,[{supervisor,{local,kernel_sup}},{errorContext,start_error},{reason,shutdown},{offender,[{pid,undefined},{name,net_sup},{mfargs,{erl_distribution,start_link,[]}},{restart_type,permanent},{shutdown,infinity},{child_type,supervisor}]}]}
+{error_logger,{{2010,10,14},{16,47,36}},std_info,[{application,kernel},{exited,{shutdown,{kernel,start,[normal,[]]}}},{type,permanent}]}
+{"Kernel pid terminated",application_controller,"{application_start_failure,kernel,{shutdown,{kernel,start,[normal,[]]}}}"}
+
+Crash dump was written to: erl_crash.dump
+Kernel pid terminated (application_controller) ({application_start_failure,kernel,{shutdown,{kernel,start,[normal,[]]}}})
+
+=====
+===== LOGGING STARTED Thu Oct 14 16:48:18 MSD 2010
+=====
+Exec: /home/indie/nitrogen/erts-5.8.1/bin/erlexec -boot /home/indie/nitrogen/releases/2.0.2/nitrogen -embedded  -config /home/indie/nitrogen/etc/app.config -config /home/indie/nitrogen/etc/yaws.config -args_file /home/indie/nitrogen/etc/vm.args -- console
+Root: /home/indie/nitrogen
+Erlang R14B (erts-5.8.1) [source] [64-bit] [smp:4:4] [rq:4] [async-threads:5] [kernel-poll:true]
+
+
+=INFO REPORT==== 14-Oct-2010::16:48:19 ===
+Yaws: Using config file ./etc/yaws.conf
+
+=INFO REPORT==== 14-Oct-2010::16:48:20 ===
+Ctlfile : /home/indie/.yaws/yaws/default/CTL
+
+=INFO REPORT==== 14-Oct-2010::16:48:20 ===
+Yaws: Listening to 0.0.0.0:8081 for <1> virtual servers:
+ - http://gtracker.ru:8081 under /home/indie/nitrogen/site/static
+Eshell V5.8.1  (abort with ^G)
+(nitrogen@127.0.0.1)1> 
+===== Thu Oct 14 16:53:41 MSD 2010
+
+=====
+===== LOGGING STARTED Thu Oct 14 16:53:52 MSD 2010
+=====
+Exec: /home/indie/nitrogen/erts-5.8.1/bin/erlexec -boot /home/indie/nitrogen/releases/2.0.2/nitrogen -embedded  -config /home/indie/nitrogen/etc/app.config -config /home/indie/nitrogen/etc/yaws.config -args_file /home/indie/nitrogen/etc/vm.args -- console
+Root: /home/indie/nitrogen
+Erlang R14B (erts-5.8.1) [source] [64-bit] [smp:4:4] [rq:4] [async-threads:5] [kernel-poll:true]
+
+
+=INFO REPORT==== 14-Oct-2010::16:53:53 ===
+Yaws: Using config file ./etc/yaws.conf
+
+=INFO REPORT==== 14-Oct-2010::16:53:53 ===
+Ctlfile : /home/indie/.yaws/yaws/default/CTL
+
+=INFO REPORT==== 14-Oct-2010::16:53:53 ===
+Yaws: Listening to 0.0.0.0:8081 for <1> virtual servers:
+ - http://gtracker.ru:8081 under /home/indie/nitrogen/site/static
+Eshell V5.8.1  (abort with ^G)
+(nitrogen@127.0.0.1)1> 
+===== Thu Oct 14 17:06:33 MSD 2010
+
+=INFO REPORT==== 14-Oct-2010::17:06:33 ===
+{error,error,undef,
+       [{index,event,[login]},
+        {wf_core,run_catched,0},
+        {wf_core,run,0},
+        {yaws_server,deliver_dyn_part,8},
+        {yaws_server,aloop,3},
+        {yaws_server,acceptor0,2},
+        {proc_lib,init_p_do_apply,3}]}
+
+=INFO REPORT==== 14-Oct-2010::17:06:38 ===
+{error,error,undef,
+       [{index,event,[login]},
+        {wf_core,run_catched,0},
+        {wf_core,run,0},
+        {yaws_server,deliver_dyn_part,8},
+        {yaws_server,aloop,3},
+        {yaws_server,acceptor0,2},
+        {proc_lib,init_p_do_apply,3}]}
+
+=====
+===== LOGGING STARTED Thu Oct 14 17:07:18 MSD 2010
+=====
+Exec: /home/indie/nitrogen/erts-5.8.1/bin/erlexec -boot /home/indie/nitrogen/releases/2.0.2/nitrogen -embedded  -config /home/indie/nitrogen/etc/app.config -config /home/indie/nitrogen/etc/yaws.config -args_file /home/indie/nitrogen/etc/vm.args -- console
+Root: /home/indie/nitrogen
+Erlang R14B (erts-5.8.1) [source] [64-bit] [smp:4:4] [rq:4] [async-threads:5] [kernel-poll:true]
+
+
+=INFO REPORT==== 14-Oct-2010::17:07:19 ===
+Yaws: Using config file ./etc/yaws.conf
+
+=INFO REPORT==== 14-Oct-2010::17:07:19 ===
+Ctlfile : /home/indie/.yaws/yaws/default/CTL
+
+=INFO REPORT==== 14-Oct-2010::17:07:19 ===
+Yaws: Listening to 0.0.0.0:8081 for <1> virtual servers:
+ - http://gtracker.ru:8081 under /home/indie/nitrogen/site/static
+Eshell V5.8.1  (abort with ^G)
+(nitrogen@127.0.0.1)1> mysql_conn:629: greeting version "5.1.37-1ubuntu5.4-log" (protocol 10) salt "g6vqT01E" caps 63487 serverchar <<8,2,0,0,
+                                                                                                               0,0,0,0,
+                                                                                                               0,0,0,0,
+                                                                                                               0,0,0,0>>salt2 "Fq)s-!]3$XnE"
+mysql_auth:188: mysql_auth send packet 1: <<5,162,1,0,64,66,15,0,8,0,0,0,0,0,0,
+                                            0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+                                            103,116,117,115,101,114,0,20,173,
+                                            186,46,137,103,4,143,208,191,180,
+                                            116,146,233,225,80,229,5,99,81,189>> 
+mysql_conn:435: fetch <<"use gtracker">> (id <0.104.0>)
+
+=INFO REPORT==== 14-Oct-2010::17:07:26 ===
+{error,error,undef,
+       [{index,event,[login]},
+        {wf_core,run_catched,0},
+        {wf_core,run,0},
+        {yaws_server,deliver_dyn_part,8},
+        {yaws_server,aloop,3},
+        {yaws_server,acceptor0,2},
+        {proc_lib,init_p_do_apply,3}]}
+
+=====
+===== LOGGING STARTED Thu Oct 14 17:08:47 MSD 2010
+=====
+Exec: /home/indie/nitrogen/erts-5.8.1/bin/erlexec -boot /home/indie/nitrogen/releases/2.0.2/nitrogen -embedded  -config /home/indie/nitrogen/etc/app.config -config /home/indie/nitrogen/etc/yaws.config -args_file /home/indie/nitrogen/etc/vm.args -- console
+Root: /home/indie/nitrogen
+Erlang R14B (erts-5.8.1) [source] [64-bit] [smp:4:4] [rq:4] [async-threads:5] [kernel-poll:true]
+
+
+=INFO REPORT==== 14-Oct-2010::17:08:49 ===
+Yaws: Using config file ./etc/yaws.conf
+
+=INFO REPORT==== 14-Oct-2010::17:08:49 ===
+Ctlfile : /home/indie/.yaws/yaws/default/CTL
+
+=INFO REPORT==== 14-Oct-2010::17:08:49 ===
+Yaws: Listening to 0.0.0.0:8081 for <1> virtual servers:
+ - http://gtracker.ru:8081 under /home/indie/nitrogen/site/static
+Eshell V5.8.1  (abort with ^G)
+(nitrogen@127.0.0.1)1> mysql_conn:629: greeting version "5.1.37-1ubuntu5.4-log" (protocol 10) salt "68X33EBZ" caps 63487 serverchar <<8,2,0,0,
+                                                                                                               0,0,0,0,
+                                                                                                               0,0,0,0,
+                                                                                                               0,0,0,0>>salt2 "\"4\"L:{~(Fke<"
+mysql_auth:188: mysql_auth send packet 1: <<5,162,1,0,64,66,15,0,8,0,0,0,0,0,0,
+                                            0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+                                            103,116,117,115,101,114,0,20,233,
+                                            224,9,2,143,37,35,91,82,83,167,95,
+                                            226,213,21,11,76,7,236,179>>
+mysql_conn:435: fetch <<"use gtracker">> (id <0.104.0>)
+
+=INFO REPORT==== 14-Oct-2010::17:10:22 ===
+{error,error,undef,
+       [{index,event,[login]},
+        {wf_core,run_catched,0},
+        {wf_core,run,0},
+        {yaws_server,deliver_dyn_part,8},
+        {yaws_server,aloop,3},
+        {yaws_server,acceptor0,2},
+        {proc_lib,init_p_do_apply,3}]}
+
+=INFO REPORT==== 14-Oct-2010::17:12:17 ===
+{error,error,undef,
+       [{index,event,[login]},
+        {wf_core,run_catched,0},
+        {wf_core,run,0},
+        {yaws_server,deliver_dyn_part,8},
+        {yaws_server,aloop,3},
+        {yaws_server,acceptor0,2},
+        {proc_lib,init_p_do_apply,3}]}
+
+=INFO REPORT==== 14-Oct-2010::17:12:20 ===
+{error,error,undef,
+       [{index,event,[login]},
+        {wf_core,run_catched,0},
+        {wf_core,run,0},
+        {yaws_server,deliver_dyn_part,8},
+        {yaws_server,aloop,3},
+        {yaws_server,acceptor0,2},
+        {proc_lib,init_p_do_apply,3}]}
+
+===== Thu Oct 14 17:18:20 MSD 2010
+
+=INFO REPORT==== 14-Oct-2010::17:18:20 ===
+{error,error,undef,
+       [{index,event,[login]},
+        {wf_core,run_catched,0},
+        {wf_core,run,0},
+        {yaws_server,deliver_dyn_part,8},
+        {yaws_server,aloop,3},
+        {yaws_server,acceptor0,2},
+        {proc_lib,init_p_do_apply,3}]}
+
+=INFO REPORT==== 14-Oct-2010::17:18:27 ===
+{error,error,undef,
+       [{index,event,[login]},
+        {wf_core,run_catched,0},
+        {wf_core,run,0},
+        {yaws_server,deliver_dyn_part,8},
+        {yaws_server,aloop,3},
+        {yaws_server,acceptor0,2},
+        {proc_lib,init_p_do_apply,3}]}
+
+=INFO REPORT==== 14-Oct-2010::17:18:28 ===
+{error,error,undef,
+       [{index,event,[login]},
+        {wf_core,run_catched,0},
+        {wf_core,run,0},
+        {yaws_server,deliver_dyn_part,8},
+        {yaws_server,aloop,3},
+        {yaws_server,acceptor0,2},
+        {proc_lib,init_p_do_apply,3}]}
+
+=INFO REPORT==== 14-Oct-2010::17:20:47 ===
+{error,error,undef,
+       [{index,event,[login]},
+        {wf_core,run_catched,0},
+        {wf_core,run,0},
+        {yaws_server,deliver_dyn_part,8},
+        {yaws_server,aloop,3},
+        {yaws_server,acceptor0,2},
+        {proc_lib,init_p_do_apply,3}]}
+
+=INFO REPORT==== 14-Oct-2010::17:20:55 ===
+{error,error,undef,
+       [{index,event,[login]},
+        {wf_core,run_catched,0},
+        {wf_core,run,0},
+        {yaws_server,deliver_dyn_part,8},
+        {yaws_server,aloop,3},
+        {yaws_server,acceptor0,2},
+        {proc_lib,init_p_do_apply,3}]}
+
+=INFO REPORT==== 14-Oct-2010::17:21:35 ===
+{error,error,undef,
+       [{index,event,[login]},
+        {wf_core,run_catched,0},
+        {wf_core,run,0},
+        {yaws_server,deliver_dyn_part,8},
+        {yaws_server,aloop,3},
+        {yaws_server,acceptor0,2},
+        {proc_lib,init_p_do_apply,3}]}
+
+=INFO REPORT==== 14-Oct-2010::17:21:41 ===
+{error,error,undef,
+       [{index,event,[login]},
+        {wf_core,run_catched,0},
+        {wf_core,run,0},
+        {yaws_server,deliver_dyn_part,8},
+        {yaws_server,aloop,3},
+        {yaws_server,acceptor0,2},
+        {proc_lib,init_p_do_apply,3}]}
+
+=INFO REPORT==== 14-Oct-2010::17:21:44 ===
+{error,error,undef,
+       [{index,event,[login]},
+        {wf_core,run_catched,0},
+        {wf_core,run,0},
+        {yaws_server,deliver_dyn_part,8},
+        {yaws_server,aloop,3},
+        {yaws_server,acceptor0,2},
+        {proc_lib,init_p_do_apply,3}]}
+
+=INFO REPORT==== 14-Oct-2010::17:22:37 ===
+{error,error,undef,
+       [{index,event,[login]},
+        {wf_core,run_catched,0},
+        {wf_core,run,0},
+        {yaws_server,deliver_dyn_part,8},
+        {yaws_server,aloop,3},
+        {yaws_server,acceptor0,2},
+        {proc_lib,init_p_do_apply,3}]}
+
+===== Thu Oct 14 17:35:02 MSD 2010
+
+=INFO REPORT==== 14-Oct-2010::17:35:02 ===
+{error,error,undef,
+       [{session,page_init,[]},
+        {index,'-body/0-lc$^0/1-0-',1},
+        {index,body,0},
+        {element_function,call_next_function,1},
+        {wf_render_elements,call_element_render,2},
+        {wf_render_elements,render_element,1},
+        {wf_render_elements,render_elements,2},
+        {lists,foldl,3}]}
+mysql_conn:435: fetch <<"SELECT id,password FROM user WHERE name='indie';">> (id <0.104.0>)
+
+=INFO REPORT==== 14-Oct-2010::17:38:57 ===
+{error,throw,
+       {default_query_handler,too_many_matches,user_text_box},
+       [{default_query_handler,get_value,3},
+        {index,event,1},
+        {wf_core,run_catched,0},
+        {wf_core,run,0},
+        {yaws_server,deliver_dyn_part,8},
+        {yaws_server,aloop,3},
+        {yaws_server,acceptor0,2},
+        {proc_lib,init_p_do_apply,3}]}
+
+=INFO REPORT==== 14-Oct-2010::17:43:28 ===
+{error,error,badarg,
+       [{erlang,md5,[undefined]},
+        {md5,hex,1},
+        {index,event,1},
+        {wf_core,run_catched,0},
+        {wf_core,run,0},
+        {yaws_server,deliver_dyn_part,8},
+        {yaws_server,aloop,3},
+        {yaws_server,acceptor0,2}]}
+mysql_conn:435: fetch <<"SELECT id,password FROM user WHERE name='dasda';">> (id <0.104.0>)
+
+=INFO REPORT==== 14-Oct-2010::17:43:38 ===
+{error,error,badarg,
+       [{erlang,md5,[undefined]},
+        {md5,hex,1},
+        {index,event,1},
+        {wf_core,run_catched,0},
+        {wf_core,run,0},
+        {yaws_server,deliver_dyn_part,8},
+        {yaws_server,aloop,3},
+        {yaws_server,acceptor0,2}]}
+mysql_conn:435: fetch <<"SELECT id,password FROM user WHERE name='dasda';">> (id <0.104.0>)
+mysql_conn:435: fetch <<"SELECT id,password FROM user WHERE name='dasda';">> (id <0.104.0>)
+mysql_conn:435: fetch <<"SELECT id,password FROM user WHERE name='das';">> (id <0.104.0>)
+
+=INFO REPORT==== 14-Oct-2010::17:46:44 ===
+{error,error,badarg,
+       [{erlang,md5,[undefined]},
+        {md5,hex,1},
+        {index,event,1},
+        {wf_core,run_catched,0},
+        {wf_core,run,0},
+        {yaws_server,deliver_dyn_part,8},
+        {yaws_server,aloop,3},
+        {yaws_server,acceptor0,2}]}
+mysql_conn:435: fetch <<"SELECT id,password FROM user WHERE name='dasdasd';">> (id <0.104.0>)
+mysql_conn:435: fetch <<"SELECT id,password FROM user WHERE name='2131';">> (id <0.104.0>)
+
+=INFO REPORT==== 14-Oct-2010::17:47:29 ===
+{error,error,function_clause,
+       [{wf_convert,inner_to_list,
+                    [{span,is_element,element_span,undefined,undefined,
+                           undefined,true,[],[],"User: ",true}]},
+        {wf_convert,'-to_list/1-lc$^0/1-0-',1},
+        {wf_convert,to_list,1},
+        {wf_convert,html_encode,2},
+        {element_span,render_element,1},
+        {wf_render_elements,call_element_render,2},
+        {wf_render_elements,render_element,1},
+        {wf_render_elements,render_elements,2}]}
+mysql_conn:435: fetch <<"SELECT id,password FROM user WHERE name='indie';">> (id <0.104.0>)
+
+=INFO REPORT==== 14-Oct-2010::17:49:26 ===
+{error,throw,
+       {default_query_handler,too_many_matches,user_text_box},
+       [{default_query_handler,get_value,3},
+        {index,event,1},
+        {wf_core,run_catched,0},
+        {wf_core,run,0},
+        {yaws_server,deliver_dyn_part,8},
+        {yaws_server,aloop,3},
+        {yaws_server,acceptor0,2},
+        {proc_lib,init_p_do_apply,3}]}
+
+=INFO REPORT==== 14-Oct-2010::17:49:28 ===
+{error,throw,
+       {default_query_handler,too_many_matches,user_text_box},
+       [{default_query_handler,get_value,3},
+        {index,event,1},
+        {wf_core,run_catched,0},
+        {wf_core,run,0},
+        {yaws_server,deliver_dyn_part,8},
+        {yaws_server,aloop,3},
+        {yaws_server,acceptor0,2},
+        {proc_lib,init_p_do_apply,3}]}
+
+=INFO REPORT==== 14-Oct-2010::17:49:35 ===
+{error,throw,
+       {default_query_handler,too_many_matches,user_text_box},
+       [{default_query_handler,get_value,3},
+        {index,event,1},
+        {wf_core,run_catched,0},
+        {wf_core,run,0},
+        {yaws_server,deliver_dyn_part,8},
+        {yaws_server,aloop,3},
+        {yaws_server,acceptor0,2},
+        {proc_lib,init_p_do_apply,3}]}
+
+=INFO REPORT==== 14-Oct-2010::17:49:43 ===
+{error,throw,
+       {default_query_handler,too_many_matches,user_text_box},
+       [{default_query_handler,get_value,3},
+        {index,event,1},
+        {wf_core,run_catched,0},
+        {wf_core,run,0},
+        {yaws_server,deliver_dyn_part,8},
+        {yaws_server,aloop,3},
+        {yaws_server,acceptor0,2},
+        {proc_lib,init_p_do_apply,3}]}
+mysql_conn:435: fetch <<"SELECT id,password FROM user WHERE name='indie';">> (id <0.104.0>)
+mysql_conn:435: fetch <<"SELECT id,password FROM user WHERE name='indie';">> (id <0.104.0>)
+mysql_conn:435: fetch <<"SELECT id,password FROM user WHERE name='indie';">> (id <0.104.0>)
+mysql_conn:435: fetch <<"SELECT id,password FROM user WHERE name='indie';">> (id <0.104.0>)
+mysql_conn:435: fetch <<"SELECT id,password FROM user WHERE name='indie';">> (id <0.104.0>)
+mysql_conn:435: fetch <<"SELECT id,password FROM user WHERE name='indie';">> (id <0.104.0>)
+mysql_conn:435: fetch <<"SELECT id,password FROM user WHERE name='indie';">> (id <0.104.0>)
+
+=INFO REPORT==== 14-Oct-2010::18:00:03 ===
+{error,error,badarg,
+       [{erlang,md5,[undefined]},
+        {md5,hex,1},
+        {index,event,1},
+        {wf_core,run_catched,0},
+        {wf_core,run,0},
+        {yaws_server,deliver_dyn_part,8},
+        {yaws_server,aloop,3},
+        {yaws_server,acceptor0,2}]}
+mysql_conn:435: fetch <<"SELECT id,password FROM user WHERE name='indie';">> (id <0.104.0>)
+mysql_conn:435: fetch <<"SELECT id,password FROM user WHERE name='indie';">> (id <0.104.0>)
+mysql_conn:435: fetch <<"SELECT id,password FROM user WHERE name='indie';">> (id <0.104.0>)
+
+===== Thu Oct 14 18:09:42 MSD 2010
+mysql_conn:435: fetch <<"SELECT id,password FROM user WHERE name='indie';">> (id <0.104.0>)
+
+=INFO REPORT==== 14-Oct-2010::18:10:10 ===
+Page not found: "/registration"
+mysql_conn:435: fetch <<"SELECT id,password FROM user WHERE name='indie';">> (id <0.104.0>)
+
+=INFO REPORT==== 14-Oct-2010::18:11:34 ===
+Page not found: "/registration"
+
+=INFO REPORT==== 14-Oct-2010::18:11:48 ===
+{error,error,badarg,
+       [{erlang,md5,[undefined]},
+        {md5,hex,1},
+        {index,event,1},
+        {wf_core,run_catched,0},
+        {wf_core,run,0},
+        {yaws_server,deliver_dyn_part,8},
+        {yaws_server,aloop,3},
+        {yaws_server,acceptor0,2}]}
+
+=INFO REPORT==== 14-Oct-2010::18:13:06 ===
+Page not found: "/registration"
+
+=INFO REPORT==== 14-Oct-2010::18:14:01 ===
+Page not found: "/map"
+
+=INFO REPORT==== 14-Oct-2010::18:14:05 ===
+Page not found: "/download"
+
+=INFO REPORT==== 14-Oct-2010::18:15:24 ===
+Page not found: "/map"
+
+=INFO REPORT==== 14-Oct-2010::18:17:23 ===
+Page not found: "/download"
+
+=INFO REPORT==== 14-Oct-2010::18:17:26 ===
+Page not found: "/registration"
+
+===== Thu Oct 14 18:24:59 MSD 2010
+
+=INFO REPORT==== 14-Oct-2010::18:24:59 ===
+Page not found: "/map"
+
+===== ALIVE Thu Oct 14 18:39:59 MSD 2010
+
+=INFO REPORT==== 14-Oct-2010::18:43:20 ===
+Page not found: "/about"
+
+=INFO REPORT==== 14-Oct-2010::18:43:24 ===
+Page not found: "/map"
+
+===== ALIVE Thu Oct 14 18:58:25 MSD 2010
+
+===== ALIVE Thu Oct 14 19:13:25 MSD 2010
+
+===== ALIVE Thu Oct 14 19:28:25 MSD 2010
+
+===== Thu Oct 14 19:40:40 MSD 2010
+mysql_conn:435: fetch <<"SELECT id,password FROM user WHERE name='indie';">> (id <0.104.0>)
+
+===== Thu Oct 14 19:46:39 MSD 2010
+
+=INFO REPORT==== 14-Oct-2010::19:46:39 ===
+{error,error,badarg,
+       [{erlang,md5,[undefined]},
+        {md5,hex,1},
+        {session,event,1},
+        {wf_core,run_catched,0},
+        {wf_core,run,0},
+        {yaws_server,deliver_dyn_part,8},
+        {yaws_server,aloop,3},
+        {yaws_server,acceptor0,2}]}
+
+=INFO REPORT==== 14-Oct-2010::19:46:41 ===
+{error,error,badarg,
+       [{erlang,md5,[undefined]},
+        {md5,hex,1},
+        {session,event,1},
+        {wf_core,run_catched,0},
+        {wf_core,run,0},
+        {yaws_server,deliver_dyn_part,8},
+        {yaws_server,aloop,3},
+        {yaws_server,acceptor0,2}]}
+
+===== ALIVE Thu Oct 14 20:01:41 MSD 2010
+
+===== ALIVE Thu Oct 14 20:16:41 MSD 2010
+
+===== ALIVE Thu Oct 14 20:31:41 MSD 2010
+
+===== ALIVE Thu Oct 14 20:46:42 MSD 2010
+
+===== ALIVE Thu Oct 14 21:01:42 MSD 2010
+
+===== ALIVE Thu Oct 14 21:16:42 MSD 2010
+
+===== ALIVE Thu Oct 14 21:31:42 MSD 2010
+
+===== ALIVE Thu Oct 14 21:46:42 MSD 2010
+
+===== ALIVE Thu Oct 14 22:01:42 MSD 2010
+
+===== ALIVE Thu Oct 14 22:16:42 MSD 2010
+
+===== ALIVE Thu Oct 14 22:31:43 MSD 2010
+
+===== ALIVE Thu Oct 14 22:46:43 MSD 2010
+
+===== ALIVE Thu Oct 14 23:01:43 MSD 2010
+
+===== ALIVE Thu Oct 14 23:16:43 MSD 2010
+
+===== ALIVE Thu Oct 14 23:31:43 MSD 2010
+
+===== ALIVE Thu Oct 14 23:46:43 MSD 2010
+
+===== ALIVE Fri Oct 15 00:01:43 MSD 2010
+
+===== ALIVE Fri Oct 15 00:16:44 MSD 2010
+
+===== ALIVE Fri Oct 15 00:31:44 MSD 2010
+
+===== ALIVE Fri Oct 15 00:46:44 MSD 2010
+
+===== ALIVE Fri Oct 15 01:01:44 MSD 2010
+
+===== ALIVE Fri Oct 15 01:16:44 MSD 2010
+
+===== ALIVE Fri Oct 15 01:31:44 MSD 2010
+
+===== ALIVE Fri Oct 15 01:46:44 MSD 2010
+
+===== ALIVE Fri Oct 15 02:01:45 MSD 2010
+
+===== ALIVE Fri Oct 15 02:16:45 MSD 2010
+
+===== ALIVE Fri Oct 15 02:31:45 MSD 2010
+
+===== ALIVE Fri Oct 15 02:46:45 MSD 2010
+
+===== ALIVE Fri Oct 15 03:01:45 MSD 2010
+
+===== ALIVE Fri Oct 15 03:16:45 MSD 2010
+
+===== ALIVE Fri Oct 15 03:31:46 MSD 2010
+
+===== Fri Oct 15 03:40:40 MSD 2010
+mysql_recv:143: mysql_recv: Socket #Port<0.1642> closed
+mysql_conn:405: socket closed by server
+mysql:596: connection pid <0.103.0> exited : normal
+mysql:736: started pid <0.11178.0> to try and reconnect to mysql_link:localhost:3306 (replacing connection with pid <0.103.0>)
+mysql_conn:629: greeting version "5.1.37-1ubuntu5.4-log" (protocol 10) salt "GTOoawSv" caps 63487 serverchar <<8,2,0,0,
+                                                                                                               0,0,0,0,
+                                                                                                               0,0,0,0,
+                                                                                                               0,0,0,0>>salt2 "{(RC;<[6=l,2"
+mysql_auth:188: mysql_auth send packet 1: <<5,162,1,0,64,66,15,0,8,0,0,0,0,0,0,
+                                            0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+                                            103,116,117,115,101,114,0,20,96,
+                                            220,98,125,85,174,129,248,185,184,
+                                            242,251,116,73,253,72,178,161,69,
+                                            222>>
+mysql_conn:435: fetch <<"use gtracker">> (id <0.11180.0>)
+mysql:547: added connection with id 'mysql_link' (pid <0.11179.0>) to my list
+mysql:753: managed to reconnect to mysql_link:localhost:3306 (connection pid <0.11179.0>)
+
+===== ALIVE Fri Oct 15 03:55:40 MSD 2010
+
+===== ALIVE Fri Oct 15 04:10:40 MSD 2010
+
+===== ALIVE Fri Oct 15 04:25:40 MSD 2010
+
+===== ALIVE Fri Oct 15 04:40:40 MSD 2010
+
+===== ALIVE Fri Oct 15 04:55:41 MSD 2010
+
+===== ALIVE Fri Oct 15 05:10:41 MSD 2010
+
+===== ALIVE Fri Oct 15 05:25:41 MSD 2010
+
+===== ALIVE Fri Oct 15 05:40:41 MSD 2010
+
+===== ALIVE Fri Oct 15 05:55:41 MSD 2010
+
+===== ALIVE Fri Oct 15 06:10:41 MSD 2010
+
+===== ALIVE Fri Oct 15 06:25:41 MSD 2010
+
+===== ALIVE Fri Oct 15 06:40:42 MSD 2010
+
+===== ALIVE Fri Oct 15 06:55:42 MSD 2010
+
+===== ALIVE Fri Oct 15 07:10:42 MSD 2010
+
+===== ALIVE Fri Oct 15 07:25:42 MSD 2010
+
+===== ALIVE Fri Oct 15 07:40:42 MSD 2010
+
+===== ALIVE Fri Oct 15 07:55:42 MSD 2010
+
+===== ALIVE Fri Oct 15 08:10:42 MSD 2010
+
+===== ALIVE Fri Oct 15 08:25:43 MSD 2010
+
+===== ALIVE Fri Oct 15 08:40:43 MSD 2010
+
+===== ALIVE Fri Oct 15 08:55:43 MSD 2010
+
+===== ALIVE Fri Oct 15 09:10:43 MSD 2010
+
+===== ALIVE Fri Oct 15 09:25:43 MSD 2010
+
+===== ALIVE Fri Oct 15 09:40:43 MSD 2010
+
+===== ALIVE Fri Oct 15 09:55:43 MSD 2010
+
+===== ALIVE Fri Oct 15 10:10:44 MSD 2010
+
+===== ALIVE Fri Oct 15 10:25:44 MSD 2010
+
+===== ALIVE Fri Oct 15 10:40:44 MSD 2010
+
+===== ALIVE Fri Oct 15 10:55:44 MSD 2010
+
+===== ALIVE Fri Oct 15 11:10:44 MSD 2010
+
+===== ALIVE Fri Oct 15 11:25:44 MSD 2010
+
+===== Fri Oct 15 11:40:40 MSD 2010
+mysql_recv:143: mysql_recv: Socket #Port<0.10388> closed
+mysql_conn:405: socket closed by server
+mysql:596: connection pid <0.11179.0> exited : normal
+mysql:736: started pid <0.16941.0> to try and reconnect to mysql_link:localhost:3306 (replacing connection with pid <0.11179.0>)
+mysql_conn:629: greeting version "5.1.37-1ubuntu5.4-log" (protocol 10) salt "wLS=tR~C" caps 63487 serverchar <<8,2,0,0,
+                                                                                                               0,0,0,0,
+                                                                                                               0,0,0,0,
+                                                                                                               0,0,0,0>>salt2 "q2A0kL{E'3i9"
+mysql_auth:188: mysql_auth send packet 1: <<5,162,1,0,64,66,15,0,8,0,0,0,0,0,0,
+                                            0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+                                            103,116,117,115,101,114,0,20,46,
+                                            217,86,117,191,43,168,51,183,55,
+                                            235,169,112,94,8,164,101,55,222,222>>
+mysql_conn:435: fetch <<"use gtracker">> (id <0.16943.0>)
+mysql:547: added connection with id 'mysql_link' (pid <0.16942.0>) to my list
+mysql:753: managed to reconnect to mysql_link:localhost:3306 (connection pid <0.16942.0>)
+
+===== ALIVE Fri Oct 15 11:55:40 MSD 2010
+
+===== ALIVE Fri Oct 15 12:10:40 MSD 2010
+
+===== ALIVE Fri Oct 15 12:25:40 MSD 2010
+
+===== ALIVE Fri Oct 15 12:40:40 MSD 2010
+
+===== ALIVE Fri Oct 15 12:55:41 MSD 2010
+
+===== ALIVE Fri Oct 15 13:10:41 MSD 2010
+
+===== Fri Oct 15 13:16:12 MSD 2010
+mysql_conn:435: fetch <<"SELECT id,password FROM user WHERE name='indie';">> (id <0.16943.0>)
+
+===== ALIVE Fri Oct 15 13:31:12 MSD 2010
+
+===== ALIVE Fri Oct 15 13:46:12 MSD 2010
+
+===== ALIVE Fri Oct 15 14:01:12 MSD 2010
+
+===== ALIVE Fri Oct 15 14:16:13 MSD 2010
+
+=INFO REPORT==== 15-Oct-2010::14:18:53 ===
+{error,error,
+       {badrecord,link},
+       [{session,display_logout,0},
+        {wf_handler,call,3},
+        {session,display,0},
+        {element_function,call_next_function,1},
+        {wf_render_elements,call_element_render,2},
+        {wf_render_elements,render_element,1},
+        {wf_render_elements,render_elements,2},
+        {lists,foldl,3}]}
+
+===== ALIVE Fri Oct 15 14:33:53 MSD 2010
+
+===== Fri Oct 15 14:47:25 MSD 2010
+
+=INFO REPORT==== 15-Oct-2010::14:47:25 ===
+Page not found: "/registration"
+
+===== ALIVE Fri Oct 15 15:02:25 MSD 2010
+
+===== ALIVE Fri Oct 15 15:17:25 MSD 2010
+
+===== Fri Oct 15 15:23:01 MSD 2010
+
+=INFO REPORT==== 15-Oct-2010::15:23:01 ===
+{error,error,undef,
+       [{registration,event,[register_user]},
+        {wf_core,run_catched,0},
+        {wf_core,run,0},
+        {yaws_server,deliver_dyn_part,8},
+        {yaws_server,aloop,3},
+        {yaws_server,acceptor0,2},
+        {proc_lib,init_p_do_apply,3}]}
+
+=INFO REPORT==== 15-Oct-2010::15:24:00 ===
+{error,error,undef,
+       [{registration,event,[register_user]},
+        {wf_core,run_catched,0},
+        {wf_core,run,0},
+        {yaws_server,deliver_dyn_part,8},
+        {yaws_server,aloop,3},
+        {yaws_server,acceptor0,2},
+        {proc_lib,init_p_do_apply,3}]}
+
+=INFO REPORT==== 15-Oct-2010::15:27:08 ===
+{error,error,undef,
+       [{registration,event,[register_user]},
+        {wf_core,run_catched,0},
+        {wf_core,run,0},
+        {yaws_server,deliver_dyn_part,8},
+        {yaws_server,aloop,3},
+        {yaws_server,acceptor0,2},
+        {proc_lib,init_p_do_apply,3}]}
+mysql_conn:435: fetch <<"SELECT id,password FROM user WHERE name='indie';">> (id <0.16943.0>)
+mysql_conn:435: fetch <<"SELECT id,password FROM user WHERE name='indie';">> (id <0.16943.0>)
+
+===== Fri Oct 15 15:35:17 MSD 2010
+mysql_conn:435: fetch <<"SELECT id,password FROM user WHERE name='indie';">> (id <0.16943.0>)
+mysql_conn:435: fetch <<"SELECT id,password FROM user WHERE name='indie';">> (id <0.16943.0>)
+mysql_conn:435: fetch <<"SELECT id,password FROM user WHERE name='indie';">> (id <0.16943.0>)
+
+===== ALIVE Fri Oct 15 15:51:50 MSD 2010
+
+===== ALIVE Fri Oct 15 16:06:50 MSD 2010
+
+===== ALIVE Fri Oct 15 16:21:50 MSD 2010
+
+===== Fri Oct 15 16:30:04 MSD 2010
+mysql_conn:435: fetch <<"SELECT id FROM user WHERE name='indie';">> (id <0.16943.0>)
+mysql_conn:435: fetch <<"SELECT id FROM user WHERE name='inndie@gmail.com';">> (id <0.16943.0>)
+mysql_conn:435: fetch <<"SELECT id FROM user WHERE name='inndie@gmail.com';">> (id <0.16943.0>)
+mysql_conn:435: fetch <<"SELECT id FROM user WHERE name='inndie@gmail.com';">> (id <0.16943.0>)
+
+===== Fri Oct 15 16:40:54 MSD 2010
+mysql_conn:435: fetch <<"SELECT id FROM user WHERE name='3123';">> (id <0.16943.0>)
+mysql_conn:435: fetch <<"SELECT id FROM user WHERE name='3123';">> (id <0.16943.0>)
+mysql_conn:435: fetch <<"SELECT id FROM user WHERE name='undefined';">> (id <0.16943.0>)
+
+=INFO REPORT==== 15-Oct-2010::16:41:19 ===
+{error,error,badarg,
+       [{erlang,length,[undefined]},
+        {validator_min_length,validate,2},
+        {wf_validation,'-validate/0-fun-0-',2},
+        {lists,foldl,3},
+        {wf_validation,validate,0},
+        {wf_core,run_postback_request,0},
+        {wf_core,run_catched,0},
+        {wf_core,run,0}]}
+mysql_conn:435: fetch <<"SELECT id FROM user WHERE name='undefined';">> (id <0.16943.0>)
+
+=INFO REPORT==== 15-Oct-2010::16:41:20 ===
+{error,error,badarg,
+       [{erlang,length,[undefined]},
+        {validator_min_length,validate,2},
+        {wf_validation,'-validate/0-fun-0-',2},
+        {lists,foldl,3},
+        {wf_validation,validate,0},
+        {wf_core,run_postback_request,0},
+        {wf_core,run_catched,0},
+        {wf_core,run,0}]}
+mysql_conn:435: fetch <<"SELECT id FROM user WHERE name='indie@gmail.com';">> (id <0.16943.0>)
+
+=INFO REPORT==== 15-Oct-2010::16:41:24 ===
+{error,error,badarg,
+       [{erlang,length,[undefined]},
+        {validator_min_length,validate,2},
+        {wf_validation,'-validate/0-fun-0-',2},
+        {lists,foldl,3},
+        {wf_validation,validate,0},
+        {wf_core,run_postback_request,0},
+        {wf_core,run_catched,0},
+        {wf_core,run,0}]}
+mysql_conn:435: fetch <<"SELECT id FROM user WHERE name='indie@gmail.com';">> (id <0.16943.0>)
+mysql_conn:435: fetch <<"SELECT id FROM user WHERE name='indie@gmail.com';">> (id <0.16943.0>)
+mysql_conn:435: fetch <<"SELECT id FROM user WHERE name='indie@gmail.com1';">> (id <0.16943.0>)
+mysql_conn:435: fetch <<"SELECT id FROM user WHERE name='indie@gmailcom';">> (id <0.16943.0>)
+mysql_conn:435: fetch <<"SELECT id FROM user WHERE name='indiegmail.com';">> (id <0.16943.0>)
+mysql_conn:435: fetch <<"SELECT id FROM user WHERE name='inndie';">> (id <0.16943.0>)
+mysql_conn:435: fetch <<"SELECT id FROM user WHERE name='inndie@gmail.com';">> (id <0.16943.0>)
+mysql_conn:435: fetch <<"INSERT INTO user (user, password) VALUES('inndie@gmail.com', '2a3dfa66c2d8e8c67b77f2a25886e3cf');">> (id <0.16943.0>)
+
+===== ALIVE Fri Oct 15 17:00:01 MSD 2010
+
+===== ALIVE Fri Oct 15 17:15:01 MSD 2010
+
+===== ALIVE Fri Oct 15 17:30:01 MSD 2010
+mysql_conn:435: fetch <<"SELECT id FROM user WHERE name='dmitryme@gmail.com';">> (id <0.16943.0>)
+mysql_conn:435: fetch <<"SELECT id FROM user WHERE name='dmitryme@gmail.com';">> (id <0.16943.0>)
+mysql_conn:435: fetch <<"INSERT INTO user (user, password) VALUES('dmitryme@gmail.com', '980ac217c6b51e7dc41040bec1edfec8');">> (id <0.16943.0>)
+mysql_conn:435: fetch <<"SELECT id,password FROM user WHERE name='dmitryme@gmail.com';">> (id <0.16943.0>)
+mysql_conn:435: fetch <<"SELECT id,password FROM user WHERE name='dmitryme@gmail.com';">> (id <0.16943.0>)
+mysql_conn:435: fetch <<"SELECT id,password FROM user WHERE name='dmitryme@gmail.com';">> (id <0.16943.0>)
+
+=INFO REPORT==== 15-Oct-2010::17:33:50 ===
+Page not found: "/about"
+mysql_conn:435: fetch <<"SELECT id,password FROM user WHERE name='dmitryme@gmail.com';">> (id <0.16943.0>)
+
+===== ALIVE Fri Oct 15 17:48:57 MSD 2010
+
+===== ALIVE Fri Oct 15 18:03:57 MSD 2010
+
+===== ALIVE Fri Oct 15 18:18:57 MSD 2010
+
+===== ALIVE Fri Oct 15 18:33:57 MSD 2010
+
+===== ALIVE Fri Oct 15 18:48:57 MSD 2010
+
+===== ALIVE Fri Oct 15 19:03:57 MSD 2010
+
+===== ALIVE Fri Oct 15 19:18:57 MSD 2010
+
+===== ALIVE Fri Oct 15 19:33:58 MSD 2010
+
+===== ALIVE Fri Oct 15 19:48:58 MSD 2010
+
+===== ALIVE Fri Oct 15 20:03:58 MSD 2010
+
+===== ALIVE Fri Oct 15 20:18:58 MSD 2010
+
+===== ALIVE Fri Oct 15 20:33:58 MSD 2010
+
+===== ALIVE Fri Oct 15 20:48:58 MSD 2010
+
+===== Fri Oct 15 20:59:20 MSD 2010
+mysql_conn:435: fetch <<"SELECT id,password FROM user WHERE name='inndie@gmail.com';">> (id <0.16943.0>)
+mysql_conn:435: fetch <<"SELECT id,password FROM user WHERE name='inndie@gmail.com';">> (id <0.16943.0>)
+mysql_conn:435: fetch <<"SELECT id,password FROM user WHERE name='inndie@gmail.com';">> (id <0.16943.0>)
+mysql_conn:435: fetch <<"SELECT id,password FROM user WHERE name='inndie@gmail.com';">> (id <0.16943.0>)
+mysql_conn:435: fetch <<"SELECT id FROM user WHERE name='inndie@gmail.com';">> (id <0.16943.0>)
+mysql_conn:435: fetch <<"SELECT id FROM user WHERE name='inndie@gmail.com';">> (id <0.16943.0>)
+mysql_conn:435: fetch <<"INSERT INTO user (user, password) VALUES('inndie@gmail.com', '2a3dfa66c2d8e8c67b77f2a25886e3cf');">> (id <0.16943.0>)
+mysql_conn:435: fetch <<"SELECT id FROM user WHERE name='inndie@gmail.com';">> (id <0.16943.0>)
+mysql_conn:435: fetch <<"INSERT INTO user (name, password) VALUES('inndie@gmail.com', '2a3dfa66c2d8e8c67b77f2a25886e3cf');">> (id <0.16943.0>)
+mysql_conn:435: fetch <<"SELECT id,password FROM user WHERE name='inndie@gmail.com';">> (id <0.16943.0>)
+
+=INFO REPORT==== 15-Oct-2010::21:04:32 ===
+Page not found: "/about"
+
+=INFO REPORT==== 15-Oct-2010::21:04:36 ===
+Page not found: "/download"
+
+=INFO REPORT==== 15-Oct-2010::21:04:38 ===
+Page not found: "/map"
+
+=INFO REPORT==== 15-Oct-2010::21:05:44 ===
+Page not found: "/download"
+
+===== ALIVE Fri Oct 15 21:20:44 MSD 2010
+
+===== ALIVE Fri Oct 15 21:35:45 MSD 2010
+
+===== ALIVE Fri Oct 15 21:50:45 MSD 2010
+
+===== ALIVE Fri Oct 15 22:05:45 MSD 2010
+
+===== ALIVE Fri Oct 15 22:20:45 MSD 2010
+
+===== ALIVE Fri Oct 15 22:35:45 MSD 2010
+
+===== ALIVE Fri Oct 15 22:50:45 MSD 2010
+
+===== ALIVE Fri Oct 15 23:05:45 MSD 2010
+
+===== Fri Oct 15 23:14:31 MSD 2010
