@@ -48,9 +48,9 @@ event(login) ->
          wf:user(User),
          wf:redirect("/");
       ?RESULT([[_, _]]) ->
-         ok; %wf:update(session_error, "Incorrect password");
+         wf:wire(#alert { text="Incorrect password" });
       ?RESULT([]) ->
-         ok; %wf:update(session_error, "User not exists");
+         wf:wire(#alert { text="Account not exists" });
       bad_query ->
-         ok  %wf:update(session_error, "Internal error")
+         wf:wire(#alert { text="INTERNAL ERROR" })
    end.
