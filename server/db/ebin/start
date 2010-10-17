@@ -1,3 +1,3 @@
 #!/bin/bash
 
-ERL_LIBS=../deps erl -boot start_sasl -config app.config
+ERL_LIBS=../deps erl -sname gtracker_db -boot start_sasl -config app.config

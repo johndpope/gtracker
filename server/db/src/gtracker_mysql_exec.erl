@@ -272,14 +272,14 @@ select_device(DevName) ->
    case execute(?SELECT_DEVICE, [DevName]) of
       ?RESULT([]) ->
          no_device;
-      ?RESULT([[DevId, Name, Alias, Ref, Online, RegisterBy, Timezone, TwitterAuth]]) ->
+      ?RESULT([[DevId, Name, Alias, Ref, Online, RegisteredBy, Timezone, TwitterAuth]]) ->
          #device{
             id = DevId,
             name = bin_to_list(Name),
             alias = bin_to_list(Alias),
             reference = Ref,
             online = state_to_atom(Online),
-            registered_by = bin_to_pid(RegisterBy),
+            registered_by = bin_to_owner(RegisteredBy),
             timezone = bin_to_list(Timezone),
             twitter_auth = bin_to_term(TwitterAuth)}
    end.
@@ -303,11 +303,15 @@ insert_device(DevName) ->
    execute(?INSERT_REFERENCE, [DevId, Ref]),
    DevId.
 
-% set_online(DevName) -> true | false
+% set_online(DevName, Owner) -> true | false
 %     DevName = String(), device name
+%     Owner = {Pid, Node}
+%     Pid = pid()
+%     Node = atom()
 %    throws Error()
-set_online(DevName, Pid) ->
-   case execute(?DEVICE_ONLINE, [pid_to_list(Pid), DevName]) of
+set_online(DevName, {Pid, Node}) ->
+   StrOwner = lists:flatten(io_lib:format("{~p, ~p}.", [pid_to_list(Pid), atom_to_list(Node)])),
+   case execute(?DEVICE_ONLINE, [StrOwner, DevName]) of
       ?UPDATED(1) ->
          true;
       _ ->
@@ -353,14 +357,14 @@ get_last_inserted_id() ->
 
 bindev_to_list([]) ->
    [];
-bindev_to_list([ [DevId, Name, Alias, Ref, Online, RegisterBy, Timezone, TwitterAuth] | Rest ]) ->
+bindev_to_list([ [DevId, Name, Alias, Ref, Online, RegisteredBy, Timezone, TwitterAuth] | Rest ]) ->
    [#device{
             id = DevId,
             name = bin_to_list(Name),
             alias = bin_to_list(Alias),
             reference = Ref,
             online = state_to_atom(Online),
-            registered_by = bin_to_pid(RegisterBy),
+            registered_by = bin_to_owner(RegisteredBy),
             timezone = bin_to_list(Timezone),
             twitter_auth = bin_to_term(TwitterAuth)} | bindev_to_list(Rest)].
 
@@ -376,12 +380,19 @@ bintrack_to_list([ [TrackId, Status, Start, Stop, Name, AvgSpeed, Length] | Rest
          avg_speed = AvgSpeed,
          length = Length } | bintrack_to_list(Rest) ].
 
-bin_to_pid(BinPid) ->
-   case bin_to_list(BinPid) of
+bin_to_owner(BinOwner) ->
+   case bin_to_list(BinOwner) of
       undef ->
          undef;
-      ListPid ->
-         list_to_pid(ListPid)
+      ListOwner ->
+         {ok, Tokens, _} = erl_scan:string(ListOwner),
+         {ok, {ListPid, ListNode}} = erl_parse:parse_term(Tokens),
+         case (catch list_to_pid(ListPid)) of
+            {'EXIT', {badarg, _}} ->
+               undef;
+            Pid ->
+               {Pid, erlang:list_to_atom(ListNode)}
+         end
    end.
 
 % Binary string to Erlang list

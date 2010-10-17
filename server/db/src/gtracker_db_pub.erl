@@ -4,11 +4,14 @@
    [
       new_device/1
       ,select_device/2
+      ,set_device_online/2
+      ,set_device_offline/2
       ,select_all_devices/2
       ,select_tracks/2
-      ,start_new_track/2
+      ,stop_track/3
+      ,start_new_track/3
       ,select_triggers/2
-      ,rename_track/3
+      ,rename_track/4
    ]).
 
 new_device(ServerRef) ->
@@ -17,11 +20,11 @@ new_device(ServerRef) ->
 select_device(ServerRef, DevName) ->
    gen_server:call(ServerRef, {get_device, DevName}).
 
-set_device_online(ServerRef, DevName, Pid) ->
-   gen_server:call(ServerRef, {online, DevName, Pid}).
+set_device_online(ServerRef, DevName) ->
+   gen_server:call(ServerRef, {online, DevName, {self(), node()}}).
 
 set_device_offline(ServerRef, DevName) ->
-   ServerRef ! {offline, DevName}.
+   gen_server:call(ServerRef, {offline, DevName}).
 
 select_all_devices(ServerRef, OnlyActive)->
    gen_server:call(ServerRef, {get_all_devices, OnlyActive}).
@@ -32,8 +35,11 @@ select_triggers(ServerRef, DevName) ->
 select_tracks(ServerRef, DevName) ->
    gen_server:call(ServerRef, {select_tracks, DevName}).
 
-start_new_track(ServerRef, DevName) ->
-   gen_server:call(ServerRef, {new_track, DevName}).
+stop_track(ServerRef, DevName, TrackId) ->
+   gen_server:call(ServerRef, {stop_track, DevName, TrackId}).
 
-rename_track(ServerRef, DevName, NewTrackName) ->
-   gen_server:call(ServerRef, {rename_track, DevName, NewTrackName}).
+start_new_track(ServerRef, DevName, TrackName) ->
+   gen_server:call(ServerRef, {new_track, DevName, TrackName}).
+
+rename_track(ServerRef, DevName, TrackId, NewTrackName) ->
+   gen_server:call(ServerRef, {rename_track, DevName, TrackId, NewTrackName}).

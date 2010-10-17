@@ -13,6 +13,9 @@
 -define(DEF_MAX_TRACK_INTERVAL, 60).  % one minute
 -define(MOD,     {global, gtracker_db}).
 
+-define(LOG_ERROR(MethodName), log(error, "~s failed: ~p. Msg = ~p, State = ~p, Stack trace = ~p", [MethodName, Err,
+         Msg, dump_state(State), erlang:get_stacktrace()])).
+
 -record(dev_info, {name, id, ref, track_id = undef}).
 -record(state, {
                  gt_pgroup,            % process group
@@ -61,7 +64,7 @@ on_msg(stop, _From, State) ->
    {stop, normal, stopped, State};
 
 %get new device callback
-on_msg(new_device, _From, State = #state{dev_cache = DevCache}) ->
+on_msg(Msg = new_device, _From, State = #state{dev_cache = DevCache}) ->
    log(debug, "new_device(). State = ~p", [dump_state(State)]),
    F = fun(Fun) ->
          DevName = gen_dev_name(),
@@ -82,12 +85,12 @@ on_msg(new_device, _From, State = #state{dev_cache = DevCache}) ->
          {reply, Device, State}
    catch
       _:Err ->
-         log(error, "get_device/0 failed: Error = ~p", [Err]),
+         ?LOG_ERROR("get_device/0"),
          {reply, error, State}
    end;
 
 %check existing device callback
-on_msg({get_device, DevName}, _From, State = #state{dev_cache = DevCache}) ->
+on_msg(Msg = {get_device, DevName}, _From, State = #state{dev_cache = DevCache}) ->
    log(debug, "get_device(~p). State = ~p", [DevName, dump_state(State)]),
    try gtracker_mysql_exec:select_device(DevName) of
       no_device ->
@@ -97,25 +100,25 @@ on_msg({get_device, DevName}, _From, State = #state{dev_cache = DevCache}) ->
          {reply, Device, State}
    catch
       _:Err ->
-         log(error, "get_device/1 failed: Error = ~p", [Err]),
+         ?LOG_ERROR("get_device/1"),
          {reply, error, State}
    end;
 
 % select all devices
-on_msg({get_all_devices, OnlyOnline}, _From, State) ->
+on_msg(Msg = {get_all_devices, OnlyOnline}, _From, State) ->
    log(debug, "get_all_devices(~p). State = ~p", [OnlyOnline, dump_state(State)]),
    try gtracker_mysql_exec:select_all_devices(OnlyOnline) of
       Result ->
          {reply, Result, State}
    catch
       _:Err ->
-         log(error, "get_all_devices/1 failed: Error = ~p", [Err]),
+         ?LOG_ERROR("get_all_devices"),
          {reply, error, State}
    end;
 
 % get triggers for device
-on_msg({get_triggers, DevName}, _From, State) ->
-   log(debug, "get_traiggers(~p). State = ~p", [DevName, dump_state(State)]),
+on_msg(Msg = {get_triggers, DevName}, _From, State) ->
+   log(debug, "get_triggers(~p). State = ~p", [DevName, dump_state(State)]),
    try gtracker_mysql_exec:select_triggers(DevName) of
       no_triggers ->
          {reply, no_triggers, State};
@@ -123,11 +126,11 @@ on_msg({get_triggers, DevName}, _From, State) ->
          {reply, Triggers, State}
    catch
       _:Err ->
-         log(error, "get_triggers failed: Error = ~p", [Err]),
+         ?LOG_ERROR("get_triggers"),
          {reply, error, State}
    end;
 
-on_msg({select_tracks, DevName}, _From, State) ->
+on_msg(Msg = {select_tracks, DevName}, _From, State) ->
    log(debug, "select_tracks(~p)", [DevName]),
    try gtracker_mysql_exec:select_tracks(DevName) of
       no_tracks ->
@@ -136,7 +139,7 @@ on_msg({select_tracks, DevName}, _From, State) ->
          {reply, Tracks, State}
    catch
       _:Err ->
-         log(error, "select_tracks failed: Error = ~p", [Err]),
+         ?LOG_ERROR("select_tracks"),
          {reply, error, State}
    end;
 
@@ -157,11 +160,11 @@ on_msg(Msg = {new_track, DevName, TrackName}, _From, #state{dev_cache = DevCache
          {reply, Track, State}
    catch
       _:Err ->
-         log(error, "new_track failed: Error = ~p, Msg = ~p", [Err, Msg]),
+         ?LOG_ERROR("new_track"),
          {reply, error, State}
    end;
 
-on_msg(Msg = {rename_track, DevName, TrackName}, _From, #state{dev_cache = DevCache} = State) ->
+on_msg(Msg = {rename_track, DevName, TrackId, TrackName}, _From, #state{dev_cache = DevCache} = State) ->
    log(debug, "rename_track(~p, ~p). State = ~p", [DevName, TrackName, dump_state(State)]),
    F =
    fun() ->
@@ -169,35 +172,43 @@ on_msg(Msg = {rename_track, DevName, TrackName}, _From, #state{dev_cache = DevCa
       {_DevId, TrackId} = get_dev_track(DevName, DevCache),
       gtracker_mysql_exec:rename_track(TrackId, TrackName),
       gtracker_mysql_exec:commit_tran(),
-      gtracker_mysql_exec:select_track(TrackId)
+      gtracker_mysql_exec:select_track(TrackId),
+      {reply, ok, State}
    end,
    try F()
    catch
       _:Err ->
-         log(error, "rename_track failed: ~p. Msg = ~p, State = ~p", [Err, Msg, State]),
+         ?LOG_ERROR("rename_track"),
          {reply, error, State}
-   end,
-   {reply, ok, State};
+   end;
 
 %set device online
-on_msg({online, DevName, Pid}, _From, State) ->
-   log(debug, "online(~p, ~p). State: ~p", [DevName, Pid, dump_state(State)]),
+on_msg(Msg = {online, DevName, Owner}, _From, State) ->
+   log(debug, "online(~p, ~p). State: ~p", [DevName, Owner, dump_state(State)]),
    F = fun() ->
-         Device = gtracker_mysl_exec:select_device(DevName),
+         Device = gtracker_mysql_exec:select_device(DevName),
          case Device#device.registered_by of
             undef ->
-               gtracker_mysql_exec:set_online(DevName, Pid);
-            Pid ->
+               gtracker_mysql_exec:set_online(DevName, Owner),
                {reply, online, State};
-            RegPid when RegPid =/= Pid ->
-               {reply, already_registered, State}
+            Owner ->
+               {reply, online, State};
+            RegOwner ->
+               log(debug, "OWNER: ~p", [RegOwner]),
+               case is_owner_alive(RegOwner) of
+                  true ->
+                     {reply, already_registered, State};
+                  false ->
+                     gtracker_mysql_exec:set_online(DevName, Owner),
+                     {reply, online, State}
+               end
          end
-      end,
+   end,
    try F()
    catch
-      _:Err ->
-         log(error, "set_online failed: Error = ~p", [Err]),
-         {reply, error, State}
+     _:Err ->
+        ?LOG_ERROR("set_online"),
+        {reply, error, State}
    end;
 
 % terminator
@@ -377,3 +388,13 @@ get_device_id(DevCache, DevName) ->
 
 set_track_id(DevCache, DevName, TrackId) ->
    ets:update_element(DevCache, DevName, {?FieldId(dev_info, track_id), TrackId}).
+
+is_owner_alive({Pid, Node}) ->
+   case (catch rpc:call(Node, erlang, is_process_alive, [Pid])) of
+      {badrpc, nodedown} ->
+         false;
+      {badrpc, Reason} ->
+         throw(Reason);
+      Res ->
+         Res
+   end.
