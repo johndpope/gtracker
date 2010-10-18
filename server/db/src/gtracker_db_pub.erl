@@ -4,8 +4,8 @@
    [
       new_device/1
       ,select_device/2
-      ,set_device_online/2
-      ,set_device_offline/2
+      ,register_device/2
+      ,unregister_device/2
       ,select_all_devices/2
       ,select_tracks/2
       ,stop_track/3
@@ -20,11 +20,11 @@ new_device(ServerRef) ->
 select_device(ServerRef, DevName) ->
    gen_server:call(ServerRef, {get_device, DevName}).
 
-set_device_online(ServerRef, DevName) ->
-   gen_server:call(ServerRef, {online, DevName, {self(), node()}}).
+register_device(ServerRef, DevName) ->
+   gen_server:call(ServerRef, {register, DevName, {self(), node()}}).
 
-set_device_offline(ServerRef, DevName) ->
-   gen_server:call(ServerRef, {offline, DevName}).
+unregister_device(ServerRef, DevName) ->
+   gen_server:call(ServerRef, {unregister, DevName}).
 
 select_all_devices(ServerRef, OnlyActive)->
    gen_server:call(ServerRef, {get_all_devices, OnlyActive}).

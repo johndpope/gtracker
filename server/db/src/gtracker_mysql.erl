@@ -18,7 +18,6 @@
 
 -record(dev_info, {name, id, ref, track_id = undef}).
 -record(state, {
-                 gt_pgroup,            % process group
                  max_track_interval,   % max interval between last and new tracks. In seconds
                  dev_cache             % ets of dev_info's
                }).
@@ -42,17 +41,13 @@ on_start(Opts) ->
    User = get_param(dbuser, SelfOpts),
    Password = get_param(dbpasswd, SelfOpts),
    DbName = get_param(dbname, SelfOpts),
-   PGroup = get_param(notif, SelfOpts, ?DEF_GT_PGROUP),
    MaxTrackInterval = get_param(max_track_interval, SelfOpts, ?DEF_MAX_TRACK_INTERVAL),
    gtracker_mysql_exec:start(Host, Port, User, Password, DbName, fun log_callback/4),
    log(info, "Connected to <~p> database as <~p> user on <~p> host.", [DbName, User, Host]),
-   join_pg(PGroup, self()),
-   log(info, "Process has joined group ~p.", [PGroup]),
-   {ok, #state{gt_pgroup = PGroup, max_track_interval = MaxTrackInterval,
+   {ok, #state{max_track_interval = MaxTrackInterval,
       dev_cache = ets:new(dev_cache, [set, {keypos, 2}])}}.
 
-on_stop(Reason, #state{gt_pgroup = PGroup}) ->
-   leave_pg(PGroup, self()),
+on_stop(Reason, _State) ->
    log(info, "Stopped <~p>.", [Reason]),
    ok.
 
@@ -157,7 +152,7 @@ on_msg(Msg = {new_track, DevName, TrackName}, _From, #state{dev_cache = DevCache
    try F() of
       Track = #track{id = Id} ->
          set_track_id(DevCache, DevName, Id),
-         {reply, Track, State}
+         {reply, {Track, ?MOD}, State}
    catch
       _:Err ->
          ?LOG_ERROR("new_track"),
@@ -182,17 +177,17 @@ on_msg(Msg = {rename_track, DevName, TrackId, TrackName}, _From, #state{dev_cach
          {reply, error, State}
    end;
 
-%set device online
-on_msg(Msg = {online, DevName, Owner}, _From, State) ->
-   log(debug, "online(~p, ~p). State: ~p", [DevName, Owner, dump_state(State)]),
+%register device
+on_msg(Msg = {register, DevName, Owner}, _From, State) ->
+   log(debug, "register(~p, ~p). State: ~p", [DevName, Owner, dump_state(State)]),
    F = fun() ->
          Device = gtracker_mysql_exec:select_device(DevName),
          case Device#device.registered_by of
             undef ->
                gtracker_mysql_exec:set_online(DevName, Owner),
-               {reply, online, State};
+               {reply, {registered, undef}, State};
             Owner ->
-               {reply, online, State};
+               {reply, {registered, undef}, State};
             RegOwner ->
                log(debug, "OWNER: ~p", [RegOwner]),
                case is_owner_alive(RegOwner) of
@@ -200,15 +195,33 @@ on_msg(Msg = {online, DevName, Owner}, _From, State) ->
                      {reply, already_registered, State};
                   false ->
                      gtracker_mysql_exec:set_online(DevName, Owner),
-                     {reply, online, State}
+                     {reply, {registered, undef}, State}
                end
          end
    end,
    try F()
    catch
      _:Err ->
-        ?LOG_ERROR("set_online"),
+        ?LOG_ERROR("registered"),
         {reply, error, State}
+   end;
+
+%unregister device
+on_msg(Msg = {unregister, DevName}, _From, #state{dev_cache = DevCache} = State) ->
+   log(debug, "unregister(~p). State: ~p", [DevName, dump_state(State)]),
+   F = fun() ->
+         gtracker_mysql_exec:start_tran(),
+         gtracker_mysql_exec:set_offline(DevName),
+         stop_track(DevName, DevCache),
+         gtracker_mysql_exec:commit_tran(),
+         set_track_id(DevCache, DevName, undef),
+         {reply, unregister, State}
+   end,
+   try F()
+   catch
+      _:Err ->
+         ?LOG_ERROR("unregister"),
+         {reply, error, State}
    end;
 
 % terminator
@@ -218,19 +231,11 @@ on_msg(_Msg, _From, State) ->
 %=======================================================================================================================
 %  async messages
 %=======================================================================================================================
-on_amsg(Msg, State) ->
-   log(error, "Unknown async message ~p.", [Msg]),
-   {noreply, State}.
-
-%=======================================================================================================================
-%  async INFO messages.
-%=======================================================================================================================
 % store first coordiante
-on_info(?MSG(From, GroupName, {coord, first, DevName, NewCoord}), State) ->
-   on_info(?MSG(From, GroupName, {coord, DevName, NewCoord}), State);
+on_amsg({coord, first, DevName, NewCoord}, State) ->
+   on_amsg({coord, DevName, NewCoord}, State);
 
-on_info(?MSG(_From, _GroupName, {coord, DevName, NewCoord = {_, _, _, Distance, Timestamp}}),
-   State = #state{dev_cache = DevCache}) ->
+on_amsg(Msg = {coord, DevName, NewCoord = {_, _, _, Distance, Timestamp}}, State = #state{dev_cache = DevCache}) ->
    log(debug, "coord. DevName: ~p, NewCoord: ~p, State: ~p", [DevName, NewCoord, dump_state(State)]),
    DevId = get_device_id(DevCache, DevName),
    F = fun() ->
@@ -247,29 +252,13 @@ on_info(?MSG(_From, _GroupName, {coord, DevName, NewCoord = {_, _, _, Distance, 
          {noreply, State}
    catch
       _:Err ->
-         log(error, "store of coordinate failed: Error = ~p", [Err]),
+         ?LOG_ERROR("coord"),
          {noreply, State}
    end;
 
-%set device offline
-on_info(?MSG(_From, _GroupName, {offline, DevName}), #state{dev_cache = DevCache} = State) ->
-   log(debug, "offline(~p). State: ~p", [DevName, dump_state(State)]),
-   F = fun() ->
-         gtracker_mysql_exec:start_tran(),
-         gtracker_mysql_exec:set_offline(DevName),
-         TrackId = stop_track(DevName, DevCache),
-         gtracker_mysql_exec:commit_tran(),
-         TrackId
-   end,
-   try F() of
-      _ ->
-         set_track_id(DevCache, DevName, undef),
-         {noreply, State}
-   catch
-      _:Err ->
-         log(error, "set_offline failed: ~p", [Err]),
-         {noreply, State}
-   end;
+on_amsg(Msg, State) ->
+   log(error, "Unknown async message ~p.", [Msg]),
+   {noreply, State}.
 
 %change device
 %on_info(?MSG(_From, _GroupName, {change_dev_name, OldDevName, NewDevName}), #state{dev_cache = DevCache} = State) ->
@@ -292,13 +281,6 @@ on_info(?MSG(_From, _GroupName, {offline, DevName}), #state{dev_cache = DevCache
 %         log(error, "change_dev_name failed: ~p", [Err])
 %   end,
 %   {noreply, State};
-
-on_info({new_member, Group, Pid}, State) ->
-   log(info, "~p has joined group ~p.", [Pid, Group]),
-   {noreply, State};
-
-on_info(?MSG(_From, _GroupName, {sos, _DevName}), State) ->
-   {noreply, State};
 
 %terminator
 on_info(Msg, State) ->
