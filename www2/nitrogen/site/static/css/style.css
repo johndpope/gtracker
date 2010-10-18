@@ -24,20 +24,19 @@ a:hover {
    top: 0;
    left: 0;
    right: 0;
-   background: #000;
+   background: #000 url('/images/top_bg.png') repeat-x;
    color: #ccc;
-   padding: 5pt;
-   line-height: 2.2em;
+   line-height: 32px
 }
 
 .session .user {
    display: inline;
+   font-weight: 700;
+   color: #888;
 }
 
 .session .user img {
    vertical-align: middle;
-   margin: 0;
-   padding: 0 5pt 0 0;
    padding-right: 5pt;
 }
 
@@ -116,6 +115,7 @@ a:hover {
    background: #ECF0F3;
    color: #000;
    border: 4px solid #52657A;
+   min-height: 480px;
 }
 
 div.content p a {

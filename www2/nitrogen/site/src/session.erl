@@ -31,14 +31,14 @@ display_login() ->
       #span { text="Email: " },
       #textbox { id=user_text_box, class=form, next=password_text_box },
       #span { text=" Password: " },
-      #password { id=password_text_box, class=form, next=login_link},
+      #password { id=password_text_box, class=form, postback=login, delegate=?MODULE },
       #link { id=login_link, text="Login", postback=login, delegate=?MODULE },
       #link { class=registration, text="Registration", url="/registration" }
    ].
 
 event(logout) ->
    wf:clear_session(),
-   wf:redirect("/");
+   wf:redirect(wf:path_info());
 
 event(login) ->
    User = wf:q(user_text_box),
@@ -46,7 +46,7 @@ event(login) ->
    case q:exec(?AUTHENTICATE, [User]) of
       ?RESULT([[_Id, RealPassword]]) when RealPassword == Password ->
          wf:user(User),
-         wf:redirect("/");
+         wf:redirect(wf:path_info());
       ?RESULT([[_, _]]) ->
          wf:wire(#alert { text="Incorrect password" });
       ?RESULT([]) ->
