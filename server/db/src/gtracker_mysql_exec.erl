@@ -309,8 +309,8 @@ insert_device(DevName) ->
 %     Pid = pid()
 %     Node = atom()
 %    throws Error()
-set_online(DevName, {Pid, Node}) ->
-   StrOwner = lists:flatten(io_lib:format("{~p, ~p}.", [pid_to_list(Pid), atom_to_list(Node)])),
+set_online(DevName,Owner) ->
+   StrOwner = lists:flatten(io_lib:format("~p.", [term_to_binary(Owner)])),
    case execute(?DEVICE_ONLINE, [StrOwner, DevName]) of
       ?UPDATED(1) ->
          true;
@@ -380,19 +380,14 @@ bintrack_to_list([ [TrackId, Status, Start, Stop, Name, AvgSpeed, Length] | Rest
          avg_speed = AvgSpeed,
          length = Length } | bintrack_to_list(Rest) ].
 
-bin_to_owner(BinOwner) ->
-   case bin_to_list(BinOwner) of
+bin_to_owner(Bin) ->
+   case bin_to_list(Bin) of
       undef ->
          undef;
       ListOwner ->
          {ok, Tokens, _} = erl_scan:string(ListOwner),
-         {ok, {ListPid, ListNode}} = erl_parse:parse_term(Tokens),
-         case (catch list_to_pid(ListPid)) of
-            {'EXIT', {badarg, _}} ->
-               undef;
-            Pid ->
-               {Pid, erlang:list_to_atom(ListNode)}
-         end
+         {ok, BinOwner} = erl_parse:parse_term(Tokens),
+         binary_to_term(BinOwner)
    end.
 
 % Binary string to Erlang list
