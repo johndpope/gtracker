@@ -155,7 +155,7 @@ rename_track(DevName, TrackName, State) ->
 % start new track
 %=======================================================================================================================
 start_new_track(DevName, TrackName, State) ->
-   mds_gen_server:call(State#state.db, {start_new_track, DevName, TrackName}).
+   mds_gen_server:call(State#state.db, {new_track, DevName, TrackName}).
 
 %=======================================================================================================================
 % work with device status

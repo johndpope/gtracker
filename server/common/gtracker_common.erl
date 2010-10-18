@@ -17,6 +17,7 @@
       ,urlencoded_to_bin/1
       ,binary_to_hex/1
       ,fill_binary/3
+      ,get_best_process/2
    ]).
 
 -define(SWAMP, "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789").
@@ -87,11 +88,20 @@ binary_to_hex(<<I:8, Rest/binary>>) ->
    [A, B] = to_hex(I),
    [A, B | binary_to_hex(Rest)].
 
-fill_binary(Bin, Size, Val) when size(Bin) >= Size ->
-   <<Ret:Size/binary, Rest/binary>> = Bin,
+fill_binary(Bin, Size, _Val) when size(Bin) >= Size ->
+   <<Ret:Size/binary, _Rest/binary>> = Bin,
    Ret;
 fill_binary(Bin, Size, Val) ->
    fill_binary_aux(Bin, Size - size(Bin), Val).
+
+get_best_process(ProcGroup, Criteria) ->
+   case pg2:get_members(ProcGroup) of
+      {error, _} ->
+         undef;
+      Pids ->
+         hd(lists:sort(fun({_Pid1, Size1}, {_Pid2, Size2}) -> Size1 < Size2 end,
+               [ (fun(P) -> [{_, Size}] = process_info(P, [Criteria]), {P, Size} end)(Pid) || Pid <- Pids ]))
+   end.
 
 %=======================================================================================================================
 %  pivate
