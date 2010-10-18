@@ -118,13 +118,18 @@ a:hover {
    min-height: 480px;
 }
 
-div.content p a {
+.content p a {
    color: #32457A;
    text-decoration: underline;
    padding-top: 10pt;
 }
 
-div.content p a:hover {
+.content p a:hover {
    color: #303131;
 }
 
+.map {
+   border: 1px solid black;
+   height: 100%;
+   width: 100%;
+}
