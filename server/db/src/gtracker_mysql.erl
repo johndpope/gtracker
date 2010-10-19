@@ -5,12 +5,13 @@
 -export([start/1, stop/0, on_start/1, on_stop/2, on_msg/3, on_amsg/2, on_info/2]).
 
 -import(mds_utils, [get_param/2, get_param/3]).
--import(gtracker_common, [gen_dev_name/0, ints_to_float/2, join_pg/2, leave_pg/2]).
+-import(gtracker_common, [gen_dev_name/0, ints_to_float/2, join_pg/2, leave_pg/2, get_best_process/1]).
 
 -include("fields.hrl").
 -include("common_defs.hrl").
 
 -define(DEF_MAX_TRACK_INTERVAL, 60).  % one minute
+-define(DEF_TGS_GROUP, gtracker_tgs_group).
 -define(MOD,     {global, gtracker_db}).
 
 -define(LOG_ERROR(MethodName), log(error, "~s failed: ~p. Msg = ~p, State = ~p, Stack trace = ~p", [MethodName, Err,
@@ -19,7 +20,8 @@
 -record(dev_info, {name, id, ref, track_id = undef}).
 -record(state, {
                  max_track_interval,   % max interval between last and new tracks. In seconds
-                 dev_cache             % ets of dev_info's
+                 dev_cache,             % ets of dev_info's
+                 tgs_group             % process group, when all trigger processors are registered
                }).
 
 %=======================================================================================================================
@@ -41,11 +43,14 @@ on_start(Opts) ->
    User = get_param(dbuser, SelfOpts),
    Password = get_param(dbpasswd, SelfOpts),
    DbName = get_param(dbname, SelfOpts),
+   TgsGroup = get_param(tgs_group, SelfOpts, ?DEF_TGS_GROUP),
    MaxTrackInterval = get_param(max_track_interval, SelfOpts, ?DEF_MAX_TRACK_INTERVAL),
    gtracker_mysql_exec:start(Host, Port, User, Password, DbName, fun log_callback/4),
    log(info, "Connected to <~p> database as <~p> user on <~p> host.", [DbName, User, Host]),
-   {ok, #state{max_track_interval = MaxTrackInterval,
-      dev_cache = ets:new(dev_cache, [set, {keypos, 2}])}}.
+   {ok, #state{
+         max_track_interval = MaxTrackInterval,
+         tgs_group = TgsGroup,
+         dev_cache = ets:new(dev_cache, [set, {keypos, 2}])}}.
 
 on_stop(Reason, _State) ->
    log(info, "Stopped <~p>.", [Reason]),
@@ -178,16 +183,16 @@ on_msg(Msg = {rename_track, DevName, TrackId, TrackName}, _From, #state{dev_cach
    end;
 
 %register device
-on_msg(Msg = {register, DevName, Owner}, _From, State) ->
+on_msg(Msg = {register, DevName, Owner}, _From, State = #state{tgs_group = TgsGroup}) ->
    log(debug, "register(~p, ~p). State: ~p", [DevName, Owner, dump_state(State)]),
    F = fun() ->
          Device = gtracker_mysql_exec:select_device(DevName),
          case Device#device.registered_by of
             undef ->
                gtracker_mysql_exec:set_online(DevName, Owner),
-               {reply, {registered, undef}, State};
+               {reply, {registered, get_best_process(TgsGroup)}, State};
             Owner ->
-               {reply, {registered, undef}, State};
+               {reply, {registered, get_best_process(TgsGroup)}, State};
             RegOwner ->
                log(debug, "OWNER: ~p", [RegOwner]),
                case is_owner_alive(RegOwner) of
@@ -195,7 +200,7 @@ on_msg(Msg = {register, DevName, Owner}, _From, State) ->
                      {reply, already_registered, State};
                   false ->
                      gtracker_mysql_exec:set_online(DevName, Owner),
-                     {reply, {registered, undef}, State}
+                     {reply, {registered, get_best_process(TgsGroup)}, State}
                end
          end
    end,

@@ -17,11 +17,13 @@
       ,urlencoded_to_bin/1
       ,binary_to_hex/1
       ,fill_binary/3
-      ,get_best_process/2
+      ,get_best_process/1
    ]).
 
 -define(SWAMP, "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789").
 -define(EpochSeconds, 62167219200). % seconds since 0/0/0 0:0:0 to unix epoch time 1/1/1970 0:0:0
+
+-include_lib("eunit/include/eunit.hrl").
 
 %=======================================================================================================================
 %  public exports
@@ -94,13 +96,16 @@ fill_binary(Bin, Size, _Val) when size(Bin) >= Size ->
 fill_binary(Bin, Size, Val) ->
    fill_binary_aux(Bin, Size - size(Bin), Val).
 
-get_best_process(ProcGroup, Criteria) ->
+get_best_process(ProcGroup) ->
    case pg2:get_members(ProcGroup) of
       {error, _} ->
          undef;
-      Pids ->
-         hd(lists:sort(fun({_Pid1, Size1}, {_Pid2, Size2}) -> Size1 < Size2 end,
-               [ (fun(P) -> [{_, Size}] = process_info(P, [Criteria]), {P, Size} end)(Pid) || Pid <- Pids ]))
+      Pids when is_list(Pids) ->
+         {Pid, _} = hd(lists:sort(fun({_Pid1, Size1}, {_Pid2, Size2}) -> Size1 < Size2 end,
+               [ (fun(P) -> [{_, Size}] = process_info(P, [message_queue_len]), {P, Size} end)(Pid) || Pid <- Pids ])),
+         Pid;
+      _ ->
+         undef
    end.
 
 %=======================================================================================================================
@@ -151,4 +156,31 @@ fill_binary_test() ->
 
 datetime_to_string_test() ->
    ?assertEqual("13.07.2010 14:14:00", datetime_to_string({{2010, 7, 13},{14,14,00}})).
+
+get_best_process_test() ->
+   F =
+   fun() ->
+      receive
+         exit ->
+            ok
+      end
+   end,
+   pg2:create(test_group),
+   FirstPid = spawn(F),
+   pg2:join(test_group, FirstPid),
+   SecondPid = spawn(F),
+   pg2:join(test_group, SecondPid),
+   ThirdPid = spawn(F),
+   pg2:join(test_group, ThirdPid),
+   FirstPid ! msg,
+   FirstPid ! msg,
+   FirstPid ! msg,
+   SecondPid ! msg,
+   SecondPid ! msg,
+   ThirdPid ! msg,
+   ?assertEqual(ThirdPid, get_best_process(test_group)),
+   FirstPid ! exit,
+   SecondPid ! exit,
+   ThirdPid ! exit.
+
 -endif.
