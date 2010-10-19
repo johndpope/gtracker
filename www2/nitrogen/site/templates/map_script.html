@@ -2,10 +2,33 @@
 <script src='http://openlayers.org/api/OpenLayers.js'></script>
 <script src='/gtracker/map.js' type='text/javascript' charset='utf-8'></script>
 <script type='text/javascript' charset='utf-8'>
-   function createMap($element, $lon, $lat, $zoom) {
-      var $map = new Map.Map($element);
-      $map.setCenter($lon, $lat);
-      $map.setZoom($zoom);
-      return $map;
-   }
+   $(document).ready(function() {
+      $("#map").resizable({
+         minHeight: 480,
+         handles: "s",
+         resize: function(event, ui) {
+            $(this).css("width", "100%");
+         }
+      });
+
+      var $map = Map.create("map");
+      $map.setCenter(Map.ll(37.623281, 55.755206));
+      $map.zoomTo(12);
+
+      var $tracks = {}; // map for tracks id -> track
+
+//      var $track = Map.track({
+//         name:    "Bullshit",
+//         color:   "#ff0000",
+//         width:   "3"
+//      });
+//
+//      $map.addLayer($track.vector);
+//
+//      $track.append(37.623281 + 1, 55.755206 + 1);
+//      $track.append(37.623281 + 0.5, 55.755206 + 1.5);
+//      $track.append(37.623281, 55.755206);
+//      $track.update();
+
+   });
 </script>

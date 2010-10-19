@@ -1,8 +1,12 @@
 var Map = {
-   Map:     function(element_id) {
+   projection: new OpenLayers.Projection("EPSG:900913"),
+   displayProjection:  new OpenLayers.Projection("EPSG:4326"),
+
+   // create map
+   create:  function($element_id) {
                var $options = {
-                  projection: new OpenLayers.Projection("EPSG:900913"),
-                  displayProjection: new OpenLayers.Projection("EPSG:4326"),
+                  projection: Map.projection,
+                  displayProjection: Map.displayProjection,
                   units: "m",
                   maxResolution: 156543.0339,
                   maxExtent: new OpenLayers.Bounds(-20037508.34, -20037508.34,
@@ -10,7 +14,8 @@ var Map = {
                   controls: []
                };
 
-               var $map = new OpenLayers.Map(element_id, $options); 
+               var $map = new OpenLayers.Map($element_id, $options); 
+
                $map.addLayers([
                      new OpenLayers.Layer.OSM("OpenStreetMap"),
                      new OpenLayers.Layer.Google("Google", { sphericalMercator: true })
@@ -21,53 +26,45 @@ var Map = {
                $map.addControl(new OpenLayers.Control.ZoomPanel());
                $map.addControl(new OpenLayers.Control.PanPanel());
 
-               $.extend(this, {
-                  setCenter:   function($lon, $lat) {
-                                  $map.setCenter(new OpenLayers.LonLat($lon, $lat).
-                                     transform($map.displayProjection, $map.projection));
-                               },
-
-                  setZoom:     function($zoom) {
-                                  $map.zoomTo($zoom);
-                               },
-
-                  addTrack:    function($track) {
-                                  $map.addLayer($track);
-                               },
-
-                  removeTrack: function($track) {
-                                  $map.removeLayer($track);
-                               }
-               });
+               return $map;
             },
 
-   Track:   function($name, $options) {
-               var $layer_style = OpenLayers.Util.extend({}, OpenLayers.Feature.Vector.style['default']);
+   track:   function($options) {
+               var $opts = OpenLayers.Util.extend({ color: "#000000", width: 6, name: "No Name" }, $options);
+               var $layer_style = OpenLayers.Util.extend(OpenLayers.Feature.Vector.style['default'], { fillOpacity: 0.2, graphicOpacity: 1 });
                $layer_style.fillOpacity = 0.2;
                $layer_style.graphicOpacity = 1;
 
-               var $opts = {};
-               $.extend($opts, { color: '#FF0000', weight: 3 }, $options);
-
                var $line_style = {
                   strokeColor: $opts.color,
-                  strokeWidth: $opts.weight,
-                  pointRadius: 6,
+                  strokeWidth: $opts.width,
+                  pointRadius: $opts.width,
                   pointerEvents: "visiblePainted"
                };
 
+               var $vector = new OpenLayers.Layer.Vector($opts.name, {style: $layer_style})
                var $geometry = new OpenLayers.Geometry.LineString([]);
+               $vector.addFeatures([ new OpenLayers.Feature.Vector($geometry, null, $line_style) ]);
 
-               var $line = new OpenLayers.Feature.Vector($geometry, null, $line_style);
+               return {
+                  vector: $vector,
+                  geometry: $geometry,
+                  append: function($lon, $lat) {
+                     this.geometry.addPoint(Map.p($lon, $lat));
+                  },
+                  update: function() {
+                     this.vector.redraw();
+                  }
+               };
+            },
 
-               var $vector = new OpenLayers.Layer.Vector($name, {style: $layer_style});
-               $vector.addFeatures([$line]);
+   // create LatLon
+   ll:      function($lon, $lat) {
+               return new OpenLayers.LonLat($lon, $lat).transform(Map.displayProjection, Map.projection);
+            },
 
-               $.extend(this, {
-                  append:  function(data) {
-                           },
-                  clear:   function() {
-                           }
-               });
+   // create poin
+   p:       function($lon, $lat) {
+               return new OpenLayers.Geometry.Point($lon, $lat).transform(Map.displayProjection, Map.projection);
             }
 }

@@ -11,7 +11,7 @@ script() ->
    #template { file="./site/templates/map_script.html" }.
 
 title() ->
-   "GTracker".
+   "GTracker - Map".
 
 body() ->
-   #map { id=map, style=?MAP_STYLE }.
+   #template { file="./site/templates/map_body.html" }.

@@ -6,7 +6,7 @@
 
 main() -> #template { file="./site/templates/registration.html" }.
 
-title() -> "GTracker beta".
+title() -> "GTracker - Registration".
 
 body() ->
    wf:wire(register_button, user_text_box, #validate {

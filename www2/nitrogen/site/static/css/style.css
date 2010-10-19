@@ -3,6 +3,7 @@ html,body,div,span,applet,object,iframe,h1,h2,h3,h4,h5,h6,p,blockquote,pre,a,abb
 
 /***** STYLE *****/
 
+/*** HTML tags style ***/
 html { 
 /*   font-family: "Lucida Grande", "Segoe UI", Tahoma, Helvetica, Arial, sans-serif;  */
    font-family: "Arial", "Sans-serif";
@@ -20,6 +21,22 @@ a:hover {
    text-decoration: underline;
 }
 
+h1 {
+        color: #5F5C59;
+        font-weight: bold;
+        font-style: normal;
+        font-size: 2em;
+        margin: 0 5pt;
+        padding: 0;
+}
+
+p {
+        padding: 5pt 0;
+        margin: 0 5pt 15pt 5pt;
+        border-top: 1px dotted #5F5C59;
+}
+
+/*** CUSTOM STYLES ***/
 .session {
    top: 0;
    left: 0;
@@ -126,10 +143,13 @@ a:hover {
 
 .content p a:hover {
    color: #303131;
+   overflow:auto;
 }
 
 .map {
-   border: 1px solid black;
-   height: 100%;
+   border: 1px solid gray;
    width: 100%;
+   height: 480px;
+   border-bottom: 5px solid gray;
 }
+
