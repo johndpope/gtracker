@@ -14,4 +14,6 @@
 
 -record(trigger, {id, enabled, name, type, email, sms, twitter, text, config, ready = true, executed_at = undef, schedule = allways}).
 
+-record(dev_context, {tgs_pid, track_pid}).
+
 -define(FieldId(Rec, Field), string:str(record_info(fields, Rec), [Field]) + 1).
