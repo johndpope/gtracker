@@ -1,1 +1,0 @@
--record(map, {?ELEMENT_BASE(element_map), lon=37.623281, lat=55.755206, zoom=12}).

@@ -8,6 +8,6 @@ display() ->
       #list { class=navigation, body=[
             #listitem { body=#link { text="Map", url="/map" }},
             #listitem { body=#link { text="Download", url="/download" }},
-            #listitem { body=#link { text="About", url="/about" }}
+            #listitem { body=#link { text="Contacts", url="/contacts" }}
          ]}
    ].

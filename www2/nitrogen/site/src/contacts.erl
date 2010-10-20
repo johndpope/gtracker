@@ -1,4 +1,4 @@
--module(index).
+-module(contacts).
 -compile(export_all).
 -include_lib("nitrogen/include/wf.hrl").
 
@@ -6,7 +6,7 @@ main() ->
    #template { file="./site/templates/index.html" }.
 
 title() ->
-   "GTracker - Wellcome".
+   "GTracker - Contacts".
 
 body() ->
-   #template { file="./site/templates/welcome_body.html" }.
+   #template { file="./site/templates/contacts_body.html" }.

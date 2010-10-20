@@ -47,7 +47,7 @@ var Map = {
                $vector.addFeatures([ new OpenLayers.Feature.Vector($geometry, null, $line_style) ]);
 
                return {
-                  vector: $vector,
+                  layer: $vector,
                   geometry: $geometry,
                   append: function($lon, $lat) {
                      this.geometry.addPoint(Map.p($lon, $lat));

@@ -28,16 +28,16 @@ h1 {
         font-size: 2em;
         margin: 0 5pt;
         padding: 0;
+        border-bottom: 1px dotted #5F5C59;
 }
 
 p {
         padding: 5pt 0;
         margin: 0 5pt 15pt 5pt;
-        border-top: 1px dotted #5F5C59;
 }
 
 /*** CUSTOM STYLES ***/
-.session {
+.user {
    top: 0;
    left: 0;
    right: 0;
@@ -46,25 +46,28 @@ p {
    line-height: 32px
 }
 
-.session .user {
+.user .info {
    display: inline;
    font-weight: 700;
    color: #888;
 }
 
-.session .user img {
+.user .info img {
    vertical-align: middle;
    padding-right: 5pt;
 }
 
-.session a {
+.user a {
    font-weight: 700;
    color: #91A2B5;
    padding-left: 5pt;
    padding-right: 5pt;
 }
+.user a.settings {
+   padding-left: 20pt;
+}
 
-.session a.registration {
+.user a.registration {
    font-weight: 700;
    color: #B56172;
    padding-left: 5pt;
@@ -72,7 +75,7 @@ p {
    float: right;
 }
 
-.session a.logout {
+.user a.logout {
    float: right;
 }
 
@@ -91,16 +94,6 @@ p {
 .block {
    padding: 10pt;
    clear: both;
-}
-
-.logo {
-   text-shadow: 1px 1px 1px rgba(255,255,255,.4);
-   color: #52657A;
-   font-weight: 700;
-   font-size: 4em;
-   float: left;
-   vertical-align: baseline;
-   outline: 0;
 }
 
 .navigation {
@@ -126,7 +119,20 @@ p {
 }
 
 .header {
-   line-height: 60px;
+   line-height: 5.5em;
+}
+
+a.logo {
+   text-shadow: 1px 1px 1px rgba(255,255,255,.4);
+   color: #52657A;
+   font-weight: 700;
+   font-size: 4em;
+   float: left;
+   outline: 0;
+}
+
+a.logo:hover {
+   text-decoration: none;
 }
 
 .content {
@@ -154,12 +160,70 @@ p {
    border-bottom: 5px solid gray;
 }
 
-.device {
-   padding: 5pt;
-   margin-right: 5pt;
-   margin-bottom: 5pt;
-   width: 200px;
-   background: #ccc;
-   float: left;
-   border-radius: 5pt;
+.devices {
+   margin-top: 5pt;
 }
+
+.device {
+   background: #CED6DE url('/images/device_bg.png') repeat-x;
+   border: 1px solid gray;
+   border-radius: 5pt;
+   padding: 5pt;
+   margin: 5pt;
+   cursor: pointer;
+}
+
+.deviceWrapper {
+   width: 20%;
+   float: left;
+}
+
+.device .right {
+   float: right;
+   font-weight: bold;
+}
+
+.online {
+   border-color: green;
+}
+
+.edit {
+   padding: 10pt;
+   border-radius: 5pt;
+   margin: 5pt;
+   background: #CED6DE;
+}
+
+.edit table {
+   width: 100%;
+   background: #fff;
+}
+
+.edit .tableheader {
+   background: #ccc;
+   padding: 5pt;
+   border: 1px solid black;
+}
+
+.edit td {
+   padding: 5pt;
+}
+
+.newsWrapper {
+   width: 33%;
+   float: left;
+}
+
+.news {
+   margin: 5pt;
+}
+
+.news .timestamp {
+   color: #999;
+   padding-bottom: 5pt;
+}
+
+.news .post {
+   font-weight: normal;
+}
+

@@ -2,6 +2,9 @@
 <script src='http://openlayers.org/api/OpenLayers.js'></script>
 <script src='/gtracker/map.js' type='text/javascript' charset='utf-8'></script>
 <script type='text/javascript' charset='utf-8'>
+   var $map;
+   var $devices = {}; // map for tracks id -> track
+
    $(document).ready(function() {
       $("#map").resizable({
          minHeight: 480,
@@ -15,11 +18,12 @@
          }
       });
 
-      var $map = Map.create("map");
+      $("#mode").tabs();
+
+      $map = Map.create("map");
       $map.setCenter(Map.ll(37.623281, 55.755206));
       $map.zoomTo(12);
 
-      var $tracks = {}; // map for tracks id -> track
 
 //      var $track = Map.track({
 //         name:    "Bullshit",
@@ -33,6 +37,36 @@
 //      $track.append(37.623281 + 0.5, 55.755206 + 1.5);
 //      $track.append(37.623281, 55.755206);
 //      $track.update();
-
+      [[[devices:display()]]]
    });
+
+   function deviceTemplate($id, $name) {
+      return $("<div class=\"deviceWrapper\"><div class=\"device\" id=\"" + $id + "\"><div>Device:<span class=\"right\">" + $name + "</span></div><div>State:<span class=\"state right\">offline</span></div><div style=\"clear:both\"></div></div></div>");
+   };
+
+   function createDevice($id, $options) {
+      if ($id in $devices) {
+         return false;
+      }
+
+      var $track = Map.track($options);
+      var $div = deviceTemplate($id, $options.name);
+      var $device = {
+         track: $track,
+         div: $div
+      };
+      $map.addLayer($track.layer);
+      $div.appendTo("#devices");
+      $devices[$id] = $device;
+
+      return true;
+   };
+
+   function destroyDevice($id) {
+      if ($id in $devices) {
+         $map.removeLayer($devices[$id].track.layer);
+         $devices[$id].div.remove();
+         delete $devices[$id];
+      }
+   };
 </script>

@@ -1,4 +1,4 @@
--module(session).
+-module(user).
 
 -include_lib("nitrogen/include/wf.hrl").
 -include("db.hrl").
@@ -19,9 +19,10 @@ display() ->
 
 display_logout() ->
    [
-      #panel { class="user", body=[
+      #panel { class="info", body=[
             #gravatar { email=wf:user(), size="22" },
-            #span { text=wf:user() }
+            #span { text=wf:user() },
+            #link { id=settings, class=settings, text="Settings", url="/user_settings" }
          ]},
       #link { class=logout, text="Logout", postback=logout, delegate=?MODULE }
    ].
