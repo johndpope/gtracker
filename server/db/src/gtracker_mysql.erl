@@ -17,7 +17,11 @@
 -define(LOG_ERROR(MethodName), log(error, "~s failed: ~p. Msg = ~p, State = ~p, Stack trace = ~p", [MethodName, Err,
          Msg, dump_state(State), erlang:get_stacktrace()])).
 
--record(dev_info, {name, id, ref, track_id = undef}).
+-record(dev_info, {
+                     devname,            %device name, just for speed up
+                     device,             % #device
+                     track_id = undef    % trackId
+                  }).
 -record(state, {
                  max_track_interval,   % max interval between last and new tracks. In seconds
                  dev_cache,             % ets of dev_info's
@@ -182,14 +186,31 @@ on_msg(Msg = {rename_track, DevName, TrackId, TrackName}, _From, #state{dev_cach
          {reply, error, State}
    end;
 
+%check existing device callback
+on_msg(Msg = {get_device, DevName}, _From, State = #state{dev_cache = DevCache}) ->
+   log(debug, "get_device(~p). State = ~p", [DevName, dump_state(State)]),
+   try gtracker_mysql_exec:select_device(DevName) of
+      no_device ->
+         {reply, no_device, State};
+      Device = #device{id = DevId, reference = Ref} ->
+         ets:insert(DevCache, #dev_info{name = DevName, id = DevId, ref = Ref}),
+         {reply, Device, State}
+   catch
+      _:Err ->
+         ?LOG_ERROR("get_device/1"),
+         {reply, error, State}
+   end;
+
 %register device
-on_msg(Msg = {register, DevName, Owner}, _From, State = #state{tgs_group = TgsGroup}) ->
-   log(debug, "register(~p, ~p). State: ~p", [DevName, Owner, dump_state(State)]),
+on_msg(Msg = {register, DevName}, From, State = #state{tgs_group = TgsGroup, dev_cache = DevCache}) ->
+   log(debug, "register(~p, ~p). State: ~p", [DevName, From, dump_state(State)]),
    F = fun() ->
-         Device = gtracker_mysql_exec:select_device(DevName),
-         case Device#device.registered_by of
-            undef ->
+         case gtracker_mysql_exec:select_device(DevName) of
+            no_device ->
+               {reply, no_device, State};
+            Device when (Device#device.registered_by == undef) ->
                gtracker_mysql_exec:set_online(DevName, Owner),
+               ets:insert(DevCache, #dev_info{name = DevName, id = Device#device.id, pid = From, ref = Device#device.referece}),
                {reply, {registered, get_best_process(TgsGroup)}, State};
             Owner ->
                {reply, {registered, get_best_process(TgsGroup)}, State};

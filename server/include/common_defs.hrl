@@ -5,8 +5,10 @@
 
 -record(sms,   {enabled = false, value = undef}).
 
--record(device, {id, name, alias = undef, reference = undef, online = false, registered_by = undef, timezone = "UTC", registered, color = undef, weight = 1,
+-record(device, {id, name, alias = undef, reference = undef, online = false, links = undef, timezone = "UTC", color = undef, weight = 1,
       pixmap = undef, twitter_auth = undef, triggers = []}).
+
+-record(links, {owner, triggger}).
 
 -record(user, {name, password}).
 
