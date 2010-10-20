@@ -9,3 +9,4 @@
 -define(AUTHENTICATE, "SELECT id,password FROM user WHERE name='~s';").
 -define(USER_EXISTS, "SELECT id FROM user WHERE name='~s';").
 -define(CREATE_USER, "INSERT INTO user (name, password) VALUES('~s', '~s');").
+-define(SHOW_DEVICE_INFO, "SELECT name,alias,online FROM device WHERE id='~w';").

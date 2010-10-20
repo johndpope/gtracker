@@ -8,6 +8,10 @@
          handles: "s",
          resize: function(event, ui) {
             $(this).css("width", "100%");
+         },
+         stop: function(event, ui) {
+            // save to cookie
+            //alert('Size: ' + $(this).height());
          }
       });
 

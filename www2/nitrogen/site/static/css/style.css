@@ -101,7 +101,6 @@ p {
    float: left;
    vertical-align: baseline;
    outline: 0;
-   margin-bottom: 10pt;
 }
 
 .navigation {
@@ -110,7 +109,6 @@ p {
    font-weight: 700;
    list-style-type: none;
    position: relative;
-   top: 1em;
 }
 
 .navigation li {
@@ -125,6 +123,10 @@ p {
 .navigation li a {
    color: #000;
    text-shadow: 1px 1px 1px rgba(255,255,255,.4);
+}
+
+.header {
+   line-height: 60px;
 }
 
 .content {
@@ -148,8 +150,16 @@ p {
 
 .map {
    border: 1px solid gray;
-   width: 100%;
    height: 480px;
    border-bottom: 5px solid gray;
 }
 
+.device {
+   padding: 5pt;
+   margin-right: 5pt;
+   margin-bottom: 5pt;
+   width: 200px;
+   background: #ccc;
+   float: left;
+   border-radius: 5pt;
+}
