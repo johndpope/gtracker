@@ -2,44 +2,34 @@
 
 -export(
    [
-      new_device/1
-      ,select_device/2
-      ,register_device/2
-      ,unregister_device/2
-      ,select_all_devices/2
-      ,select_tracks/2
-      ,stop_track/3
-      ,start_new_track/3
-      ,select_triggers/2
-      ,rename_track/4
+      get_devices/1
+      ,register/1
+      ,register/2
+      ,unregister/2
+      ,new_user/3
+      ,login/3
+      ,logout/2
    ]).
 
-new_device(ServerRef) ->
-   gen_server:call(ServerRef, new_device).
+-define(db_ref, {global, gtracker_db}).
 
-select_device(ServerRef, DevName) ->
-   gen_server:call(ServerRef, {get_device, DevName}).
+get_devices() ->
+   gen_server:call(?db_ref, get_devices).
 
-register_device(ServerRef, DevName) ->
-   gen_server:call(ServerRef, {register, DevName, {self(), node()}}).
+register() ->
+   gen_server:call(?db_ref, register).
 
-unregister_device(ServerRef, DevName) ->
-   gen_server:call(ServerRef, {unregister, DevName}).
+register(DevName) ->
+   gen_server:call(?db_ref, {register, DevName}).
 
-select_all_devices(ServerRef, OnlyActive)->
-   gen_server:call(ServerRef, {get_all_devices, OnlyActive}).
+unregister(DevName) ->
+   gen_server:call(?db_ref, {unregister, DevName}).
 
-select_triggers(ServerRef, DevName) ->
-   gen_server:call(ServerRef, {get_triggers, DevName}).
+new_user(UserName, Password) ->
+   gen_server:call(?db_ref, {new_user, UserName, Password}).
 
-select_tracks(ServerRef, DevName) ->
-   gen_server:call(ServerRef, {select_tracks, DevName}).
+login(UserName, Password) ->
+   gen_server:call(?db_ref, {login, UserName, Password}).
 
-stop_track(ServerRef, DevName, TrackId) ->
-   gen_server:call(ServerRef, {stop_track, DevName, TrackId}).
-
-start_new_track(ServerRef, DevName, TrackName) ->
-   gen_server:call(ServerRef, {new_track, DevName, TrackName}).
-
-rename_track(ServerRef, DevName, TrackId, NewTrackName) ->
-   gen_server:call(ServerRef, {rename_track, DevName, TrackId, NewTrackName}).
+logout(UserName) ->
+   gen_server:call(?db_ref, {logout, UserName}).

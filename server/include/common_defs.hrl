@@ -5,17 +5,18 @@
 
 -record(sms,   {enabled = false, value = undef}).
 
--record(device, {id, name, alias = undef, reference = undef, online = false, links = undef, timezone = "UTC", color = undef, weight = 1,
-      pixmap = undef, twitter_auth = undef, triggers = []}).
+-record(links, {owner = undef, track = undef, trigger = undef, web = undef}).
 
--record(links, {owner, triggger}).
+-record(device,
+   {
+      name, alias = undef, reference = undef, online = false, links = #links{}, timezone = "UTC",
+      registered_at = now(), color = undef, weight = 1, pixmap = undef, twitter_auth = undef
+   }).
 
--record(user, {name, password}).
+-record(user, {name, password, online = false, is_admin = false}).
 
--record(track, {id, name, status = closed, filename = undef, start, stop, length, avg_speed}).
+-record(track, {dev_name, name, status = closed, filename = undef, start, stop, length, avg_speed}).
 
--record(trigger, {id, enabled, name, type, email, sms, twitter, text, config, ready = true, executed_at = undef, schedule = allways}).
-
--record(dev_context, {tgs_pid, track_pid}).
+-record(trigger, {dev_name, enabled, name, type, email, sms, twitter, text, config, ready = true, executed_at = undef, schedule = allways}).
 
 -define(FieldId(Rec, Field), string:str(record_info(fields, Rec), [Field]) + 1).
