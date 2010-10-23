@@ -10,12 +10,12 @@
 -record(device,
    {
       name, alias = undef, reference = undef, online = false, links = #links{}, timezone = "UTC",
-      registered_at = now(), color = undef, weight = 1, pixmap = undef, twitter_auth = undef
+      registered_at = now(), color = undef, weight = 1, pixmap = undef, twitter_auth = undef, curr_track = undef
    }).
 
 -record(user, {name, password, online = false, is_admin = false}).
 
--record(track, {dev_name, name, status = closed, filename = undef, start, stop, length, avg_speed}).
+-record(track, {dev_name, id, name, status = closed, filename = undef, start, stop, length, avg_speed}).
 
 -record(trigger, {dev_name, enabled, name, type, email, sms, twitter, text, config, ready = true, executed_at = undef, schedule = allways}).
 

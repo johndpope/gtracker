@@ -163,12 +163,31 @@ on_msg(Msg = {new_user, UserName, Password}, _From, State) ->
          {reply, error, State}
    end;
 
+on_msg(Msg = {update_user, UserName, Cfg = {Password, IsAdmin}}, _From, State) ->
+   log(debug, "update_user(~p, ~p). State: ~p", [UserName, Cfg, dump_state(State)]),
+   F = fun() ->
+      case mnesia:dirty_read(user, UserName) of
+         [] ->
+            {reply, no_such_user, State};
+         [User] ->
+            NewUser = User#user{password = erlang:md5(Password), is_admin = IsAdmin},
+            mnesia:dirty_write(NewUser),
+            {reply, NewUser, State}
+         end
+      end,
+   try F()
+   catch
+      _:Err ->
+         ?log_error("new_user/2"),
+         {reply, error, State}
+   end;
+
 on_msg(Msg = {login, UserName, Password}, _From, State) ->
    log(debug, "login(~p, ~p). State: ~p", [UserName, Password, dump_state(State)]),
    F = fun() ->
       case mnesia:dirty_read(user, UserName) of
          [] ->
-            {reply, not_exists, State};
+            {reply, rejected, State};
          [User = #user{name = U, password = P}] ->
             case (U == UserName) andalso (P == erlang:md5(Password)) of
                true ->
@@ -204,17 +223,66 @@ on_msg(Msg = {logout, UserName}, _From, State) ->
          {reply, error, State}
    end;
 
-%on_msg({get_triggers, DevName}, _From, State) ->
-%   try mnesia:dirty_index_read(device, DevName, #device.name) of
-%      [] ->
-%         {reply, no_triggers, State};
-%      [#device{triggers = T}] ->
-%         {reply, T, State}
-%   catch
-%      _:Err ->
-%         log(error, "get_triggers/1 failed: Error = ~p", [Err]),
-%         {reply, error, State}
-%   end;
+on_msg(Msg = get_all_devices, _From, State) ->
+   log(debug, "get_all_devices. State: ~p", [dump_state(State)]),
+   try mnesia:dirty_select(device, [{'_', [], ['$_']}]) of
+      Devices ->
+         {reply, Devices, State}
+   catch
+      _:Err ->
+         ?log_error("get_all_devices"),
+         {reply, error, State}
+   end;
+
+on_msg(Msg = {get_device, DevName}, _From, State) ->
+   log(debug, "get_all_devices. State: ~p", [dump_state(State)]),
+   try mnesia:dirty_read(device, DevName) of
+      [] ->
+         {reply, no_such_device, State};
+      [Device] ->
+         {reply, Device, State}
+   catch
+      _:Err ->
+         ?log_error("get_all_devices"),
+         {reply, error, State}
+   end;
+
+on_msg(Msg = {update_device, DevName, Cfg = {Alias, Timezone, Color, Weight, Pixmap, TwitterAuth}}, _From, State) ->
+   log(debug, "update_device(~p, ~p). State: ~p", [DevName, Cfg, dump_state(State)]),
+   try mnesia:dirty_read(device, DevName) of
+      [] ->
+         {reply, no_such_device, State};
+      [Device] ->
+         NewDevice = Device#device{alias = Alias, timezone = Timezone, color = Color, weight = Weight, pixmap =
+               Pixmap, twitter_auth = TwitterAuth},
+         mnesia:dirty_write(NewDevice),
+         {reply, NewDevice, State}
+   catch
+      _:Err ->
+         ?log_error("update_device/2"),
+         {reply, error, State}
+   end;
+
+on_msg(Msg = {get_tracks, DevName}, _From, State) ->
+   log(debug, "get_tracks(~p). State: ~p", [DevName, dump_state(State)]),
+   try mnesia:dirty_read(tracks, DevName) of
+      Tracks ->
+         {reply, Tracks, State}
+   catch
+      _:Err ->
+         ?log_error("get_tracks/1"),
+         {reply, error, State}
+   end;
+
+on_msg(Msg = {get_triggers, DevName}, _From, State) ->
+  try mnesia:dirty_read(triggers, DevName) of
+      Triggers ->
+        {reply, Triggers, State}
+   catch
+      _:Err ->
+         ?log_error("get_triggers/1"),
+         {reply, error, State}
+  end;
 
 on_msg(Msg, _From, State) ->
    log(error, "Unknown sync message ~p.", [Msg]),
