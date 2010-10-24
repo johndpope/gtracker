@@ -10,13 +10,15 @@
 -record(device,
    {
       name, alias = undef, reference = undef, online = false, links = #links{}, timezone = "UTC",
-      registered_at = now(), color = undef, weight = 1, pixmap = undef, twitter_auth = undef, curr_track = undef
+      registered_at = now(), color = undef, weight = 1, pixmap = undef, twitter_auth = undef
    }).
 
 -record(user, {name, password, online = false, is_admin = false}).
 
--record(track, {dev_name, id, name, status = closed, filename = undef, start, stop, length, avg_speed}).
+-record(track, {dev_name, id = erlang:make_ref(), name = undef, status = closed, path = undef, start = undef, stop = undef, length = 0, avg_speed = 0}).
 
 -record(trigger, {dev_name, enabled, name, type, email, sms, twitter, text, config, ready = true, executed_at = undef, schedule = allways}).
+
+-record(coord, {lat, lon, speed, timestamp}).
 
 -define(FieldId(Rec, Field), string:str(record_info(fields, Rec), [Field]) + 1).
