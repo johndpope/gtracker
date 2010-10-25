@@ -10,9 +10,9 @@
    color: #52657A;
    font-weight: 700;
    font-size: 3em;
-   vertical-align: baseline;
    text-align: center;
    padding: 20pt 5pt 5pt 5pt;
+   line-height: 2em;
 }
 
 .registration_form {

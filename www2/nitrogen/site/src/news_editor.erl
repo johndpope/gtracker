@@ -11,47 +11,50 @@ title() ->
    "GTracker - News Editor".
 
 body() ->
-   body(wf:user()).
+   body(wf:session(admin)).
 
 body(undefined) ->
    "Authenticate first";
 
-body(User) when User == "inndie@gmail.com" ->
-   [
-      #panel { class=edit, body=select() },
-      #panel { class=edit, body=editor() }
-   ];
+body(0) ->
+   "You are not admin";
 
-body(_User) ->
-   "News management disabled for you".
+body(1) ->
+   #panel { class=?MODULE, body=[
+         #panel { class=view, body=select() },
+         #panel { class=view, body=editor() }
+      ]}.
 
 select() ->
-   case q:exec(?SHOW_ALL_NEWS) of
-      ?RESULT(News) ->
-         display(News);
-      _ ->
-         "No news"
-   end.
+   [
+      #h2 { text="News list:" },
+      case q:exec(?SHOW_ALL_NEWS) of
+         ?RESULT(News) ->
+            display(News);
+         _ ->
+            "No news"
+      end
+   ].
 
 display(News) ->
    Map = [
-      timestampLabel@text,
-      postLabel@text,
-      deleteButton@postback
+      timestamp@text,
+      post@text,
+      delete@postback
    ],
    #table { rows=[
-         #tablerow { cells=
+         #tablerow { class=table_header, cells=
             [
                #tableheader { style="width: 15%;", text="Timestamp" },
                #tableheader { style="width: 80%;", text="Post" },
                #tableheader { style="width: 5%;" }
             ]
          },
-         #bind { data=News, map=Map, transform=fun convert_row/2, body=#tablerow { cells=
+         #bind { data=News, map=Map, transform=fun convert_row/2, body=#tablerow { class=record, cells=
                [
-                  #tablecell { id=timestampLabel },
-                  #tablecell { id=postLabel },
-                  #tablecell { body=#button { id=deleteButton, text="Delete" } }
+                  #tablecell { id=timestamp },
+                  #tablecell { id=post },
+                  #tablecell { body=#button { id=delete, text="Delete" } }
                ]
             }
          }
@@ -65,11 +68,14 @@ convert_row(DataRow, Acc) ->
 editor() ->
    {{Year,Month,Day},{Hour,Minutes,Seconds}} = erlang:localtime(),
    [
-      #label { text="Timestamp:" },
-      #textbox { id=timestamp, style="width: 400px;", text=wf:f(?DATETIME_FORMAT, [Year, Month, Day, Hour, Minutes, Seconds]) }, #br {},
-      #label { text="Post: " },
-      #textarea { id=post, style="width: 400px; height: 300px;" }, #br {},
-      #button { text="Publicate", postback=publicate }
+      #h2 { text="News list:" },
+      #panel { body=[
+            #span { text="Timestamp:" }, #br {},
+            #textbox { id=timestamp, text=wf:f(?DATETIME_FORMAT, [Year, Month, Day, Hour, Minutes, Seconds]) }, #br {},
+            #span { text="Post: " }, #br {},
+            #textarea { id=post }, #p {},
+            #button { text="Publicate", postback=publicate }
+         ]}
    ].
 
 event(publicate) ->

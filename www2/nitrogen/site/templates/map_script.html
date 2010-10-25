@@ -1,9 +1,10 @@
 <script src='http://maps.google.com/maps/api/js?sensor=false'></script> 
 <script src='http://openlayers.org/api/OpenLayers.js'></script>
+<script src="http://www.openstreetmap.org/openlayers/OpenStreetMap.js"></script>
 <script src='/gtracker/map.js' type='text/javascript' charset='utf-8'></script>
 <script type='text/javascript' charset='utf-8'>
    var $map;
-   var $devices = {}; // map for tracks id -> track
+   var $device_list = {}; // map for tracks id -> track
 
    $(document).ready(function() {
       $("#map").resizable({
@@ -24,49 +25,65 @@
       $map.setCenter(Map.ll(37.623281, 55.755206));
       $map.zoomTo(12);
 
-
-//      var $track = Map.track({
-//         name:    "Bullshit",
-//         color:   "#ff0000",
-//         width:   "3"
-//      });
-//
-//      $map.addLayer($track.vector);
-//
-//      $track.append(37.623281 + 1, 55.755206 + 1);
-//      $track.append(37.623281 + 0.5, 55.755206 + 1.5);
-//      $track.append(37.623281, 55.755206);
-//      $track.update();
       [[[devices:display()]]]
    });
 
-   function deviceTemplate($id, $name) {
-      return $("<div class=\"deviceWrapper\"><div class=\"device\" id=\"" + $id + "\"><div>Device:<span class=\"right\">" + $name + "</span></div><div>State:<span class=\"state right\">offline</span></div><div style=\"clear:both\"></div></div></div>");
+   function device_template($id, $name) {
+      return $(
+      "<div class=\"device_wrapper\"><div class=\"device\" id=\"" + $id + "\"><div class=\"property\">Device:<span>" + $name + "</span></div><div class=\"property\">State:<span class=\"state\">offline</span></div><div style=\"clear:both\"></div></div></div>");
    };
 
-   function createDevice($id, $options) {
-      if ($id in $devices) {
+   function device_create($id, $options) {
+      if ($id in $device_list) {
          return false;
       }
 
       var $track = Map.track($options);
-      var $div = deviceTemplate($id, $options.name);
+      var $div = device_template($id, $options.name);
+      $div.click(function() {
+         var $pos = $track.last();
+         if ($pos != undefined) {
+            $map.setCenter($track.last());
+         }
+      });
+
       var $device = {
          track: $track,
          div: $div
       };
       $map.addLayer($track.layer);
-      $div.appendTo("#devices");
-      $devices[$id] = $device;
+      $div.appendTo("#device_list");
+      $device_list[$id] = $device;
 
       return true;
    };
 
-   function destroyDevice($id) {
-      if ($id in $devices) {
-         $map.removeLayer($devices[$id].track.layer);
-         $devices[$id].div.remove();
-         delete $devices[$id];
+   function device_destroy($id) {
+      if ($id in $device_list) {
+         $map.removeLayer($device_list[$id].track.layer);
+         $device_list[$id].div.remove();
+         delete $device_list[$id];
       }
    };
+
+   function device_change_state($id, $state) {
+      if ($id in $device_list) {
+         var $div = $device_list[$id].div;
+         $div.find(".state").text($state);
+         if ($state == 'online') {
+            $div.find('.device').addClass('online');
+         } else {
+            $div.find('.device').removeClass('online');
+         }
+      }
+   }
+
+   function device_move($id, $lon, $lat) {
+      if ($id in $device_list) {
+         var $track = $device_list[$id].track;
+         $track.append($lon, $lat);
+         $track.update();
+      }
+   }
+
 </script>

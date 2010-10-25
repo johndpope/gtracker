@@ -15,16 +15,16 @@ display() ->
 
 display(News) ->
    Map = [
-      timestampLabel@text,
-      postLabel@text
+      timestamp@text,
+      post@body
    ],
 
    #bind { data=News, map=Map, transform=fun convert_row/2, body=
       [
-         "<div class=\"newsWrapper\">",
+         "<div class=\"news_wrapper\">",
          #panel { class=news, body=[
-               #label { class=timestamp, id=timestampLabel },
-               #label { class=post, id=postLabel }
+               #h3 { id=timestamp },
+               #p { id=post }
             ]},
          "</div>"
       ]
@@ -32,4 +32,4 @@ display(News) ->
 
 convert_row(DataRow, Acc) ->
    [{datetime,{{Year,Month,Day},{_Hour,_Minutes,_Seconds}}}, Post] = DataRow,
-   { [wf:f("~w/~w/~w", [Day, Month, Year]), Post], Acc, [] }.
+   { [wf:f("~2.10.0B/~2.10.0B/~w", [Day, Month, Year]), Post], Acc, [] }.

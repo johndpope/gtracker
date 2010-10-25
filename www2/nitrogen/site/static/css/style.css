@@ -5,11 +5,8 @@ html,body,div,span,applet,object,iframe,h1,h2,h3,h4,h5,h6,p,blockquote,pre,a,abb
 
 /*** HTML tags style ***/
 html { 
-/*   font-family: "Lucida Grande", "Segoe UI", Tahoma, Helvetica, Arial, sans-serif;  */
    font-family: "Arial", "Sans-serif";
    font-size: 9pt;
-   margin: 0;
-   padding: 0;
    background: #91A2B5 url('/images/background.png') repeat-x;
 }
 
@@ -21,70 +18,12 @@ a:hover {
    text-decoration: underline;
 }
 
-h1 {
-        color: #5F5C59;
-        font-weight: bold;
-        font-style: normal;
-        font-size: 2em;
-        margin: 0 5pt;
-        padding: 0;
-        border-bottom: 1px dotted #5F5C59;
+input, textarea, select, option {
+   border-radius: 3pt;
+   padding: 1pt;
 }
 
-p {
-        padding: 5pt 0;
-        margin: 0 5pt 15pt 5pt;
-}
-
-/*** CUSTOM STYLES ***/
-.user {
-   top: 0;
-   left: 0;
-   right: 0;
-   background: #000 url('/images/top_bg.png') repeat-x;
-   color: #ccc;
-   line-height: 32px
-}
-
-.user .info {
-   display: inline;
-   font-weight: 700;
-   color: #888;
-}
-
-.user .info img {
-   vertical-align: middle;
-   padding-right: 5pt;
-}
-
-.user a {
-   font-weight: 700;
-   color: #91A2B5;
-   padding-left: 5pt;
-   padding-right: 5pt;
-}
-.user a.settings {
-   padding-left: 20pt;
-}
-
-.user a.registration {
-   font-weight: 700;
-   color: #B56172;
-   padding-left: 5pt;
-   padding-right: 5pt;
-   float: right;
-}
-
-.user a.logout {
-   float: right;
-}
-
-.form {
-   border: solid 1px white;
-   background: #ccc;
-   color: #336;
-}
-
+/*** Blocks style ***/
 .wrapper {
    position: relative;
    min-width: 800px;
@@ -96,33 +35,66 @@ p {
    clear: both;
 }
 
-.navigation {
-   float: right;
-   font-size: 1.3em;
+/*** Top bar ***/
+.top_bar {
+   top: 0;
+   left: 0;
+   right: 0;
+   background: #000 url('/images/top_bg.png') repeat-x;
+   color: #ccc;
+   line-height: 32px
+}
+
+.top_bar .info {
+   display: inline;
    font-weight: 700;
-   list-style-type: none;
-   position: relative;
+   color: #888;
 }
 
-.navigation li {
-   display: block;
-   overflow: hidden;
-   padding: 0;
-   float: left;
-   margin-right: 12pt;
-   color: #52657A;
+.top_bar .info img {
+   vertical-align: middle;
+   padding-right: 5pt;
 }
 
-.navigation li a {
-   color: #000;
-   text-shadow: 1px 1px 1px rgba(255,255,255,.4);
+.top_bar input {
+   border: solid 1px white;
+   background: #ccc;
+   color: #336;
 }
 
+.top_bar a {
+   font-weight: 700;
+   color: #91A2B5;
+   padding-left: 5pt;
+   padding-right: 5pt;
+}
+.top_bar .control {
+   padding-left: 20pt;
+   display: inline;
+}
+
+.top_bar a.registration {
+   font-weight: 700;
+   color: #B56172;
+   padding-left: 5pt;
+   padding-right: 5pt;
+   float: right;
+}
+
+.top_bar a.logout {
+   float: right;
+}
+
+.top_bar .admin {
+   color: red;
+}
+
+/*** Header block style ***/
 .header {
    line-height: 5.5em;
 }
 
-a.logo {
+.header .logo {
    text-shadow: 1px 1px 1px rgba(255,255,255,.4);
    color: #52657A;
    font-weight: 700;
@@ -131,10 +103,36 @@ a.logo {
    outline: 0;
 }
 
-a.logo:hover {
+.header .logo:hover {
    text-decoration: none;
 }
 
+.header .navigation {
+   float: right;
+   font-size: 1.3em;
+   font-weight: 700;
+   list-style-type: none;
+   position: relative;
+}
+
+.header .navigation li {
+   display: block;
+   float: left;
+   margin-right: 12pt;
+   color: #52657A;
+}
+
+.header .navigation li a {
+   color: #000;
+   text-shadow: 1px 1px 1px rgba(255,255,255,.4);
+}
+
+.header .navigation li a:hover {
+   color: #333;
+   text-decoration: none;
+}
+
+/*** Content block style ***/
 .content {
    font-size: 1.2em;
    background: #ECF0F3;
@@ -143,25 +141,102 @@ a.logo:hover {
    min-height: 480px;
 }
 
-.content p a {
-   color: #32457A;
-   text-decoration: underline;
-   padding-top: 10pt;
+.content h1 {
+   color: #666;
+   font-weight: bold;
+   font-style: normal;
+   font-size: 2em;
+   padding-bottom: 6pt;
+   border-bottom: 1px dotted #52657A;
 }
 
-.content p a:hover {
-   color: #303131;
-   overflow:auto;
+.content p {
+   padding-top: 5pt;
+   padding-bottom: 20pt;
 }
 
+.content input, .content textarea, .content select, .content option {
+   border: solid 1px #52657A;
+   background: #eef;
+   color: #333;
+   min-width: 80px;
+}
+
+.content input[type=button]:hover {
+   background: #dde;
+   border-color: #8295AA;
+   cursor: pointer;
+}
+
+.content .view {
+   background: #ECF0F3 url('/images/internal_bg.png') repeat-x;
+   padding: 5pt;
+   border-top-left-radius: 5pt;
+   border-top-right-radius: 5pt;
+   margin-bottom: 10pt;
+}
+
+/*** Content-Welcome style ***/
+.news_wrapper {
+   width: 33%;
+   float: left;
+}
+
+.news {
+   margin: 5pt;
+}
+
+ link.news h3 { /* Timestamp */
+   font-size: 0.7em;
+   font-weight: normal;
+   font-style: normal;
+   color: #666;
+}
+
+.news p { /* Post */
+   font-size: 0.9em;
+   text-align: justify;
+}
+
+/*** Content-News editor style ***/
+.news_editor table {
+   border: 1px dotted gray;
+   padding: 5pt;
+}
+
+.news_editor input {
+   width: 200px;
+}
+
+.news_editor textarea {
+   width: 400px;
+   height: 300px;
+}
+
+.news_editor .record {
+   border-top: 1px dotted gray;
+}
+
+.news_editor .table_header {
+   font-weight: normal;
+   background: #ccc;;
+   color: #666;
+}
+
+/*** Content-Map style ***/
 .map {
    border: 1px solid gray;
    height: 480px;
    border-bottom: 5px solid gray;
 }
 
-.devices {
+.device_list {
    margin-top: 5pt;
+}
+
+.device_wrapper {
+   width: 20%;
+   float: left;
 }
 
 .device {
@@ -171,59 +246,47 @@ a.logo:hover {
    padding: 5pt;
    margin: 5pt;
    cursor: pointer;
-}
-
-.deviceWrapper {
-   width: 20%;
-   float: left;
-}
-
-.device .right {
-   float: right;
-   font-weight: bold;
+   color: gray;
 }
 
 .online {
    border-color: green;
 }
 
-.edit {
-   padding: 10pt;
-   border-radius: 5pt;
-   margin: 5pt;
-   background: #CED6DE;
+.online * {
+   color: black;
 }
 
-.edit table {
+.device span {
+   float: right;
+   font-weight: bold;
+}
+
+.device .property {
+   margin-bottom: 4pt;
+}
+
+/*** Content-User Settings style ***/
+.user_settings h2 {
+   font-weight: 700;
+   font-size: 1.2em;
+   color: #333;
+   margin-bottom: 5pt;
+}
+
+.user_settings table {
+   width: 400px;
+   border-bottom: 1px dotted gray;
+}
+
+.user_settings table td {
+   border-top: 1px dotted gray;
+   border-right: 1px dotted gray;
+   padding: 5pt;
+}
+
+.user_settings table .first {
    width: 100%;
-   background: #fff;
-}
-
-.edit .tableheader {
-   background: #ccc;
-   padding: 5pt;
-   border: 1px solid black;
-}
-
-.edit td {
-   padding: 5pt;
-}
-
-.newsWrapper {
-   width: 33%;
-   float: left;
-}
-
-.news {
-   margin: 5pt;
-}
-
-.news .timestamp {
-   color: #999;
-   padding-bottom: 5pt;
-}
-
-.news .post {
-   font-weight: normal;
+   border-left: 1px dotted gray;
 }
 

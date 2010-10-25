@@ -7,6 +7,7 @@ exec(QueryFormat, Params) ->
    exec(Query).
 
 exec(Query) ->
+   wf:info(Query),
    Res = mysql:fetch(?LINK, Query, ?TIMEOUT),
    case Res of
       ?ERROR(_) ->
@@ -14,4 +15,3 @@ exec(Query) ->
       Result ->
          Result
    end.
-

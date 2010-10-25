@@ -3,30 +3,49 @@
 -include_lib("nitrogen/include/wf.hrl").
 -include("db.hrl").
 
--export([display/0]).
+%-export([display/0]).
+-compile(export_all).
 
 display() ->
-   display_user_devices(wf:user()).
+   display(wf:user()).
 
-display_user_devices(undefined) ->
+display(undefined) ->
    [];
 
-display_user_devices(_User) ->
-   display_devices(wf:session(devices)).
-
-display_devices(undefined) ->
-   % query devices list and store they in session
-   Items = [ 426, 427, 456, 499 ],
-   wf:session(devices, Items),
-   display_devices(Items);
+display(_User) ->
+   [
+      change_map(),
+      display_devices(wf:session(devices))
+   ].
 
 display_devices(List) ->
    lists:map(fun display_device/1, List).
 
-display_device(DeviceId) ->
-   case q:exec(?DEVICE_INFO, [DeviceId]) of
+change_map() ->
+   wf:f("$map.setBaseLayer($map.layers[~s]);", [wf:session(map_id)]).
+
+display_device([DeviceID]) ->
+   case q:exec(?DEVICE_LAYER_SETTIGS, [DeviceID]) of
       ?RESULT([[Color, Weight, Name, Alias]]) ->
-         wf:f("createDevice(~w, { color:'~s', width:~w, name:'~s', alias:'~s' });", [DeviceId, Color, Weight, Name, Alias]);
+         {ok, Pid} = wf:comet(fun() -> loop(DeviceID) end, DeviceID),
+         gen_server:cast({global, fake_server}, {subscribe, DeviceID, Pid}),
+         wf:f("device_create(~w, { color:'~s', width:~w, name:'~s', alias:'~s' });", [DeviceID, Color, Weight, Name, Alias]);
       _ ->
-         wf:f(" /* Bad Device: ~w */ ", [DeviceId])
+         wf:f(" /* Bad Device: ~w */ ", [DeviceID])
    end.
+
+loop(DeviceID) ->
+   receive
+      online ->
+         wf:wire(wf:f("device_change_state(~w, 'online');", [DeviceID])),
+         wf:flush();
+
+      offline ->
+         wf:wire(wf:f("device_change_state(~w, 'offline');", [DeviceID])),
+         wf:flush();
+      
+      {coord, Lat, Lon, _Speed, _Timestamp} ->
+         wf:wire(wf:f("device_move(~w, ~f, ~f);", [DeviceID, Lon, Lat])),
+         wf:flush()
+   end,
+   loop(DeviceID).

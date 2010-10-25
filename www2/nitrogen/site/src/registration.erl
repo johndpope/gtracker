@@ -25,11 +25,11 @@ body() ->
    [
       #panel { class=registration_form, body=[
             #label { text="Your email address:" },
-            #textbox { id=user_text_box, class=form, next=password_text_box },
+            #textbox { id=user_text_box, next=password_text_box },
             #label { text="Your password:" },
-            #password { id=password_text_box, class=form, next=password_confirm_text_box },
+            #password { id=password_text_box, next=password_confirm_text_box },
             #label { text="Confirm password:" },
-            #password { id=password_confirm_text_box, class=form, next=register_button },
+            #password { id=password_confirm_text_box, next=register_button },
             #p {},
             #button { id=register_button, text="Register", postback=register_user }
          ]},
@@ -50,6 +50,6 @@ check_user(_Tag, User) ->
 event(register_user) ->
    User = wf:q(user_text_box),
    Password = erlang:list_to_binary(md5:hex(wf:q(password_text_box))),
-   q:exec(?CREATE_USER, [User, Password]),
+   q:exec(?USER_CREATE, [User, Password]),
    wf:user(User),
    wf:redirect("/").
