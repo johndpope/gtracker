@@ -54,7 +54,7 @@ event(login) ->
          user:load_devices_into_session(UserID),
          wf:redirect(wf:path_info());
 
-      ?RESULT([[_, _, _, _]]) ->
+      ?RESULT([[_,_]]) ->
          wf:wire(#alert { text="Incorrect password" });
 
       ?RESULT([]) ->

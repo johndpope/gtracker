@@ -14,10 +14,10 @@ body() ->
    body(wf:session(admin)).
 
 body(undefined) ->
-   "Authenticate first";
+   #template { file="./site/templates/logon_first.html" };
 
 body(0) ->
-   "You are not admin";
+   #template { file="./site/templates/denied.html" };
 
 body(1) ->
    #panel { class=?MODULE, body=[

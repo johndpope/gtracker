@@ -1,10 +1,11 @@
 -module(devices).
-
 -include_lib("nitrogen/include/wf.hrl").
 -include("db.hrl").
-
 %-export([display/0]).
 -compile(export_all).
+
+-define(DEVICE_CHANGE_STATE, "device_change_state(~w, '~s');").
+-define(DEVICE_MOVE, "device_move(~w, ~f, ~f);").
 
 display() ->
    display(wf:user()).
@@ -37,15 +38,15 @@ display_device([DeviceID]) ->
 loop(DeviceID) ->
    receive
       online ->
-         wf:wire(wf:f("device_change_state(~w, 'online');", [DeviceID])),
+         w:exec(?DEVICE_CHANGE_STATE, [DeviceID, "online"]),
          wf:flush();
 
       offline ->
-         wf:wire(wf:f("device_change_state(~w, 'offline');", [DeviceID])),
+         w:exec(?DEVICE_CHANGE_STATE, [DeviceID, "offline"]),
          wf:flush();
       
       {coord, Lat, Lon, _Speed, _Timestamp} ->
-         wf:wire(wf:f("device_move(~w, ~f, ~f);", [DeviceID, Lon, Lat])),
+         w:exec(?DEVICE_MOVE, [DeviceID, Lon, Lat]),
          wf:flush()
    end,
    loop(DeviceID).

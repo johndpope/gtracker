@@ -13,7 +13,7 @@ body() ->
    #panel { class=?MODULE, body=display(user:id()) }.
 
 display(undefined) ->
-   #h1 { text="Please login first before change settings" };
+   #template { file="./site/templates/logon_first.html" };
 
 display(UserID) ->
    ?RESULT(Devices) = q:exec(?DEVICE_NAME_LIST, [UserID]),
@@ -32,12 +32,10 @@ display(UserID) ->
                            #tablecell { body=#link { id=remove, text="Remove" } }
                         ]}
                   }
-               ]}
-         ]},
-      #panel { class=view, body=[
+               ]},
+            #br {},
             #h2 { text="Add device:" },
             #textbox { id=device_text_box, postback=add },
-            #p {},
             #button { id=add_button, text="Add", postback=add }
          ]},
       #panel { class=view, body=[
@@ -47,11 +45,10 @@ display(UserID) ->
                   #option { text="OSM Mapnik", value="0" },
                   #option { text="OSM CycleMap", value="1" },
                   #option { text="OSM Osmarender", value="2" },
-                  #option { text="Google Maps", value="3" },
-                  #option { text="Yandex Maps", value="4" }
+                  #option { text="Google Maps", value="3" }
                ]},
             #p {},
-            #button { text="Change", postback=change }
+            #button { text="Save", postback=save }
          ]}
    ].
 
@@ -73,16 +70,18 @@ event({settings, DeviceID}) ->
 
 event({remove, UserID, DeviceID}) ->
    q:exec(?USER_REMOVE_DEVICE, [UserID, DeviceID]),
-   user:load_devices_into_session(),
+   user:load_devices_into_session(UserID),
    wf:redirect(wf:path_info());
 
 event(add) ->
+   UserID=user:id(),
    ?RESULT([[DeviceID]]) = q:exec(?DEVICE_EXISTS, [wf:q(device_text_box)]),
-   q:exec(?USER_ADD_DEVICE, [user:id(), DeviceID]),
-   user:load_devices_into_session(),
+   % add check to devices exists
+   q:exec(?USER_ADD_DEVICE, [UserID, DeviceID]),
+   user:load_devices_into_session(UserID),
    wf:redirect(wf:path_info());
 
-event(change) ->
+event(save) ->
    MapType=wf:q(map_type_dropdown),
    wf:session(map_id, MapType),
    q:exec(?USER_SAVE_SETTINGS, [MapType, user:id()]),

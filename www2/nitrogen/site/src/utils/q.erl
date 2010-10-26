@@ -1,5 +1,5 @@
 -module(q).
--export ([exec/1, exec/2]).
+-export([exec/1, exec/2]).
 -include("db.hrl").
 
 exec(QueryFormat, Params) ->

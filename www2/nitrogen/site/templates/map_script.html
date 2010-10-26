@@ -43,7 +43,7 @@
       $div.click(function() {
          var $pos = $track.last();
          if ($pos != undefined) {
-            $map.setCenter($track.last());
+            $map.panTo($track.last());
          }
       });
 

@@ -2,23 +2,6 @@ var Map = {
    projection: new OpenLayers.Projection("EPSG:900913"),
    displayProjection:  new OpenLayers.Projection("EPSG:4326"),
 
-   yandex_tile_url: function (bounds) {
-      var res = this.map.getResolution();
-      var maxExtent = (this.maxExtent) ? this.maxExtent : yandexBounds;
-      var tileW = (this.tileSize)?this.tileSize.w:256;
-      var tileH = (this.tileSize)?this.tileSize.h:256;
-      var x = Math.round((bounds.left - maxExtent.left)/(res * tileW));
-      var y = Math.round((maxExtent.top - bounds.top)/(res * tileH));
-      var z = this.map.getZoom();var limit = Math.pow(2, z);
-      if (y <0>= limit) {
-         return OpenLayers.Util.getImagesLocation() + "404.png";
-      } else {
-         x = ((x % limit) + limit) % limit;
-         url = (this.url) ? this.url : "http://vec02.maps.yandex.net/";
-         return url+"tiles?l=map&v=2.2.3&x=" + x + "&y=" + y + "&z=" + z;
-      }
-   },
-
    // create map
    create:  function($element_id) {
                var $options = {
@@ -34,18 +17,11 @@ var Map = {
                var $map = new OpenLayers.Map($element_id, $options); 
 
                $map.addLayers([
-                     new OpenLayers.Layer.OSM("OSM Mapnik"),
-                     new OpenLayers.Layer.OSM.CycleMap("OSM CycleMap"),
-                     new OpenLayers.Layer.OSM.Osmarender("OSM Osmarender"),
-                     new OpenLayers.Layer.Google("Google Maps", { sphericalMercator: true }),
-                     new OpenLayers.Layer.TMS("Yandex Maps","http://vec02.maps.yandex.net/", {
-                           maxExtent: new OpenLayers.Bounds(-20037508,-20002151,20037508,20072865),
-                           type: "png",
-                           getURL: Map.yandex_tile_url,
-                           numZoomLevels: 18,
-                           transitionEffect: "resize"
-                        })
-                     ]);
+                  new OpenLayers.Layer.OSM("OSM Mapnik"),
+                  new OpenLayers.Layer.OSM.CycleMap("OSM CycleMap"),
+                  new OpenLayers.Layer.OSM.Osmarender("OSM Osmarender"),
+                  new OpenLayers.Layer.Google("Google Maps", { sphericalMercator: true })
+               ]);
 
                $map.addControl(new OpenLayers.Control.LayerSwitcher());
                $map.addControl(new OpenLayers.Control.Navigation());
@@ -56,7 +32,7 @@ var Map = {
             },
 
    track:   function($options) {
-               var $opts = OpenLayers.Util.extend({ color: "#000000", width: 6, name: "No Name" }, $options);
+               var $opts = OpenLayers.Util.extend({ color: "#000000", width: 6, name: "No Name", opacity: 0.7 }, $options);
                var $layer_style = OpenLayers.Util.extend(OpenLayers.Feature.Vector.style['default'], { fillOpacity: 0.2, graphicOpacity: 1 });
                $layer_style.fillOpacity = 0.2;
                $layer_style.graphicOpacity = 1;
@@ -65,6 +41,7 @@ var Map = {
                   strokeColor: $opts.color,
                   strokeWidth: $opts.width,
                   pointRadius: $opts.width,
+                  strokeOpacity: $opts.opacity,
                   pointerEvents: "visiblePainted"
                };
 

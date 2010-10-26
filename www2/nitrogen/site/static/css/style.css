@@ -18,9 +18,11 @@ a:hover {
    text-decoration: underline;
 }
 
-input, textarea, select, option {
+input, textarea, select {
    border-radius: 3pt;
    padding: 1pt;
+   margin: 2pt;
+   -moz-border-radius: 3pt;
 }
 
 /*** Blocks style ***/
@@ -155,17 +157,21 @@ input, textarea, select, option {
    padding-bottom: 20pt;
 }
 
-.content input, .content textarea, .content select, .content option {
+.content input, .content textarea, .content select {
    border: solid 1px #52657A;
    background: #eef;
    color: #333;
    min-width: 80px;
 }
 
-.content input[type=button]:hover {
-   background: #dde;
-   border-color: #8295AA;
+.content input[type=button] {
+   background: #eee;
    cursor: pointer;
+}
+
+.content input[type=button]:hover {
+   background: #e0e0e0;
+   border-color: #8295AA;
 }
 
 .content .view {
@@ -173,6 +179,8 @@ input, textarea, select, option {
    padding: 5pt;
    border-top-left-radius: 5pt;
    border-top-right-radius: 5pt;
+   -moz-border-radius-topleft: 5pt;
+   -moz-border-radius-topright: 5pt;
    margin-bottom: 10pt;
 }
 
@@ -243,6 +251,7 @@ input, textarea, select, option {
    background: #CED6DE url('/images/device_bg.png') repeat-x;
    border: 1px solid gray;
    border-radius: 5pt;
+   -moz-border-radius: 5pt;
    padding: 5pt;
    margin: 5pt;
    cursor: pointer;
