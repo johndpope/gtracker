@@ -9,9 +9,8 @@
       ,register/1
       ,unregister/1
       ,new_user/2
-      ,update_user/3
-      ,login/2
-      ,logout/1
+      ,update_user/4
+      ,authenticate/2
       ,get_tracks/1
       ,get_triggers/1
    ]).
@@ -62,20 +61,21 @@ new_user(UserName, Password) ->
 % update_user(UserName, NewPassword, IsAdmin) -> Device() | no_such_user | error
 %  UserName = String()
 %  NewPassword = String()
+%  MapType = Integer(). 0..5
 %  IsAdmin = bool()
-update_user(UserName, NewPassword, IsAdmin) ->
-   gen_server:call(?db_ref, {update_user, UserName, {NewPassword, IsAdmin}}).
+update_user(UserName, NewPassword, MapType, IsAdmin) ->
+   gen_server:call(?db_ref, {update_user, UserName, {NewPassword, IsAdmin, MapType}}).
 
-% login(UserName, Password) -> User() | rejected | error
+% authenticate(UserName, Password) -> User() | rejected | error
 %  UserName = String()
 %  Password = String()
-login(UserName, Password) ->
+authenticate(UserName, Password) ->
    gen_server:call(?db_ref, {login, UserName, Password}).
 
 % logout(UserName) -> ok | rejected | error
 %  UserName = String()
-logout(UserName) ->
-   gen_server:call(?db_ref, {logout, UserName}).
+%logout(UserName) ->
+%   gen_server:call(?db_ref, {logout, UserName}).
 
 % get_tracks(DevName) -> Tracks | error
 %  Tracks = [Track]

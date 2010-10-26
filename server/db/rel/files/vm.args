@@ -1,9 +1,9 @@
 
 ## Name of the node
--name gtracker@127.0.0.1
+-name gtracker_db@127.0.0.1
 
 ## Cookie for distributed erlang
--setcookie gtracker
+-setcookie nitrogen
 
 ## Heartbeat management; auto-restarts VM if it dies or becomes unresponsive
 ## (Disabled by default..use with caution!)
@@ -19,3 +19,4 @@
 ## Tweak GC to run more often
 -env ERL_FULLSWEEP_AFTER 10
 
+-mnesia dir "'/var/lib/gtracker_db/Mnesia.gtacker_db'"

@@ -13,7 +13,7 @@
       registered_at = now(), color = undef, weight = 1, pixmap = undef, twitter_auth = undef
    }).
 
--record(user, {name, password, online = false, is_admin = false}).
+-record(user, {name, password, online = false, map_type = 0, is_admin = false}).
 
 -record(track, {dev_name, id = erlang:make_ref(), name = undef, status = closed, path = undef, start = undef, stop = undef, length = 0, avg_speed = 0}).
 
