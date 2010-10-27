@@ -21,4 +21,6 @@
 
 -record(coord, {lat, lon, speed, timestamp}).
 
+-record(news, {id, date, text}).
+
 -define(FieldId(Rec, Field), string:str(record_info(fields, Rec), [Field]) + 1).

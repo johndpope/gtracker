@@ -13,6 +13,10 @@
       ,authenticate/2
       ,get_tracks/1
       ,get_triggers/1
+      ,get_news/0
+      ,get_news/1
+      ,insert_news/2
+      ,delete_news/1
    ]).
 
 -define(db_ref, {global, gtracker_db}).
@@ -88,3 +92,15 @@ get_tracks(DevName) ->
 %  Trigger = #trigger. See common_defs.hrl for details
 get_triggers(DevName) ->
    gen_server:call(?db_ref, {get_triggers, DevName}).
+
+get_news() ->
+   gen_server:call(?db_ref, {get_news, undef}).
+
+get_news(UpToDate) ->
+   gen_server:call(?db_ref, {get_news, UpToDate}).
+
+insert_news(Date, Text) ->
+   gen_server:call(?db_ref, {insert_news, Date, Text}).
+
+delete_news(NewsRef) ->
+   gen_server:call(?db_ref, {delete_news, NewsRef}).

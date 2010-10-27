@@ -19,4 +19,4 @@
 ## Tweak GC to run more often
 -env ERL_FULLSWEEP_AFTER 10
 
--mnesia dir "'/var/lib/gtracker_db/Mnesia.gtacker_db'"
+-mnesia dir "'/var/lib/gtracker_db/Mnesia.gtracker_db'"

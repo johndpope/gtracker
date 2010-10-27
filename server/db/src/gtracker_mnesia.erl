@@ -33,13 +33,7 @@ on_start(Opts) ->
    Triggers = get_param(triggers, SelfOpts, ?def_triggers),
    TrackNodes = get_param(track_nodes, SelfOpts, ?def_track_nodes),
    crypto:start(),
-   mnesia:start(),
-   Res = (catch mnesia:table_info(device, all)),
-   case Res of
-     {'EXIT',{aborted,{no_exists,device,all}}} ->
-        create_schema();
-     _ -> ok
-   end,
+   mnesia_start(),
    log(info, "Mnesia started."),
    {ok, #state{triggers = Triggers, track_nodes = TrackNodes}}.
 
@@ -285,6 +279,49 @@ on_msg(Msg = {get_triggers, DevName}, _From, State) ->
          {reply, error, State}
   end;
 
+on_msg(Msg = {get_news, UpToDate}, _From, State) ->
+   log(debug, "get_news(~p). State: ~p", [UpToDate, dump_state(State)]),
+   F = fun() ->
+         Date = if (UpToDate == undef) -> {2100, 1, 1}; true -> UpToDate end,
+         case calendar:valid_date(Date) of
+            true ->
+               mnesia:dirty_select(news, [{#news{date = '$1', _='_'}, [{'=<', '$1', {Date}}], ['$_']}]);
+            false ->
+               invalid_date
+         end
+      end,
+   try F() of
+      Result ->
+         {reply, Result, State}
+   catch
+      _:Err ->
+         ?log_error("get_news/1"),
+         {reply, error, State}
+   end;
+
+on_msg(Msg = {insert_news, Date, Text}, _From, State) ->
+   log(debug, "insert_news(~p, ~p). State: ~p", [Date, Text, dump_state(State)]),
+   NewsRef = erlang:make_ref(),
+   try mnesia:dirty_write(#news{id = NewsRef, date = Date, text = Text}) of
+      ok ->
+         {reply, NewsRef, State}
+   catch
+      _:Err ->
+         ?log_error("insert_news/2"),
+         {reply, error, State}
+   end;
+
+on_msg(Msg = {delete_news, NewsRef}, _From, State) ->
+   log(debug, "delete_news(~p). State: ~p", [NewsRef, dump_state(State)]),
+   try mnesia:dirty_delete(news, NewsRef) of
+      ok ->
+         {reply, ok, State}
+   catch
+      _:Err ->
+         ?log_error("delete_news/1"),
+         {reply, error, State}
+   end;
+
 %on_msg(Msg = {new_track, DevName}, _From, State = #state{track_nodes = TN}) ->
 %   log(debug, "new_track(~p). State: ~p", [DevName, dump_state(State)]),
 %   F = fun() ->
@@ -337,13 +374,22 @@ log(LogLevel, Text) ->
 %=======================================================================================================================
 %  tools
 %=======================================================================================================================
-create_schema() ->
-   mnesia:stop(),
+-define(create_table(Table),
+   case (catch mnesia:table_info(Table, version)) of
+      {'EXIT', {aborted, {no_exists, Table, _}}} ->
+         mnesia:create_table(
+            Table, [{disc_copies, [node()]}, {type, ordered_set}, {attributes, record_info(fields, Table)}]);
+      _ ->
+         ok
+   end).
+
+mnesia_start() ->
    mnesia:create_schema([]),
    mnesia:start(),
-   mnesia:create_table(device, [{disc_copies, [node()]}, {type, ordered_set}, {attributes, record_info(fields,device)}]),
-   mnesia:create_table(trigger, [{disc_copies, [node()]}, {type, ordered_set}, {attributes, record_info(fields, trigger)}]),
-   mnesia:create_table(user, [{disc_copies, [node()]}, {type, ordered_set}, {attributes, record_info(fields, user)}]).
+   ?create_table(device),
+   ?create_table(trigger),
+   ?create_table(user),
+   ?create_table(news).
 
 dump_state(State) ->
    State.
