@@ -17,6 +17,7 @@
       ,get_news/1
       ,insert_news/2
       ,delete_news/1
+      ,new_track/2
    ]).
 
 -define(db_ref, {global, gtracker_db}).
@@ -104,3 +105,6 @@ insert_news(Date, Text) ->
 
 delete_news(NewsRef) ->
    gen_server:call(?db_ref, {delete_news, NewsRef}).
+
+new_track(DevName, Force) ->
+   gen_server:call(?db_ref, {new_track, Force, DevName}).
