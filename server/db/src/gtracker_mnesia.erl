@@ -409,27 +409,37 @@ activate_device(Device = #device{name = DevName, links = Links}, Owner, Triggers
       registered_at = now()
    }.
 
-create_track(Device = #device{name = DevName, links = #links{owner = Owner}}, Force,
-   State = #state{track_path = TrackPath, as_track_node = AsTrackNode}) ->
-   BestNode = get_best_node(ns(AsTrackNode)).
-%   Count = length(mnesia:dirty_read(tracks, DevName))
-%   TrackName = lists:flatten(io_lib:format("~s_~p", [DevName, Count])),
-%   TrackPid = gtracker_track:start(BestNode, TrackName, Owner, ?track_path),
-%   mnesia:dirty_write(#track{})
-%   mnesia:dirty_write(Device#device{links = L#links{track = TrackPid}}),
+create_track(Device = #device{name = DevName, links = L = #links{owner = Owner}}, Force,
+   #state{track_path = TrackPath, as_track_node = AsTrackNode}) ->
+   Nodes = get_nodes(AsTrackNode),
+   Count = length(mnesia:dirty_read(tracks, DevName)),
+   TrackName = lists:flatten(io_lib:format("~s_~p", [DevName, Count])),
+   {TrackPid, Node} = create_track(list_to_atom(TrackName), Owner, TrackPath, Nodes),
+   mnesia:transaction(
+      fun() ->
+         NewTrack = #track{dev_name = DevName, node = Node, path = filename:join(TrackPath, TrackName)},
+         mnesia:write(NewTrack),
+         mnesia:write(Device#device{links = L#links{track = TrackPid}, current_track = NewTrack#track.id})
+      end),
+   TrackPid.
 
-ns(AsTrackNode) ->
-   erlang:nodes(if AsTrackNode == true -> [connected, this]; true -> connected end).
+create_track(TrackName, Owner, TrackPath, [Node | Rest]) ->
+   case gtracker_track:start(list_to_atom(TrackName), Node, Owner, TrackPath) of
+      {badrpc, Reason} ->
+         log(error, "Unable to create track at ~p~p", [Node, TrackPath]),
+         create_track(TrackName, Owner, TrackPath, Rest);
+      Pid ->
+         log(info, "New track created at ~p~p", [Node, TrackPath]),
+         {Pid, Node}
+   end.
 
-get_best_node([]) ->
-   throw(no_best_node);
-get_best_node(Nodes) ->
-   ProcCount = lists:foldl(
+get_nodes(AsTrackNode) ->
+   Nodes = erlang:nodes(if AsTrackNode == true -> [connected, this]; true -> connected end),
+   ProcNodes = lists:foldl(
       fun(Node, Acc) ->
-         { rpc:call(Node, erlang, system_info, [process_count]), Node}
+         [{ rpc:call(Node, erlang, system_info, [process_count]), Node} | Acc]
       end, [], Nodes),
-   BestNode = hd(lists:sort(fun({A, _}, {B, _}) -> A < B end, ProcCount)),
-   erlang:element(2, BestNode).
+   lists:sort(fun({A, _}, {B, _}) -> A < B end, ProcNodes).
 
 %=======================================================================================================================
 %  unit testing facilities
@@ -446,6 +456,6 @@ get_device_test() ->
    %?assertEqual(DevName, Device#device.name).
 
 get_best_node_test() ->
-   ?assertEqual(node(), get_best_node(nodes(true))).
+   ?assertEqual(node(), get_best_node(get_nodes(true))).
 
 -endif.
