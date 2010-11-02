@@ -8,6 +8,7 @@
 -import(gtracker_common, [gen_dev_name/0, binary_to_hex/1, get_best_process/1]).
 
 -include("common_defs.hrl").
+-include("common_recs.hrl").
 
 -define(mod, {global, gtracker_db}).
 -define(log_error(MethodName), log(error, "~s failed: ~p. Msg = ~p, State = ~p, Stack trace = ~p", [MethodName, Err,
@@ -231,7 +232,7 @@ on_msg(Msg = get_all_devices, _From, State) ->
    end;
 
 on_msg(Msg = {get_device, DevName}, _From, State) ->
-   log(debug, "get_all_devices. State: ~p", [dump_state(State)]),
+   log(debug, "get_device(~p). State: ~p", [DevName, dump_state(State)]),
    try mnesia:dirty_read(device, DevName) of
       [] ->
          {reply, no_such_device, State};
@@ -239,7 +240,7 @@ on_msg(Msg = {get_device, DevName}, _From, State) ->
          {reply, Device, State}
    catch
       _:Err ->
-         ?log_error("get_all_devices"),
+         ?log_error("get_device/1"),
          {reply, error, State}
    end;
 
