@@ -459,4 +459,7 @@ get_device_test() ->
 get_best_node_test() ->
    ?assertEqual(node(), get_best_node(get_nodes(true))).
 
+new_track_test() ->
+   ok.
+
 -endif.
