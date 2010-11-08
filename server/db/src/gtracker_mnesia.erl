@@ -160,6 +160,25 @@ on_msg(Msg = {new_user, UserName, Password}, _From, State) ->
          {reply, error, State}
    end;
 
+on_msg(Msg = {get_user, UserName}, _From, State) ->
+   log(debug, "get_user(~p). State: ~p", [UserName, dump_state(State)]),
+   F = fun() ->
+      case mnesia:dirty_read(user, UserName) of
+         [] ->
+            not_found;
+         [User] ->
+            User
+         end
+      end,
+   try F() of
+      Res ->
+         {reply, Res, State}
+   catch
+      _:Err ->
+         ?log_error("get_user/1"),
+         {reply, error, State}
+   end;
+
 on_msg(Msg = {update_user, UserName, Cfg = {Password, MapType, IsAdmin}}, _From, State) ->
    log(debug, "update_user(~p, ~p). State: ~p", [UserName, Cfg, dump_state(State)]),
    F = fun() ->
@@ -202,6 +221,7 @@ on_msg(Msg = {login, UserName, Password}, _From, State) ->
          ?log_error("login/2"),
          {reply, error, State}
    end;
+
 on_msg(Msg = {logout, UserName}, _From, State) ->
    log(debug, "logout(~p). State: ~p", [UserName, dump_state(State)]),
    F = fun() ->
@@ -217,6 +237,48 @@ on_msg(Msg = {logout, UserName}, _From, State) ->
    catch
       _:Err ->
          ?log_error("logout/2"),
+         {reply, error, State}
+   end;
+
+on_msg(Msg = {bind, UserName, DevName}, _From, State) ->
+   log(debug, "bind(~p, ~p). State: ~p", [UserName, DevName, dump_state(State)]),
+   F = fun() ->
+      case mnesia:dirty_read(user, UserName) of
+         [] ->
+            rejected;
+         [User = #user{name = UserName, devices = Devices}] ->
+            NewDevList = lists:usort([DevName | Devices]),
+            mnesia:dirty_write(User#user{devices = NewDevList}),
+            NewDevList
+      end
+   end,
+   try F() of
+      Res ->
+         {reply, Res, State}
+   catch
+      _:Err ->
+         ?log_error("bind/2"),
+         {reply, error, State}
+   end;
+
+on_msg(Msg = {unbind, UserName, DevName}, _From, State) ->
+   log(debug, "unbind(~p, ~p). State: ~p", [UserName, DevName, dump_state(State)]),
+   F = fun() ->
+      case mnesia:dirty_read(user, UserName) of
+         [] ->
+            rejected;
+         [User = #user{name = UserName, devices = Devices}] ->
+            NewDevList = lists:delete(DevName, Devices),
+            mnesia:dirty_write(User#user{devices = NewDevList}),
+            NewDevList
+      end
+   end,
+   try F() of
+      Res ->
+         {reply, Res, State}
+   catch
+      _:Err ->
+         ?log_error("unbind/2"),
          {reply, error, State}
    end;
 
@@ -303,10 +365,19 @@ on_msg(Msg = {get_news, UpToDate}, _From, State) ->
 
 on_msg(Msg = {insert_news, Date, Text}, _From, State) ->
    log(debug, "insert_news(~p, ~p). State: ~p", [Date, Text, dump_state(State)]),
-   NewsRef = erlang:make_ref(),
-   try mnesia:dirty_write(#news{id = NewsRef, date = Date, text = Text}) of
-      ok ->
-         {reply, NewsRef, State}
+   F = fun() ->
+      case valid_date(Date) of
+         true ->
+            Ref = erlang:make_ref(),
+            mnesia:dirty_write(#news{id = Ref, date = Date, text = Text}),
+            Ref;
+         false ->
+            invalid_date
+      end
+   end,
+   try F() of
+      Res ->
+         {reply, Res, State}
    catch
       _:Err ->
          ?log_error("insert_news/2"),
@@ -441,6 +512,17 @@ get_nodes(AsTrackNode) ->
          [{ rpc:call(Node, erlang, system_info, [process_count]), Node} | Acc]
       end, [], Nodes),
    lists:sort(fun({A, _}, {B, _}) -> A < B end, ProcNodes).
+
+valid_date(Date = {Y, M, D}) when is_number(Y) andalso is_number(M) andalso is_number(D) ->
+   case calendar:valid_date(Date) of
+      true ->
+         true;
+      false ->
+         false
+   end;
+
+valid_date(_) ->
+   false.
 
 %=======================================================================================================================
 %  unit testing facilities

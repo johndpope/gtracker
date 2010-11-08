@@ -10,6 +10,7 @@
       ,unregister/1
       ,new_user/2
       ,update_user/4
+      ,get_user/1
       ,authenticate/2
       ,get_tracks/1
       ,get_triggers/1
@@ -18,6 +19,8 @@
       ,insert_news/2
       ,delete_news/1
       ,new_track/2
+      ,bind/2
+      ,unbind/2
    ]).
 
 -define(db_ref, {global, gtracker_db}).
@@ -71,6 +74,11 @@ new_user(UserName, Password) ->
 update_user(UserName, NewPassword, MapType, IsAdmin) ->
    gen_server:call(?db_ref, {update_user, UserName, {NewPassword, IsAdmin, MapType}}).
 
+% get_user(UserName) -> User()
+%  UserName = String()
+get_user(UserName) ->
+   gen_server:call(?db_ref, {get_user, UserName}).
+
 % authenticate(UserName, Password) -> User() | rejected | error
 %  UserName = String()
 %  Password = String()
@@ -108,3 +116,17 @@ delete_news(NewsRef) ->
 
 new_track(DevName, Force) ->
    gen_server:call(?db_ref, {new_track, Force, DevName}).
+
+% bind(UserName, DevName) -> Devices() | rejected
+%  UserName = String()
+%  DevName = String()
+%  Devices = [DevName]
+bind(UserName, DevName) ->
+   gen_server:call(?db_ref, {bind, UserName, DevName}).
+
+% unbind(UserName, DevName) -> Devices() | rejected
+%  UserName = String()
+%  DevName = String()
+%  Devices = [DevName]
+unbind(UserName, DevName) ->
+   gen_server:call(?db_ref, {unbind, UserName, DevName}).
