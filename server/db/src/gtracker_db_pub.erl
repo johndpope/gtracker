@@ -72,7 +72,7 @@ new_user(UserName, Password) ->
 %  MapType = Integer(). 0..5
 %  IsAdmin = bool()
 update_user(UserName, NewPassword, MapType, IsAdmin) ->
-   gen_server:call(?db_ref, {update_user, UserName, {NewPassword, IsAdmin, MapType}}).
+   gen_server:call(?db_ref, {update_user, UserName, {NewPassword, MapType, IsAdmin}}).
 
 % get_user(UserName) -> User()
 %  UserName = String()
