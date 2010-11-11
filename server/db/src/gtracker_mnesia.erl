@@ -11,8 +11,6 @@
 -include("common_recs.hrl").
 
 -define(mod, {global, gtracker_db}).
--define(log_error(MethodName), log(error, "~s failed: ~p. Msg = ~p, State = ~p, Stack trace = ~p", [MethodName, Err,
-         Msg, dump_state(State), erlang:get_stacktrace()])).
 -define(def_triggers, {global, gtracker_triggers}).
 -define(def_track_nodes, gt_tracks).
 -record(state, {triggers = undef, track_path = undef, as_track_node = false}).
@@ -49,225 +47,143 @@ on_stop(Reason, _State) ->
 on_msg(stop, _From, State) ->
    {stop, normal, stopped, State};
 
-on_msg(Msg = register, {Pid, _}, State) ->
+on_msg(register, {Pid, _}, State) ->
    log(debug, "register. State: ~p", [dump_state(State)]),
-   F = fun(Fun) ->
-         DevName = gen_dev_name(),
-         log(debug, "Device generated ~p.", [DevName]),
-         case mnesia:dirty_read(device, DevName) of
-            [] ->
-               log(debug, "Store device ~p", [DevName]),
-               Ref = binary_to_hex(erlang:md5(erlang:list_to_binary(DevName))),
-               Device = #device
-               {
-                  name = DevName,
-                  alias = DevName,
-                  reference = Ref,
-                  online = true,
-                  links = #links{owner = Pid}
-               },
-               mnesia:dirty_write(Device),
-               Device;
-            [#device{name = DevName}] ->
-               Fun(Fun)
-         end
-      end,
-   try F(F) of
-      Device ->
-         {reply, Device, State}
-   catch
-      _:Err ->
-         ?log_error("register/0"),
-         {reply, error, State}
-   end;
+   Fun = fun(Fun) ->
+      DevName = gen_dev_name(),
+      log(debug, "Device generated ~p.", [DevName]),
+      case mnesia:dirty_read(device, DevName) of
+         [] ->
+            log(debug, "Store device ~p", [DevName]),
+            Ref = binary_to_hex(erlang:md5(erlang:list_to_binary(DevName))),
+            Device = #device{name = DevName, alias = DevName, reference = Ref, online = true, links = #links{owner = Pid}},
+            mnesia:dirty_write(Device),
+            Device;
+         [#device{name = DevName}] ->
+            Fun(Fun)
+      end
+   end,
+   Fun(Fun);
 
-on_msg(Msg = {register, DevName}, {Pid, _}, State = #state{triggers = Triggers}) ->
+on_msg({register, DevName}, {Pid, _}, State = #state{triggers = Triggers}) ->
    log(debug, "register(~p). State: ~p", [DevName, dump_state(State)]),
-   F = fun() ->
-      case mnesia:dirty_read(device, DevName) of
-         [] ->
-            {reply, no_such_device, State};
-         [Device = #device{links = #links{owner = undef}, online = false}] ->
-            NewDevice = activate_device(Device, Pid, Triggers),
-            mnesia:dirty_write(NewDevice),
-            {reply, NewDevice, State};
-         [Device = #device{links = #links{owner = Owner}}] when is_pid(Owner) andalso (Pid == Owner) ->
-            {reply, Device, State};
-         [Device = #device{links = #links{owner = Owner}}] ->
-            case rpc:call(erlang, is_process_alive, [node(Owner), Owner]) of
-               true ->
-                  {reply, already_registered, State};
-               False ->
-                  log(debug, "is_process_alive(~p): ~p", [Owner, False]),
-                  NewDevice = activate_device(Device, Pid, Triggers),
-                  mnesia:dirty_write(NewDevice),
-                  {reply, NewDevice, State}
-            end
-      end
-   end,
-   try F()
-   catch
-      _:Err ->
-        ?log_error("register/1"),
-        {reply, error, State}
+   case mnesia:dirty_read(device, DevName) of
+      [] ->
+         {reply, no_such_device, State};
+      [Device = #device{links = #links{owner = undef}, online = false}] ->
+         NewDevice = activate_device(Device, Pid, Triggers),
+         mnesia:dirty_write(NewDevice),
+         {reply, NewDevice, State};
+      [Device = #device{links = #links{owner = Owner}}] when is_pid(Owner) andalso (Pid == Owner) ->
+         {reply, Device, State};
+      [Device = #device{links = #links{owner = Owner}}] ->
+         case rpc:call(erlang, is_process_alive, [node(Owner), Owner]) of
+            true ->
+               {reply, already_registered, State};
+            False ->
+               log(debug, "is_process_alive(~p): ~p", [Owner, False]),
+               NewDevice = activate_device(Device, Pid, Triggers),
+               mnesia:dirty_write(NewDevice),
+               {reply, NewDevice, State}
+         end
    end;
 
-on_msg(Msg = {unregister, DevName}, {Pid, _}, State) ->
+on_msg({unregister, DevName}, {Pid, _}, State) ->
    log(debug, "unregister(~p). State: ~p", [DevName, dump_state(State)]),
-   F = fun() ->
-      case mnesia:dirty_read(device, DevName) of
-         [] ->
-            {reply, no_such_device, State};
-         [#device{links = #links{owner = undef}, online = false}] ->
-            {reply, unregistered, State};
-         [Device = #device{links = #links{owner = Owner}}] when is_pid(Owner) andalso (Pid == Owner) ->
-            mnesia:dirty_write(Device#device{links = #links{}, online = false}),
-            {reply, unregistered, State};
-         [Device = #device{links = #links{owner = Owner}}] ->
-            case rpc:call(erlang, is_process_alive, [node(Owner), Owner]) of
-               true ->
-                  {reply, wrong_owner, State};
-               False ->
-                  log(debug, "is_process_alive(~p): ~p", [Owner, False]),
-                  mnesia:dirty_write(Device#device{links = #links{}, online = false}),
-                  {reply, unregistered, State}
-            end
+   case mnesia:dirty_read(device, DevName) of
+      [] ->
+         {reply, no_such_device, State};
+      [#device{links = #links{owner = undef}, online = false}] ->
+         {reply, unregistered, State};
+      [Device = #device{links = #links{owner = Owner}}] when is_pid(Owner) andalso (Pid == Owner) ->
+         mnesia:dirty_write(Device#device{links = #links{}, online = false}),
+         {reply, unregistered, State};
+      [Device = #device{links = #links{owner = Owner}}] ->
+         case rpc:call(erlang, is_process_alive, [node(Owner), Owner]) of
+            true ->
+               {reply, wrong_owner, State};
+            False ->
+               log(debug, "is_process_alive(~p): ~p", [Owner, False]),
+               mnesia:dirty_write(Device#device{links = #links{}, online = false}),
+               {reply, unregistered, State}
          end
-      end,
-   try F()
-   catch
-      _:Err ->
-         ?log_error("unregister/1"),
-         {reply, error, State}
    end;
 
-on_msg(Msg = {new_user, UserName, Password}, _From, State) ->
+on_msg({new_user, UserName, Password}, _From, State) ->
    log(debug, "new_user(~p, ~p). State: ~p", [UserName, Password, dump_state(State)]),
-   F = fun() ->
-      case mnesia:dirty_read(user, UserName) of
-         [] ->
-            User = #user{name = UserName, password = erlang:md5(Password)},
-            mnesia:dirty_write(User),
-            {reply, User, State};
-         _User ->
-            {reply, already_exists, State}
-         end
-      end,
-   try F()
-   catch
-      _:Err ->
-         ?log_error("new_user/2"),
-         {reply, error, State}
+   case mnesia:dirty_read(user, UserName) of
+      [] ->
+         User = #user{name = UserName, password = erlang:md5(Password)},
+         mnesia:dirty_write(User),
+         {reply, User, State};
+      _User ->
+         {reply, already_exists, State}
    end;
 
-on_msg(Msg = {get_user, UserName}, _From, State) ->
+on_msg({get_user, UserName}, _From, State) ->
    log(debug, "get_user(~p). State: ~p", [UserName, dump_state(State)]),
-   F = fun() ->
-      case mnesia:dirty_read(user, UserName) of
-         [] ->
-            not_found;
-         [User] ->
-            User
-         end
-      end,
-   try F() of
-      Res ->
-         {reply, Res, State}
-   catch
-      _:Err ->
-         ?log_error("get_user/1"),
-         {reply, error, State}
+   case mnesia:dirty_read(user, UserName) of
+      [] ->
+         {reply, not_found, State};
+      [User] ->
+         {reply, User, State}
    end;
 
-on_msg(Msg = {update_user, UserName, Cfg = {Password, MapType, IsAdmin, Devices}}, _From, State) ->
+on_msg({update_user, UserName, Cfg = {Password, MapType, IsAdmin, Devices}}, _From, State) ->
    log(debug, "update_user(~p, ~p). State: ~p", [UserName, Cfg, dump_state(State)]),
-   F = fun() ->
-      case mnesia:dirty_read(user, UserName) of
-         [] ->
-            {reply, no_such_user, State};
-         [User] ->
-            NewUser = User#user{password = erlang:md5(Password), map_type = MapType, is_admin = IsAdmin, devices =
-               Devices},
-            mnesia:dirty_write(NewUser),
-            {reply, NewUser, State}
-         end
-      end,
-   try F()
-   catch
-      _:Err ->
-         ?log_error("new_user/2"),
-         {reply, error, State}
+   case mnesia:dirty_read(user, UserName) of
+      [] ->
+         {reply, no_such_user, State};
+      [User] ->
+         NewUser = User#user{password = erlang:md5(Password), map_type = MapType, is_admin = IsAdmin, devices =
+            Devices},
+         mnesia:dirty_write(NewUser),
+         {reply, NewUser, State}
    end;
 
-on_msg(Msg = {login, UserName, Password}, _From, State) ->
+on_msg({login, UserName, Password}, _From, State) ->
    log(debug, "login(~p, ~p). State: ~p", [UserName, Password, dump_state(State)]),
-   F = fun() ->
-      case mnesia:dirty_read(user, UserName) of
-         [] ->
-            {reply, rejected, State};
-         [User = #user{name = U, password = P}] ->
-            case (U == UserName) andalso (P == erlang:md5(Password)) of
-               true ->
-                  OnlineUser = User#user{online = true},
-                  mnesia:dirty_write(OnlineUser),
-                  {reply, OnlineUser, State};
-               false ->
-                  {reply, rejected, State}
-            end
-      end
-   end,
-   try F()
-   catch
-      _:Err ->
-         ?log_error("login/2"),
-         {reply, error, State}
+   case mnesia:dirty_read(user, UserName) of
+      [] ->
+         {reply, rejected, State};
+      [User = #user{name = U, password = P}] ->
+         case (U == UserName) andalso (P == erlang:md5(Password)) of
+            true ->
+               OnlineUser = User#user{online = true},
+               mnesia:dirty_write(OnlineUser),
+               {reply, OnlineUser, State};
+            false ->
+               {reply, rejected, State}
+         end
    end;
 
-on_msg(Msg = {logout, UserName}, _From, State) ->
+on_msg({logout, UserName}, _From, State) ->
    log(debug, "logout(~p). State: ~p", [UserName, dump_state(State)]),
-   F = fun() ->
-      case mnesia:dirty_read(user, UserName) of
-         [] ->
-            {reply, rejected, State};
-         [User = #user{name = UserName}] ->
-            mnesia:dirty_write(User#user{online = false}),
-            {reply, ok, State}
-      end
-   end,
-   try F()
-   catch
-      _:Err ->
-         ?log_error("logout/2"),
-         {reply, error, State}
+   case mnesia:dirty_read(user, UserName) of
+      [] ->
+         {reply, rejected, State};
+      [User = #user{name = UserName}] ->
+         mnesia:dirty_write(User#user{online = false}),
+         {reply, ok, State}
    end;
 
-on_msg(Msg = get_all_devices, _From, State) ->
+on_msg(get_all_devices, _From, State) ->
    log(debug, "get_all_devices. State: ~p", [dump_state(State)]),
-   try mnesia:dirty_select(device, [{'_', [], ['$_']}]) of
-      Devices ->
-         {reply, Devices, State}
-   catch
-      _:Err ->
-         ?log_error("get_all_devices"),
-         {reply, error, State}
-   end;
+   Devices = mnesia:dirty_select(device, [{'_', [], ['$_']}]),
+   {reply, Devices, State};
 
-on_msg(Msg = {get_device, DevName}, _From, State) ->
+on_msg({get_device, DevName}, _From, State) ->
    log(debug, "get_device(~p). State: ~p", [DevName, dump_state(State)]),
-   try mnesia:dirty_read(device, DevName) of
+   case mnesia:dirty_read(device, DevName) of
       [] ->
          {reply, no_such_device, State};
       [Device] ->
          {reply, Device, State}
-   catch
-      _:Err ->
-         ?log_error("get_device/1"),
-         {reply, error, State}
    end;
 
-on_msg(Msg = {update_device, DevName, Cfg = {Alias, Timezone, Color, Weight, Pixmap, TwitterAuth}}, _From, State) ->
+on_msg({update_device, DevName, Cfg = {Alias, Timezone, Color, Weight, Pixmap, TwitterAuth}}, _From, State) ->
    log(debug, "update_device(~p, ~p). State: ~p", [DevName, Cfg, dump_state(State)]),
-   try mnesia:dirty_read(device, DevName) of
+   case mnesia:dirty_read(device, DevName) of
       [] ->
          {reply, no_such_device, State};
       [Device] ->
@@ -275,109 +191,61 @@ on_msg(Msg = {update_device, DevName, Cfg = {Alias, Timezone, Color, Weight, Pix
                Pixmap, twitter_auth = TwitterAuth},
          mnesia:dirty_write(NewDevice),
          {reply, NewDevice, State}
-   catch
-      _:Err ->
-         ?log_error("update_device/2"),
-         {reply, error, State}
    end;
 
-on_msg(Msg = {get_tracks, DevName}, _From, State) ->
+on_msg({get_tracks, DevName}, _From, State) ->
    log(debug, "get_tracks(~p). State: ~p", [DevName, dump_state(State)]),
-   try mnesia:dirty_read(tracks, DevName) of
-      Tracks ->
-         {reply, Tracks, State}
-   catch
-      _:Err ->
-         ?log_error("get_tracks/1"),
-         {reply, error, State}
-   end;
+   Tracks = mnesia:dirty_read(tracks, DevName),
+   {reply, Tracks, State};
 
-on_msg(Msg = {get_triggers, DevName}, _From, State) ->
-  try mnesia:dirty_read(triggers, DevName) of
-      Triggers ->
-        {reply, Triggers, State}
-   catch
-      _:Err ->
-         ?log_error("get_triggers/1"),
-         {reply, error, State}
-  end;
+on_msg({get_triggers, DevName}, _From, State) ->
+   log(debug, "get_triggers(~p). State: ~p", [DevName, dump_state(State)]),
+   Triggers = mnesia:dirty_read(triggers, DevName),
+   {reply, Triggers, State};
 
-on_msg(Msg = {get_news, UpToDate}, _From, State) ->
+on_msg({get_news, UpToDate}, _From, State) ->
    log(debug, "get_news(~p). State: ~p", [UpToDate, dump_state(State)]),
-   F = fun() ->
-         Date = if (UpToDate == undef) -> {2100, 1, 1}; true -> UpToDate end,
-         case calendar:valid_date(Date) of
-            true ->
-               mnesia:dirty_select(news, [{#news{date = '$1', _='_'}, [{'=<', '$1', {Date}}], ['$_']}]);
-            false ->
-               invalid_date
-         end
-      end,
-   try F() of
-      Result ->
-         {reply, Result, State}
-   catch
-      _:Err ->
-         ?log_error("get_news/1"),
-         {reply, error, State}
+   Date = if (UpToDate == undef) -> {2100, 1, 1}; true -> UpToDate end,
+   case calendar:valid_date(Date) of
+      true ->
+         Result = mnesia:dirty_select(news, [{#news{date = '$1', _='_'}, [{'=<', '$1', {Date}}], ['$_']}]),
+         {reply, Result, State};
+      false ->
+         {reply, invalid_date, State}
    end;
 
-on_msg(Msg = {insert_news, Date, Text}, _From, State) ->
+on_msg({insert_news, Date, Text}, _From, State) ->
    log(debug, "insert_news(~p, ~p). State: ~p", [Date, Text, dump_state(State)]),
-   F = fun() ->
-      case valid_date(Date) of
-         true ->
-            Ref = erlang:make_ref(),
-            mnesia:dirty_write(#news{id = Ref, date = Date, text = Text}),
-            Ref;
-         false ->
-            invalid_date
-      end
-   end,
-   try F() of
-      Res ->
-         {reply, Res, State}
-   catch
-      _:Err ->
-         ?log_error("insert_news/2"),
-         {reply, error, State}
+   case valid_date(Date) of
+      true ->
+         Ref = erlang:make_ref(),
+         mnesia:dirty_write(#news{id = Ref, date = Date, text = Text}),
+         {reply, Ref, State};
+      false ->
+         {reply, invalid_date, State}
    end;
 
-on_msg(Msg = {delete_news, NewsRef}, _From, State) ->
+on_msg({delete_news, NewsRef}, _From, State) ->
    log(debug, "delete_news(~p). State: ~p", [NewsRef, dump_state(State)]),
-   try mnesia:dirty_delete(news, NewsRef) of
-      ok ->
-         {reply, ok, State}
-   catch
-      _:Err ->
-         ?log_error("delete_news/1"),
-         {reply, error, State}
-   end;
+   mnesia:dirty_delete(news, NewsRef),
+   {reply, ok, State};
 
-on_msg(Msg = {new_track, Force, DevName}, _From, State) ->
+on_msg({new_track, Force, DevName}, _From, State) ->
    log(debug, "new_track(~p, ~p). State: ~p", [Force, DevName, dump_state(State)]),
-   F = fun() ->
-         case mnesia:dirty_read(devices, DevName) of
-            [] ->
-               {reply, no_such_device, State};
-            [Device = #device{links = #links{track = undef}}] ->
-               TrackPid = create_track(Device, Force, State), % create new track here
+   case mnesia:dirty_read(devices, DevName) of
+      [] ->
+         {reply, no_such_device, State};
+      [Device = #device{links = #links{track = undef}}] ->
+         TrackPid = create_track(Device, Force, State), % create new track here
+         {reply, TrackPid, State};
+      [Device = #device{links = #links{track = TrackPid}}] ->
+         case rpc:call(node(TrackPid), erlang, is_process_alive, [TrackPid]) of
+            true ->
                {reply, TrackPid, State};
-            [Device = #device{links = #links{track = TrackPid}}] ->
-               case rpc:call(node(TrackPid), erlang, is_process_alive, [TrackPid]) of
-                  true ->
-                     {reply, TrackPid, State};
-                  false ->
-                     TrackPid = create_track(Device, Force, State), % create new track here
-                     {reply, TrackPid, State}
-               end
+            false ->
+               TrackPid = create_track(Device, Force, State), % create new track here
+               {reply, TrackPid, State}
          end
-   end,
-   try F()
-   catch
-      _:Err ->
-         ?log_error("new_track/1"),
-         {reply, error, State}
    end;
 
 on_msg(Msg, _From, State) ->
