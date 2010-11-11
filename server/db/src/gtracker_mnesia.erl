@@ -40,8 +40,8 @@ on_start(Opts) ->
    {ok, #state{triggers = Triggers, track_path = TrackPath, as_track_node = AsTrackNode}}.
 
 on_stop(Reason, _State) ->
-   crypto:stop(),
    mnesia:stop(),
+   crypto:stop(),
    log(info, "Mnesia stopped."),
    log(info, "Stopped <~p>.", [Reason]),
    ok.
@@ -179,14 +179,15 @@ on_msg(Msg = {get_user, UserName}, _From, State) ->
          {reply, error, State}
    end;
 
-on_msg(Msg = {update_user, UserName, Cfg = {Password, MapType, IsAdmin}}, _From, State) ->
+on_msg(Msg = {update_user, UserName, Cfg = {Password, MapType, IsAdmin, Devices}}, _From, State) ->
    log(debug, "update_user(~p, ~p). State: ~p", [UserName, Cfg, dump_state(State)]),
    F = fun() ->
       case mnesia:dirty_read(user, UserName) of
          [] ->
             {reply, no_such_user, State};
          [User] ->
-            NewUser = User#user{password = erlang:md5(Password), map_type = MapType, is_admin = IsAdmin},
+            NewUser = User#user{password = erlang:md5(Password), map_type = MapType, is_admin = IsAdmin, devices =
+               Devices},
             mnesia:dirty_write(NewUser),
             {reply, NewUser, State}
          end
@@ -237,48 +238,6 @@ on_msg(Msg = {logout, UserName}, _From, State) ->
    catch
       _:Err ->
          ?log_error("logout/2"),
-         {reply, error, State}
-   end;
-
-on_msg(Msg = {bind, UserName, DevName}, _From, State) ->
-   log(debug, "bind(~p, ~p). State: ~p", [UserName, DevName, dump_state(State)]),
-   F = fun() ->
-      case mnesia:dirty_read(user, UserName) of
-         [] ->
-            rejected;
-         [User = #user{name = UserName, devices = Devices}] ->
-            NewDevList = lists:usort([DevName | Devices]),
-            mnesia:dirty_write(User#user{devices = NewDevList}),
-            NewDevList
-      end
-   end,
-   try F() of
-      Res ->
-         {reply, Res, State}
-   catch
-      _:Err ->
-         ?log_error("bind/2"),
-         {reply, error, State}
-   end;
-
-on_msg(Msg = {unbind, UserName, DevName}, _From, State) ->
-   log(debug, "unbind(~p, ~p). State: ~p", [UserName, DevName, dump_state(State)]),
-   F = fun() ->
-      case mnesia:dirty_read(user, UserName) of
-         [] ->
-            rejected;
-         [User = #user{name = UserName, devices = Devices}] ->
-            NewDevList = lists:delete(DevName, Devices),
-            mnesia:dirty_write(User#user{devices = NewDevList}),
-            NewDevList
-      end
-   end,
-   try F() of
-      Res ->
-         {reply, Res, State}
-   catch
-      _:Err ->
-         ?log_error("unbind/2"),
          {reply, error, State}
    end;
 
