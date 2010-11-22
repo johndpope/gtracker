@@ -129,16 +129,14 @@ on_msg({get_user, UserName}, _From, State) ->
          {reply, User, State}
    end;
 
-on_msg({update_user, UserName, Cfg = {Password, MapType, IsAdmin, Devices}}, _From, State) ->
-   log(debug, "update_user(~p, ~p). State: ~p", [UserName, Cfg, dump_state(State)]),
+on_msg({update_user, User = #user{name = UserName}}, _From, State) ->
+   log(debug, "update_user(~p). State: ~p", [User, dump_state(State)]),
    case mnesia:dirty_read(user, UserName) of
       [] ->
          {reply, no_such_user, State};
       [User] ->
-         NewUser = User#user{password = erlang:md5(Password), map_type = MapType, is_admin = IsAdmin, devices =
-            Devices},
-         mnesia:dirty_write(NewUser),
-         {reply, NewUser, State}
+         mnesia:dirty_write(User),
+         {reply, User, State}
    end;
 
 on_msg({login, UserName, Password}, _From, State) ->
@@ -181,16 +179,14 @@ on_msg({get_device, DevName}, _From, State) ->
          {reply, Device, State}
    end;
 
-on_msg({update_device, DevName, Cfg = {Alias, Timezone, Color, Weight, Pixmap, TwitterAuth}}, _From, State) ->
-   log(debug, "update_device(~p, ~p). State: ~p", [DevName, Cfg, dump_state(State)]),
+on_msg({update_device, Device = #device{name = DevName}}, _From, State) ->
+   log(debug, "update_device(~p). State: ~p", [Device, dump_state(State)]),
    case mnesia:dirty_read(device, DevName) of
       [] ->
          {reply, no_such_device, State};
       [Device] ->
-         NewDevice = Device#device{alias = Alias, timezone = Timezone, color = Color, weight = Weight, pixmap =
-               Pixmap, twitter_auth = TwitterAuth},
-         mnesia:dirty_write(NewDevice),
-         {reply, NewDevice, State}
+         mnesia:dirty_write(Device),
+         {reply, Device, State}
    end;
 
 on_msg({get_tracks, DevName}, _From, State) ->

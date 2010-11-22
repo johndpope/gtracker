@@ -4,12 +4,12 @@
    [
       get_all_devices/0
       ,get_device/1
-      ,update_device/7
+      ,update_device/1
       ,register/0
       ,register/1
       ,unregister/1
       ,new_user/2
-      ,update_user/4
+      ,update_user/1
       ,get_user/1
       ,authenticate/2
       ,get_tracks/1
@@ -19,9 +19,9 @@
       ,insert_news/2
       ,delete_news/1
       ,new_track/2
-      ,bind/2
-      ,unbind/2
    ]).
+
+-include("common_recs.hrl").
 
 -define(db_ref, {global, gtracker_db}).
 
@@ -35,15 +35,9 @@ get_all_devices() ->
 get_device(DevName) ->
    gen_server:call(?db_ref, {get_device, DevName}).
 
-% update_device(DevName, Alias, Timezone, Color, Weight, Pixmap, TwitterAuth) -> Device() | error
-%  DevName = String()
-%  Alias = String()
-%  Timezone = String(), e.g. "Europe/Moscow"
-%  Color = number(), e.g. 16#ff00ee
-%  Weight = number, e.g. 1
-%  TwitterAuth = {{consumer, Key, Secret}, {access, Token, TokenSecret}}
-update_device(DevName, Alias, Timezone, Color, Weight, Pixmap, TwitterAuth) ->
-   gen_server:call(?db_ref, {update_device, DevName, {Alias, Timezone, Color, Weight, Pixmap, TwitterAuth}}).
+% update_device(Device()) -> Device() | error
+update_device(Device) ->
+   gen_server:call(?db_ref, {update_device, Device}).
 
 % register() -> Device() | error
 %  registers a new device
@@ -66,13 +60,9 @@ unregister(DevName) ->
 new_user(UserName, Password) ->
    gen_server:call(?db_ref, {new_user, UserName, Password}).
 
-% update_user(UserName, NewPassword, IsAdmin) -> Device() | no_such_user | error
-%  UserName = String()
-%  NewPassword = String()
-%  MapType = Integer(). 0..5
-%  IsAdmin = bool()
-update_user(UserName, NewPassword, MapType, IsAdmin) ->
-   gen_server:call(?db_ref, {update_user, UserName, {NewPassword, MapType, IsAdmin}}).
+% update_user(User()) -> User() | no_such_user | error
+update_user(User) ->
+   gen_server:call(?db_ref, {update_user, User}).
 
 % get_user(UserName) -> User()
 %  UserName = String()
@@ -116,17 +106,3 @@ delete_news(NewsRef) ->
 
 new_track(DevName, Force) ->
    gen_server:call(?db_ref, {new_track, Force, DevName}).
-
-% bind(UserName, DevName) -> Devices() | rejected
-%  UserName = String()
-%  DevName = String()
-%  Devices = [DevName]
-bind(UserName, DevName) ->
-   gen_server:call(?db_ref, {bind, UserName, DevName}).
-
-% unbind(UserName, DevName) -> Devices() | rejected
-%  UserName = String()
-%  DevName = String()
-%  Devices = [DevName]
-unbind(UserName, DevName) ->
-   gen_server:call(?db_ref, {unbind, UserName, DevName}).
