@@ -58,7 +58,7 @@ on_msg(register, {Pid, _}, State) ->
             Ref = binary_to_hex(erlang:md5(erlang:list_to_binary(DevName))),
             Device = #device{name = DevName, alias = DevName, reference = Ref, online = true, links = #links{owner = Pid}},
             mnesia:dirty_write(Device),
-            Device;
+            {reply, Device, State};
          [#device{name = DevName}] ->
             Fun(Fun)
       end
