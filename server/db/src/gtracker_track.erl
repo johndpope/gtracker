@@ -2,31 +2,37 @@
 
 -include("common_recs.hrl").
 
--export([start/3, start/4, init/3, loop/1, clear/1, close/1, get_coords/1]).
+-export([start/2, start/3, stop/1, init/3, loop/2, clear/1, close/1, get_coords/1]).
 
-start(Name, Node, Owner, Path) ->
-   rpc:call(Node, gtracker_track, start, [Name, Owner, Path]).
+start(Track, DbRef) ->
+   rpc:call(Track#track.node, gtracker_track, start, [Track#track.id, Track#track.path, DbRef]).
 
-start(Name, Owner, Path) ->
-   spawn(fun() -> init(Name, Owner, Path) end).
+stop(TrackPid) ->
+   TrackPid ! stop.
 
-init(Name, Owner, Path) ->
-   link(Owner),
-   {ok, Ref} = dets:open_file(Name, [{auto_save, 1000}, {file, Path}, {keypos, 5}]),
-   loop(Ref).
+start(TrackId, Path, DbRef) ->
+   spawn_link(fun() -> init(TrackId, Path, DbRef) end).
 
-loop(Name) ->
+init(TrackId, Path, DbRef) ->
+   {ok, Ref} = dets:open_file(TrackId, [{auto_save, 1000}, {file, Path}, {keypos, 5}]),
+   loop(Ref, DbRef).
+
+loop(Name, DbRef) ->
    receive
       Coord when is_record(Coord, coord) ->
          ok = dets:insert(Name, Coord),
-         loop(Name);
+         loop(Name, DbRef);
       {get_coords, Peer} ->
          Coords = dets:select(Name, [{'_', [], ['$_']}]),
          Peer ! {reply, Coords},
-         loop(Name);
+         loop(Name, DbRef);
       clear ->
          dets:delete_all_objects(Name),
-         loop(Name);
+         loop(Name, DbRef);
+      stop ->
+         Stat = calc_stat(Name),
+         gen_server:cast(DbRef, {track_stat, Name, Stat}),
+         dets:close(Name);
       {'EXIT', _, _} ->
          dets:close(Name);
       exit ->
@@ -47,6 +53,13 @@ get_coords(TrackRef) ->
       Res ->
          {unexpected, Res}
    end.
+
+calc_stat(Name) ->
+   ok.
+%   Coords = dets:select(Name, [{#coord{_='_'}}, [], ['$_']]),
+%   SortedCoords = lists:sort(fun(#coord{timestamp = A}, #coord{timestamp = B}) -> A <= B end, Coord),
+%   lists:foldl(fun(#coord{}))
+
 
 %=======================================================================================================================
 %  unit testing facilities
@@ -79,7 +92,7 @@ track_test() ->
    gtracker_track:close(TrackPid).
 
 track2_test() ->
-   TrackPid = gtracker_track:start(tmp, self(), "/tmp/tmp1.dets"),
+   TrackPid = gtracker_track:start(tmp, "/tmp/tmp1.dets"),
    gtracker_track:clear(TrackPid),
 
    TrackPid ! #coord{lat = 123.1, lon = 321.12, speed = 45, timestamp = now()},
@@ -91,8 +104,8 @@ track2_test() ->
 
    timer:sleep(200),
 
-   TrackPid1 = gtracker_track:start(tmp, self(), "/tmp/tmp1.dets"),
-   TrackPid2 = gtracker_track:start(tmp, self(), "/tmp/tmp1.dets"),
+   TrackPid1 = gtracker_track:start(tmp, "/tmp/tmp1.dets"),
+   TrackPid2 = gtracker_track:start(tmp, "/tmp/tmp1.dets"),
 
    Res1 = lists:sort(gtracker_track:get_coords(TrackPid1)),
    Res2 = lists:sort(gtracker_track:get_coords(TrackPid2)),

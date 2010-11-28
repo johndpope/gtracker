@@ -77,7 +77,7 @@ on_msg({register, DevName}, {Pid, _}, State = #state{triggers = Triggers}) ->
       [Device = #device{links = #links{owner = Owner}}] when is_pid(Owner) andalso (Pid == Owner) ->
          {reply, Device, State};
       [Device = #device{links = #links{owner = Owner}}] ->
-         case rpc:call(erlang, is_process_alive, [node(Owner), Owner]) of
+         case rpc:call(node(Owner), erlang, is_process_alive, [Owner]) of
             true ->
                {reply, already_registered, State};
             False ->
@@ -134,7 +134,7 @@ on_msg({update_user, User = #user{name = UserName}}, _From, State) ->
    case mnesia:dirty_read(user, UserName) of
       [] ->
          {reply, no_such_user, State};
-      [User] ->
+      [_] ->
          mnesia:dirty_write(User),
          {reply, User, State}
    end;
@@ -191,7 +191,7 @@ on_msg({update_device, Device = #device{name = DevName}}, _From, State) ->
 
 on_msg({get_tracks, DevName}, _From, State) ->
    log(debug, "get_tracks(~p). State: ~p", [DevName, dump_state(State)]),
-   Tracks = mnesia:dirty_read(tracks, DevName),
+   Tracks = mnesia:dirty_select(track, [{#track{dev_name = '$1', _='_'}, [{'==', '$1', DevName}], ['$_']}]),
    {reply, Tracks, State};
 
 on_msg({get_triggers, DevName}, _From, State) ->
@@ -226,21 +226,25 @@ on_msg({delete_news, NewsRef}, _From, State) ->
    mnesia:dirty_delete(news, NewsRef),
    {reply, ok, State};
 
-on_msg({new_track, Force, DevName}, _From, State) ->
+on_msg({new_track, DevName, Force, FailuredNodes}, _From, State) ->
    log(debug, "new_track(~p, ~p). State: ~p", [Force, DevName, dump_state(State)]),
-   case mnesia:dirty_read(devices, DevName) of
+   case mnesia:dirty_read(device, DevName) of
       [] ->
          {reply, no_such_device, State};
       [Device = #device{links = #links{track = undef}}] ->
-         TrackPid = create_track(Device, Force, State), % create new track here
-         {reply, TrackPid, State};
+         NewTrack = create_track(Device, Force, FailuredNodes, State), % create new track here
+         {reply, NewTrack, State};
       [Device = #device{links = #links{track = TrackPid}}] ->
          case rpc:call(node(TrackPid), erlang, is_process_alive, [TrackPid]) of
-            true ->
-               {reply, TrackPid, State};
+            true when (Force == true) ->
+               stop_track(Device),
+               NewTrack = create_track(Device, Force, FailuredNodes, State), % create new track here
+               {reply, NewTrack, State};
+            true when (Force == false) ->
+               {reply, already_has_active_track, State};
             false ->
-               TrackPid = create_track(Device, Force, State), % create new track here
-               {reply, TrackPid, State}
+               NewTrack = create_track(Device, Force, FailuredNodes, State), % create new track here
+               {reply, NewTrack, State}
          end
    end;
 
@@ -251,6 +255,10 @@ on_msg(Msg, _From, State) ->
 on_amsg(Msg, State) ->
    log(error, "Unknown async message ~p.", [Msg]),
    {noreply, State}.
+
+on_info({track_stat, Stat}, State) ->
+   log(error, "Statistic for track has been received"),
+   {noreply, State};
 
 on_info(Msg, State) ->
    log(error, "Unknown info message ~p.", [Msg]),
@@ -283,6 +291,7 @@ mnesia_start() ->
    ?create_table(device),
    ?create_table(trigger),
    ?create_table(user),
+   ?create_table(track),
    ?create_table(news).
 
 dump_state(State) ->
@@ -304,32 +313,22 @@ activate_device(Device = #device{name = DevName, links = Links}, Owner, Triggers
       registered_at = now()
    }.
 
-create_track(Device = #device{name = DevName, links = L = #links{owner = Owner}}, Force,
+stop_track(Device = #device{links = #links{track = TrackPid}}) ->
+   gtracker_track:stop(TrackPid),
+   mnesia:dirty_write(Device#device{current_track = undef}).
+
+create_track(Device = #device{name = DevName, links = L = #links{owner = Owner}}, Force, FailuredNodes,
    #state{track_path = TrackPath, as_track_node = AsTrackNode}) ->
-   Nodes = get_nodes(AsTrackNode),
-   Count = length(mnesia:dirty_read(tracks, DevName)),
-   TrackName = lists:flatten(io_lib:format("~s_~p", [DevName, Count])),
-   {TrackPid, Node} = create_track(list_to_atom(TrackName), Owner, TrackPath, Nodes),
-   mnesia:transaction(
-      fun() ->
-         NewTrack = #track{dev_name = DevName, node = Node, path = filename:join(TrackPath, TrackName)},
-         mnesia:write(NewTrack),
-         mnesia:write(Device#device{links = L#links{track = TrackPid}, current_track = NewTrack#track.id})
-      end),
-   TrackPid.
+   Node = get_best_node(AsTrackNode, FailuredNodes),
+   Count = length(mnesia:dirty_select(track, [{#track{dev_name = '$1', _='_'}, [{'==', '$1', DevName}], ['$_']}])) + 1,
+   TrackName = list_to_atom(lists:flatten(io_lib:format("~s_~p", [DevName, Count]))),
+   NewTrack = #track{id = TrackName, dev_name = DevName, node = Node, path = filename:join(TrackPath, TrackName)},
+   mnesia:dirty_write(NewTrack),
+   NewTrack.
 
-create_track(TrackName, Owner, TrackPath, [Node | Rest]) ->
-   case gtracker_track:start(list_to_atom(TrackName), Node, Owner, TrackPath) of
-      {badrpc, Reason} ->
-         log(error, "Unable to create track at ~p~p", [Node, TrackPath]),
-         create_track(TrackName, Owner, TrackPath, Rest);
-      Pid ->
-         log(info, "New track created at ~p~p", [Node, TrackPath]),
-         {Pid, Node}
-   end.
-
-get_nodes(AsTrackNode) ->
-   Nodes = erlang:nodes(if AsTrackNode == true -> [connected, this]; true -> connected end),
+get_best_node(AsTrackNode, FailuredNodes) ->
+   AllNodes = erlang:nodes(if AsTrackNode == true -> [connected, this]; true -> connected end),
+   Nodes = lists:subtract(AllNodes, FailuredNodes),
    ProcNodes = lists:foldl(
       fun(Node, Acc) ->
          [{ rpc:call(Node, erlang, system_info, [process_count]), Node} | Acc]
