@@ -32,14 +32,14 @@ on_start(Opts) ->
    Triggers = get_param(triggers, SelfOpts, ?def_triggers),
    AsTrackNode = get_param(as_track_node, SelfOpts, false),
    TrackPath = get_param(track_pach, SelfOpts, "/tmp"),
-   crypto:start(),
+%   crypto:start(),
    mnesia_start(),
    log(info, "Mnesia started."),
    {ok, #state{triggers = Triggers, track_path = TrackPath, as_track_node = AsTrackNode}}.
 
 on_stop(Reason, _State) ->
-   mnesia:stop(),
-   crypto:stop(),
+%   mnesia:stop(),
+%   crypto:stop(),
    log(info, "Mnesia stopped."),
    log(info, "Stopped <~p>.", [Reason]),
    ok.
@@ -333,7 +333,8 @@ get_best_node(AsTrackNode, FailuredNodes) ->
       fun(Node, Acc) ->
          [{ rpc:call(Node, erlang, system_info, [process_count]), Node} | Acc]
       end, [], Nodes),
-   lists:sort(fun({A, _}, {B, _}) -> A < B end, ProcNodes).
+   [ {_, BestNode } | _ ] = lists:sort(fun({A, _}, {B, _}) -> A < B end, ProcNodes),
+   BestNode.
 
 valid_date(Date = {Y, M, D}) when is_number(Y) andalso is_number(M) andalso is_number(D) ->
    case calendar:valid_date(Date) of
@@ -361,7 +362,7 @@ get_device_test() ->
    %?assertEqual(DevName, Device#device.name).
 
 get_best_node_test() ->
-   ?assertEqual(node(), get_best_node(get_nodes(true))).
+   ?assertEqual(node(), get_best_node(true, [])).
 
 new_track_test() ->
    ok.

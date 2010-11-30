@@ -64,54 +64,54 @@ calc_stat(Name) ->
 %=======================================================================================================================
 %  unit testing facilities
 %=======================================================================================================================
--ifdef(TEST).
--include_lib("eunit/include/eunit.hrl").
+%-ifdef(TEST).
+%-include_lib("eunit/include/eunit.hrl").
 
-track_test() ->
-   TrackPid = gtracker_track:start(tmp, self(), "/tmp/tmp.dets"),
-   gtracker_track:clear(TrackPid),
+%track_test() ->
+%   TrackPid = gtracker_track:start(tmp, self(), "/tmp/tmp.dets"),
+%   gtracker_track:clear(TrackPid),
 
-   Coord1 = #coord{lat = 123.1, lon = 321.12, speed = 45, timestamp = now()},
-   TrackPid ! Coord1,
+%   Coord1 = #coord{lat = 123.1, lon = 321.12, speed = 45, timestamp = now()},
+%   TrackPid ! Coord1,
 
-   Coord2 = #coord{lat = 123.2, lon = 321.3, speed = 45, timestamp = now()},
-   TrackPid ! Coord2,
+%   Coord2 = #coord{lat = 123.2, lon = 321.3, speed = 45, timestamp = now()},
+%   TrackPid ! Coord2,
 
-   Coord3 = #coord{lat = 123.2, lon = 321.3, speed = 45, timestamp = now()},
-   TrackPid ! Coord3,
+%   Coord3 = #coord{lat = 123.2, lon = 321.3, speed = 45, timestamp = now()},
+%   TrackPid ! Coord3,
 
-   Coord4 = #coord{lat = 123.2, lon = 321.3, speed = 45, timestamp = now()},
-   TrackPid ! Coord4,
+%   Coord4 = #coord{lat = 123.2, lon = 321.3, speed = 45, timestamp = now()},
+%   TrackPid ! Coord4,
 
-   ?assertEqual(lists:sort([Coord1, Coord2, Coord3, Coord4]), lists:sort(get_coords(TrackPid))),
+%   ?assertEqual(lists:sort([Coord1, Coord2, Coord3, Coord4]), lists:sort(get_coords(TrackPid))),
 
-   gtracker_track:clear(TrackPid),
+%   gtracker_track:clear(TrackPid),
 
-   ?assertEqual([], lists:sort(get_coords(TrackPid))),
+%   ?assertEqual([], lists:sort(get_coords(TrackPid))),
 
-   gtracker_track:close(TrackPid).
+%   gtracker_track:close(TrackPid).
 
-track2_test() ->
-   TrackPid = gtracker_track:start(tmp, "/tmp/tmp1.dets"),
-   gtracker_track:clear(TrackPid),
+%track2_test() ->
+%   TrackPid = gtracker_track:start(tmp, "/tmp/tmp1.dets"),
+%   gtracker_track:clear(TrackPid),
 
-   TrackPid ! #coord{lat = 123.1, lon = 321.12, speed = 45, timestamp = now()},
-   TrackPid ! #coord{lat = 123.2, lon = 321.3, speed = 45, timestamp = now()},
-   TrackPid ! #coord{lat = 123.2, lon = 321.3, speed = 45, timestamp = now()},
-   TrackPid ! #coord{lat = 123.2, lon = 321.3, speed = 45, timestamp = now()},
+%   TrackPid ! #coord{lat = 123.1, lon = 321.12, speed = 45, timestamp = now()},
+%   TrackPid ! #coord{lat = 123.2, lon = 321.3, speed = 45, timestamp = now()},
+%   TrackPid ! #coord{lat = 123.2, lon = 321.3, speed = 45, timestamp = now()},
+%   TrackPid ! #coord{lat = 123.2, lon = 321.3, speed = 45, timestamp = now()},
 
-   gtracker_track:close(TrackPid),
+%   gtracker_track:close(TrackPid),
 
-   timer:sleep(200),
+%   timer:sleep(200),
 
-   TrackPid1 = gtracker_track:start(tmp, "/tmp/tmp1.dets"),
-   TrackPid2 = gtracker_track:start(tmp, "/tmp/tmp1.dets"),
+%   TrackPid1 = gtracker_track:start(tmp, "/tmp/tmp1.dets"),
+%   TrackPid2 = gtracker_track:start(tmp, "/tmp/tmp1.dets"),
 
-   Res1 = lists:sort(gtracker_track:get_coords(TrackPid1)),
-   Res2 = lists:sort(gtracker_track:get_coords(TrackPid2)),
-   ?assertEqual(Res1, Res2),
+%   Res1 = lists:sort(gtracker_track:get_coords(TrackPid1)),
+%   Res2 = lists:sort(gtracker_track:get_coords(TrackPid2)),
+%   ?assertEqual(Res1, Res2),
 
-   gtracker_track:close(TrackPid1),
-   gtracker_track:close(TrackPid2).
+%   gtracker_track:close(TrackPid1),
+%   gtracker_track:close(TrackPid2).
 
--endif.
+%-endif.
