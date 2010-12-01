@@ -79,7 +79,7 @@ on_msg({register, DevName}, {Pid, _}, State = #state{triggers = Triggers}) ->
       [Device = #device{links = #links{owner = Owner}}] ->
          case rpc:call(node(Owner), erlang, is_process_alive, [Owner]) of
             true ->
-               {reply, already_registered, State};
+               {reply, Device, State};
             False ->
                log(debug, "is_process_alive(~p): ~p", [Owner, False]),
                NewDevice = activate_device(Device, Pid, Triggers),
@@ -93,19 +93,21 @@ on_msg({unregister, DevName}, {Pid, _}, State) ->
    case mnesia:dirty_read(device, DevName) of
       [] ->
          {reply, no_such_device, State};
-      [#device{links = #links{owner = undef}, online = false}] ->
-         {reply, unregistered, State};
+      [Device = #device{links = #links{owner = undef}, online = false}] ->
+         {reply, Device, State};
       [Device = #device{links = #links{owner = Owner}}] when is_pid(Owner) andalso (Pid == Owner) ->
-         mnesia:dirty_write(Device#device{links = #links{}, online = false}),
-         {reply, unregistered, State};
+         NewDevice = Device#device{links = #links{}, online = false},
+         mnesia:dirty_write(NewDevice),
+         {reply, NewDevice, State};
       [Device = #device{links = #links{owner = Owner}}] ->
          case rpc:call(erlang, is_process_alive, [node(Owner), Owner]) of
             true ->
                {reply, wrong_owner, State};
             False ->
                log(debug, "is_process_alive(~p): ~p", [Owner, False]),
-               mnesia:dirty_write(Device#device{links = #links{}, online = false}),
-               {reply, unregistered, State}
+               NewDevice = Device#device{links = #links{}, online = false},
+               mnesia:dirty_write(NewDevice),
+               {reply, NewDevice, State}
          end
    end;
 
