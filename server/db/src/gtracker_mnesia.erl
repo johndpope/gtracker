@@ -181,14 +181,16 @@ on_msg({get_device, DevName}, _From, State) ->
          {reply, Device, State}
    end;
 
-on_msg({update_device, Device = #device{name = DevName}}, _From, State) ->
-   log(debug, "update_device(~p). State: ~p", [Device, dump_state(State)]),
+on_msg({update_device,
+      D = #device{name = DevName, alias = A, timezone = T, color = C, weight = W, pixmap = P, twitter_auth = TA}}, _From, State) ->
+   log(debug, "update_device(~p). State: ~p", [D, dump_state(State)]),
    case mnesia:dirty_read(device, DevName) of
       [] ->
          {reply, no_such_device, State};
       [Device] ->
-         mnesia:dirty_write(Device),
-         {reply, Device, State}
+         NewDevice = Device#device{alias = A, timezone = T, color = C, weight = W, pixmap = P, twitter_auth = TA},
+         mnesia:dirty_write(NewDevice),
+         {reply, NewDevice, State}
    end;
 
 on_msg({get_tracks, DevName}, _From, State) ->
