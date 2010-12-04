@@ -39,8 +39,17 @@ update_device_test() ->
    Device = gtracker_db_pub:get_device(Name),
    gtracker_db_pub:update_device(Device#device{alias = "TEST_ALIAS"}).
 
-
 device_user_test() ->
+   User = gtracker_db_pub:new_user("dmitryme@gmail.com", "123"),
+   ?assertMatch(#user{name = "dmitryme@gmail.com", online = false, map_type = 0, is_admin = false, devices = []}, User),
+   ?assertEqual(already_exists, gtracker_db_pub:new_user("dmitryme@gmail.com", "321")),
+   User1 = gtracker_db_pub:update_user(User#user{is_admin = true, map_type = 1, devices = ["DMITRYME_!@#"]}),
+   ?assertMatch(#user{name = "dmitryme@gmail.com", map_type = 1, is_admin = true, devices = ["DMITRYME_!@#"]}, User1),
+   ?assertEqual(User1, gtracker_db_pub:get_user("dmitryme@gmail.com")),
+   ?assertEqual(not_found, gtracker_db_pub:get_user("dmitryme")),
+   ?assertMatch(#user{name = "dmitryme@gmail.com", online = true}, gtracker_db_pub:authenticate("dmitryme@gmail.com", "123")),
+   ?assertEqual(rejected, gtracker_db_pub:authenticate("dmitryme", "123")),
+   ?assertEqual(rejected, gtracker_db_pub:authenticate("dmitryme@gmail.com", "1234")),
    ok.
 
 stop_test() ->

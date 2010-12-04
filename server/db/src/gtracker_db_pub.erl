@@ -12,13 +12,13 @@
       ,update_user/1
       ,get_user/1
       ,authenticate/2
-      ,get_tracks/1
-      ,get_triggers/1
       ,get_news/0
       ,get_news/1
       ,insert_news/2
       ,delete_news/1
+      ,get_tracks/1
       ,new_track/2
+      ,get_triggers/1
    ]).
 
 -include("common_recs.hrl").
