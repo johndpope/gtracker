@@ -52,5 +52,20 @@ device_user_test() ->
    ?assertEqual(rejected, gtracker_db_pub:authenticate("dmitryme@gmail.com", "1234")),
    ok.
 
+news_test() ->
+   EmptyNews = gtracker_db_pub:get_news(),
+   ?assertEqual([], EmptyNews),
+   ?assertEqual(invalid_date, gtracker_db_pub:insert_news({10,10,2010}, "BLA-BLA-BLA")),
+   ?assertEqual([], gtracker_db_pub:get_news()),
+   Ref = gtracker_db_pub:insert_news({2010,10,10}, "BLA-BLA-BLA"),
+   ?assertEqual(true, erlang:is_reference(Ref)),
+   ?assertEqual(1, length(gtracker_db_pub:get_news())),
+   ?assertEqual(0, length(gtracker_db_pub:get_news({2010,10,9}))),
+   ?assertEqual(1, length(gtracker_db_pub:get_news({2010,10,10}))),
+   ?assertEqual(1, length(gtracker_db_pub:get_news({2010,10,11}))).
+
+
+
+
 stop_test() ->
    application:stop(gtracker_db).

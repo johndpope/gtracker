@@ -1,5 +1,5 @@
 #!/bin/bash
 
-rm -rf Mnesia.gtracker_db@*
+rm -rf Mnesia.gtracker_db_fake@*
 
-ERL_LIBS=../deps erl -noshell -sname gtracker_db -boot start_sasl -config app.config -s gtracker_test test -s init stop
+ERL_LIBS=../deps erl -noshell -sname gtracker_db_fake -boot start_sasl -config app.config -s gtracker_test test -s init stop
