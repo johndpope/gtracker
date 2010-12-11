@@ -43,7 +43,7 @@ loop(Ref) ->
         dets:close(Ref);
       {'EXIT', _, _} ->
         dets:close(Ref);
-     Msg ->
+     _Msg ->
         loop(Ref)
    end.
 
