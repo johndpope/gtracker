@@ -2,51 +2,64 @@
 
 -include("common_recs.hrl").
 
--export([start/2, start/3, stop/1, init/3, loop/2, clear/1, close/1, get_coords/1]).
+-include_lib("eunit/include/eunit.hrl").
 
-start(Track, DbRef) ->
-   rpc:call(Track#track.node, gtracker_track, start, [Track#track.id, Track#track.path, DbRef]).
+-export([open/2, open/1, close/1, store/2, init/2, loop/1, clear/1, get_coords/1]).
 
-stop(TrackPid) ->
-   TrackPid ! stop.
+open(Track) ->
+   rpc:call(Track#track.node, gtracker_track, open, [Track#track.id, Track#track.path]).
 
-start(TrackId, Path, DbRef) ->
-   spawn_link(fun() -> init(TrackId, Path, DbRef) end).
+close(TrackPid) ->
+   TrackPid ! close.
 
-init(TrackId, Path, DbRef) ->
-   {ok, Ref} = dets:open_file(TrackId, [{auto_save, 1000}, {file, Path}, {keypos, 5}]),
-   loop(Ref, DbRef).
-
-loop(Name, DbRef) ->
-   receive
-      Coord when is_record(Coord, coord) ->
-         ok = dets:insert(Name, Coord),
-         loop(Name, DbRef);
-      {get_coords, Peer} ->
-         Coords = dets:select(Name, [{'_', [], ['$_']}]),
-         Peer ! {reply, Coords},
-         loop(Name, DbRef);
-      clear ->
-         dets:delete_all_objects(Name),
-         loop(Name, DbRef);
-      stop ->
-         Stat = calc_stat(Name),
-         gen_server:cast(DbRef, {track_stat, Name, Stat}),
-         dets:close(Name);
-      {'EXIT', _, _} ->
-         dets:close(Name);
-      exit ->
-         dets:close(Name)
+open(TrackId, Path) ->
+   PidName = mds_utils:list_to_atom(TrackId),
+   case erlang:whereis(PidName) of
+      undefined ->
+         Pid = spawn_link(fun() -> init(TrackId, Path) end),
+         register(PidName, Pid),
+         Pid;
+      Pid ->
+         Pid
    end.
 
-clear(TrackRef) ->
-   TrackRef ! clear.
+init(TrackId, Path) ->
+   {ok, Ref} = dets:open_file(TrackId, [{auto_save, 1000}, {file, Path}, {keypos, 5}]),
+   loop(Ref).
 
-close(TrackRef) ->
-   TrackRef ! exit.
+loop(Ref) ->
+   receive
+      %M = {get_coords, Peer} ->
+      %   ?debugFmt("~p", [M]),
+      %   Peer ! {reply, []},
+      %   loop(Name);
+      %Msg ->
+      %   ?debugFmt("~p", [Msg]),
+      %   loop(Name)
+      Coord when is_record(Coord, coord) ->
+        ok = dets:insert(Ref, Coord),
+        loop(Ref);
+      {get_coords, Peer} ->
+        Coords = dets:select(Ref, [{'_', [], ['$_']}]),
+        Peer ! {reply, Coords},
+        loop(Ref);
+      clear ->
+        dets:delete_all_objects(Ref),
+        loop(Ref);
+      close ->
+        dets:close(Ref);
+      {'EXIT', _, _} ->
+        dets:close(Ref)
+   end.
 
-get_coords(TrackRef) ->
-   TrackRef ! {get_coords, self()},
+store(TrackPid, Coord) ->
+   TrackPid ! Coord.
+
+clear(TrackPid) ->
+   TrackPid ! clear.
+
+get_coords(TrackPid) ->
+   TrackPid ! {get_coords, self()},
    receive
       {reply, Coords} ->
          Coords;
@@ -54,64 +67,65 @@ get_coords(TrackRef) ->
          {unexpected, Res}
    end.
 
-calc_stat(Name) ->
-   ok.
-%   Coords = dets:select(Name, [{#coord{_='_'}}, [], ['$_']]),
-%   SortedCoords = lists:sort(fun(#coord{timestamp = A}, #coord{timestamp = B}) -> A <= B end, Coord),
-%   lists:foldl(fun(#coord{}))
-
-
 %=======================================================================================================================
 %  unit testing facilities
 %=======================================================================================================================
-%-ifdef(TEST).
-%-include_lib("eunit/include/eunit.hrl").
+-ifdef(TEST).
+-include_lib("eunit/include/eunit.hrl").
 
-%track_test() ->
-%   TrackPid = gtracker_track:start(tmp, self(), "/tmp/tmp.dets"),
-%   gtracker_track:clear(TrackPid),
+track_test() ->
+ Track = #track{id = "track_1", path = "/tmp/track_1"},
+ TrackPid = gtracker_track:open(Track),
+ ?assertEqual(TrackPid, gtracker_track:open(Track)),
+ gtracker_track:close(TrackPid).
 
-%   Coord1 = #coord{lat = 123.1, lon = 321.12, speed = 45, timestamp = now()},
-%   TrackPid ! Coord1,
+track1_test() ->
+   Track = #track{id = "track_2", path = "/tmp/track_2"},
+   TrackPid = gtracker_track:open(Track),
+   gtracker_track:clear(TrackPid),
 
-%   Coord2 = #coord{lat = 123.2, lon = 321.3, speed = 45, timestamp = now()},
-%   TrackPid ! Coord2,
+   Coord1 = #coord{lat = 123.1, lon = 321.12, speed = 45, timestamp = now()},
+   TrackPid ! Coord1,
 
-%   Coord3 = #coord{lat = 123.2, lon = 321.3, speed = 45, timestamp = now()},
-%   TrackPid ! Coord3,
+   Coord2 = #coord{lat = 123.2, lon = 321.3, speed = 45, timestamp = now()},
+   TrackPid ! Coord2,
 
-%   Coord4 = #coord{lat = 123.2, lon = 321.3, speed = 45, timestamp = now()},
-%   TrackPid ! Coord4,
+   Coord3 = #coord{lat = 123.2, lon = 321.3, speed = 45, timestamp = now()},
+   TrackPid ! Coord3,
 
-%   ?assertEqual(lists:sort([Coord1, Coord2, Coord3, Coord4]), lists:sort(get_coords(TrackPid))),
+   Coord4 = #coord{lat = 123.2, lon = 321.3, speed = 45, timestamp = now()},
+   TrackPid ! Coord4,
 
-%   gtracker_track:clear(TrackPid),
+   ?assertEqual(lists:sort([Coord1, Coord2, Coord3, Coord4]), lists:sort(gtracker_track:get_coords(TrackPid))),
 
-%   ?assertEqual([], lists:sort(get_coords(TrackPid))),
+   gtracker_track:clear(TrackPid),
 
-%   gtracker_track:close(TrackPid).
+   ?assertEqual([], lists:sort(get_coords(TrackPid))),
 
-%track2_test() ->
-%   TrackPid = gtracker_track:start(tmp, "/tmp/tmp1.dets"),
-%   gtracker_track:clear(TrackPid),
+   gtracker_track:close(TrackPid).
 
-%   TrackPid ! #coord{lat = 123.1, lon = 321.12, speed = 45, timestamp = now()},
-%   TrackPid ! #coord{lat = 123.2, lon = 321.3, speed = 45, timestamp = now()},
-%   TrackPid ! #coord{lat = 123.2, lon = 321.3, speed = 45, timestamp = now()},
-%   TrackPid ! #coord{lat = 123.2, lon = 321.3, speed = 45, timestamp = now()},
+track2_test() ->
+   Track = #track{id = "track_2", path = "/tmp/track_3"},
+   TrackPid = gtracker_track:open(Track),
+   gtracker_track:clear(TrackPid),
 
-%   gtracker_track:close(TrackPid),
+   TrackPid ! #coord{lat = 123.1, lon = 321.12, speed = 45, timestamp = now()},
+   TrackPid ! #coord{lat = 123.2, lon = 321.3, speed = 45, timestamp = now()},
+   TrackPid ! #coord{lat = 123.2, lon = 321.3, speed = 45, timestamp = now()},
+   TrackPid ! #coord{lat = 123.2, lon = 321.3, speed = 45, timestamp = now()},
 
-%   timer:sleep(200),
+   gtracker_track:close(TrackPid),
 
-%   TrackPid1 = gtracker_track:start(tmp, "/tmp/tmp1.dets"),
-%   TrackPid2 = gtracker_track:start(tmp, "/tmp/tmp1.dets"),
+   timer:sleep(200),
 
-%   Res1 = lists:sort(gtracker_track:get_coords(TrackPid1)),
-%   Res2 = lists:sort(gtracker_track:get_coords(TrackPid2)),
-%   ?assertEqual(Res1, Res2),
+   TrackPid1 = gtracker_track:open(Track),
+   TrackPid2 = gtracker_track:open(Track),
 
-%   gtracker_track:close(TrackPid1),
-%   gtracker_track:close(TrackPid2).
+   Res1 = lists:sort(gtracker_track:get_coords(TrackPid1)),
+   Res2 = lists:sort(gtracker_track:get_coords(TrackPid2)),
+   ?assertEqual(Res1, Res2),
 
-%-endif.
+   gtracker_track:close(TrackPid1),
+   gtracker_track:close(TrackPid2).
+
+-endif.

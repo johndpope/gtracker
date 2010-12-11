@@ -64,8 +64,5 @@ news_test() ->
    ?assertEqual(1, length(gtracker_db_pub:get_news({2010,10,10}))),
    ?assertEqual(1, length(gtracker_db_pub:get_news({2010,10,11}))).
 
-
-
-
 stop_test() ->
    application:stop(gtracker_db).
