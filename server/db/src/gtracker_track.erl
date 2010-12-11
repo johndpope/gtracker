@@ -29,13 +29,6 @@ init(TrackId, Path) ->
 
 loop(Ref) ->
    receive
-      %M = {get_coords, Peer} ->
-      %   ?debugFmt("~p", [M]),
-      %   Peer ! {reply, []},
-      %   loop(Name);
-      %Msg ->
-      %   ?debugFmt("~p", [Msg]),
-      %   loop(Name)
       Coord when is_record(Coord, coord) ->
         ok = dets:insert(Ref, Coord),
         loop(Ref);
@@ -49,7 +42,9 @@ loop(Ref) ->
       close ->
         dets:close(Ref);
       {'EXIT', _, _} ->
-        dets:close(Ref)
+        dets:close(Ref);
+     Msg ->
+        loop(Ref)
    end.
 
 store(TrackPid, Coord) ->
