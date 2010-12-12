@@ -2,8 +2,10 @@ REBAR=../tools/rebar
 all: build_deps
 	${REBAR} compile jobs=1
 
+.PHONY : stest
+
 test:
-	${REBAR} eunit
+	${REBAR} eunit jobs=1
 
 stest:
 	erlc -o ebin -I ../include stest/gtracker_test.erl
@@ -20,3 +22,4 @@ release:
 
 clean:
 	${REBAR} clean
+
