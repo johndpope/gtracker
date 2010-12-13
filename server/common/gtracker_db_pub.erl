@@ -104,10 +104,9 @@ insert_news(Date, Text) ->
 delete_news(NewsRef) ->
    gen_server:call(?db_ref, {delete_news, NewsRef}).
 
-new_track(DevName, Force) ->
-   Track = gen_server:call(?db_ref, {new_track, DevName, Force, []}),
-   TrackPid = gtracker_track:start(Track, ?db_ref),
-   Device = get_device(DevName),
+new_track(Device, Force) ->
+   Track = gen_server:call(?db_ref, {new_track, Device#device.name, Force, []}),
+   TrackPid = gtracker_track_pub:open(Track),
    Links = Device#device.links,
    update_device(Device#device{links = Links#links{track = TrackPid}}),
    TrackPid.
