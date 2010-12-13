@@ -104,9 +104,16 @@ insert_news(Date, Text) ->
 delete_news(NewsRef) ->
    gen_server:call(?db_ref, {delete_news, NewsRef}).
 
+new_track(Device = #device{links = #links{owner = O}}, true) when is_pid(O) ->
+   gtracker_track_pub:close(O);
+
 new_track(Device, Force) ->
-   Track = gen_server:call(?db_ref, {new_track, Device#device.name, Force, []}),
-   TrackPid = gtracker_track_pub:open(Track),
-   Links = Device#device.links,
-   update_device(Device#device{links = Links#links{track = TrackPid}}),
-   TrackPid.
+   case gen_server:call(?db_ref, {new_track, Device#device.name, Force, []}) of
+      Track when is_record(Track, track) ->
+         TrackPid = gtracker_track_pub:open(Track),
+         Links = Device#device.links,
+         update_device(Device#device{links = Links#links{track = TrackPid}, current_track = Track#track.id}),
+         TrackPid;
+      {already_has_active_track, TrackPid} ->
+         TrackPid
+   end.

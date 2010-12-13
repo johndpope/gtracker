@@ -9,11 +9,10 @@
 -record(state, {track_id, ref, owner}).
 
 open(TrackId, Path, Owner) ->
-   PidName = mds_utils:list_to_atom(TrackId),
-   case erlang:whereis(PidName) of
+   case erlang:whereis(TrackId) of
       undefined ->
          Pid = spawn_link(fun() -> init(TrackId, Path, Owner) end),
-         register(PidName, Pid),
+         register(TrackId, Pid),
          Pid;
       Pid ->
          Pid

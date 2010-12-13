@@ -182,13 +182,15 @@ on_msg({get_device, DevName}, _From, State) ->
    end;
 
 on_msg({update_device,
-      D = #device{name = DevName, alias = A, timezone = T, color = C, weight = W, pixmap = P, twitter_auth = TA}}, _From, State) ->
+      D = #device{name = DevName, alias = A, links = L, timezone = T, color = C, weight = W, pixmap = P, twitter_auth =
+         TA, current_track = CT}}, _From, State) ->
    log(debug, "update_device(~p). State: ~p", [D, dump_state(State)]),
    case mnesia:dirty_read(device, DevName) of
       [] ->
          {reply, no_such_device, State};
       [Device] ->
-         NewDevice = Device#device{alias = A, timezone = T, color = C, weight = W, pixmap = P, twitter_auth = TA},
+         NewDevice = Device#device{alias = A, links = L, timezone = T, color = C, weight = W, pixmap = P, twitter_auth =
+            TA, current_track = CT},
          mnesia:dirty_write(NewDevice),
          {reply, NewDevice, State}
    end;
@@ -241,11 +243,10 @@ on_msg({new_track, DevName, Force, FailuredNodes}, _From, State) ->
       [Device = #device{links = #links{track = TrackPid}}] ->
          case rpc:call(node(TrackPid), erlang, is_process_alive, [TrackPid]) of
             true when (Force == true) ->
-               stop_track(Device),
                NewTrack = create_track(Device, Force, FailuredNodes, State), % create new track here
                {reply, NewTrack, State};
             true when (Force == false) ->
-               {reply, already_has_active_track, State};
+               {reply, {already_has_active_track, TrackPid}, State};
             false ->
                NewTrack = create_track(Device, Force, FailuredNodes, State), % create new track here
                {reply, NewTrack, State}
@@ -260,7 +261,7 @@ on_amsg(Msg, State) ->
    log(error, "Unknown async message ~p.", [Msg]),
    {noreply, State}.
 
-on_info({track_stat, Stat}, State) ->
+on_info({track_stat, _Stat}, State) ->
    log(error, "Statistic for track has been received"),
    {noreply, State};
 
@@ -317,11 +318,7 @@ activate_device(Device = #device{name = DevName, links = Links}, Owner, Triggers
       registered_at = now()
    }.
 
-stop_track(Device = #device{links = #links{track = TrackPid}}) ->
-   gtracker_track:stop(TrackPid),
-   mnesia:dirty_write(Device#device{current_track = undef}).
-
-create_track(Device = #device{name = DevName, links = L = #links{owner = Owner}}, Force, FailuredNodes,
+create_track(#device{name = DevName}, _Force, FailuredNodes,
    #state{track_path = TrackPath, as_track_node = AsTrackNode}) ->
    Node = get_best_node(AsTrackNode, FailuredNodes),
    Count = length(mnesia:dirty_select(track, [{#track{dev_name = '$1', _='_'}, [{'==', '$1', DevName}], ['$_']}])) + 1,

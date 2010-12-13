@@ -8,10 +8,12 @@ open(Track) ->
    rpc:call(Track#track.node, gtracker_track, open, [Track#track.id, Track#track.path, self()]).
 
 close(TrackPid) ->
-   TrackPid ! {close, self()}.
+   TrackPid ! {close, self()},
+   ok.
 
 store(TrackPid, Coord) ->
-   TrackPid ! Coord.
+   TrackPid ! Coord,
+   ok.
 
 clear(TrackPid) ->
    TrackPid ! clear.
