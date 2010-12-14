@@ -32,14 +32,11 @@ on_start(Opts) ->
    Triggers = get_param(triggers, SelfOpts, ?def_triggers),
    AsTrackNode = get_param(as_track_node, SelfOpts, false),
    TrackPath = get_param(track_pach, SelfOpts, "/tmp"),
-%   crypto:start(),
    mnesia_start(),
    log(info, "Mnesia started."),
    {ok, #state{triggers = Triggers, track_path = TrackPath, as_track_node = AsTrackNode}}.
 
 on_stop(Reason, _State) ->
-%   mnesia:stop(),
-%   crypto:stop(),
    log(info, "Mnesia stopped."),
    log(info, "Stopped <~p>.", [Reason]),
    ok.
@@ -285,6 +282,15 @@ on_amsg(Msg, State) ->
 on_info({track_stat, _Stat}, State) ->
    log(error, "Statistic for track has been received"),
    {noreply, State};
+
+%on_info({'EXIT', Pid, _}, State) ->
+%   case mnesia:dirty_read(device, [{#device{links = #links{owner = Pid, _='_'}, _='_'}, [], ['$_']}]) of
+%      [Device] ->
+%         {reply, _, NewState} = on_msg({unregister, Device#device.name}, {Pid, undef}, State),
+%         {noreply, NewState};
+%      _ ->
+%         {noreply, State}
+%   end;
 
 on_info(Msg, State) ->
    log(error, "Unknown info message ~p.", [Msg]),

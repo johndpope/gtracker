@@ -34,13 +34,13 @@ get_coords(TrackPid) ->
 -include_lib("eunit/include/eunit.hrl").
 
 track_test() ->
- Track = #track{id = "track_1", path = "/tmp/track_1"},
+ Track = #track{id = 'track_1', path = "/tmp/track_1"},
  TrackPid = gtracker_track_pub:open(Track),
  ?assertEqual(TrackPid, gtracker_track_pub:open(Track)),
  gtracker_track_pub:close(TrackPid).
 
 track1_test() ->
-  Track = #track{id = "track_2", path = "/tmp/track_2"},
+  Track = #track{id = 'track_2', path = "/tmp/track_2"},
   TrackPid = gtracker_track_pub:open(Track),
   gtracker_track_pub:clear(TrackPid),
 
@@ -65,7 +65,7 @@ track1_test() ->
   gtracker_track_pub:close(TrackPid).
 
 track2_test() ->
-  Track = #track{id = "track_2", path = "/tmp/track_3"},
+  Track = #track{id = 'track_2', path = "/tmp/track_3"},
   TrackPid = gtracker_track_pub:open(Track),
   gtracker_track_pub:clear(TrackPid),
 

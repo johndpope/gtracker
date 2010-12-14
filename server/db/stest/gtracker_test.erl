@@ -8,7 +8,7 @@ start_test() ->
    application:start(gtracker_db).
 
 device_get_all_devices_test() ->
-   ?assertEqual([], gtracker_db_pub:get_all_devices()).
+  ?assertEqual([], gtracker_db_pub:get_all_devices()).
 
 device_register_device_test() ->
    Device = gtracker_db_pub:register(),
@@ -69,6 +69,18 @@ new_track_test() ->
    Track1 = gtracker_db_pub:new_track(Device, true),
    ?assertEqual(is_pid(Track1), true),
    gtracker_track_pub:close(Track1).
+
+%complete_device_test() ->
+%   Device = gtracker_db_pub:register(),
+%   gtracker_db_pub:unregister(Device#device.name).
+%   F = fun() ->
+%        Device1 = gtracker_db_pub:register(Device#device.name),
+%        gtracker_db_pub:new_track(Device1, true),
+%        timer:sleep(200)
+%      end,
+%   spawn(F),
+%   timer:sleep(500),
+%   Device2 = gtracker_db_pub:get_device(Device#device.name).
 
 stop_test() ->
    application:stop(gtracker_db).
