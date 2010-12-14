@@ -64,5 +64,11 @@ news_test() ->
    ?assertEqual(1, length(gtracker_db_pub:get_news({2010,10,10}))),
    ?assertEqual(1, length(gtracker_db_pub:get_news({2010,10,11}))).
 
+new_track_test() ->
+   Device = gtracker_db_pub:register(),
+   Track1 = gtracker_db_pub:new_track(Device, true),
+   ?assertEqual(is_pid(Track1), true),
+   gtracker_track_pub:close(Track1).
+
 stop_test() ->
    application:stop(gtracker_db).
