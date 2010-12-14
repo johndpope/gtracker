@@ -257,6 +257,27 @@ on_msg(Msg, _From, State) ->
    log(error, "Unknown sync message ~p.", [Msg]),
    {noreply, State}.
 
+on_amsg(T = #track_closed{track_id = TrackId, start = Start, stop = Stop, length = Length, avg_speed = AvgSpeed}, State) ->
+   log(debug, "track_closed(~p)", [T]),
+   F = fun() ->
+         case mnesia:read(track, TrackId) of
+            [] ->
+               log(warning, "track_closed event has been received, but track ~p not exists in DB.", [TrackId]);
+            [Track = #track{dev_name = DevName}] ->
+               mnesia:write(
+                  Track#track{status = closed, start = Start, stop = Stop, length = Length, avg_speed = AvgSpeed}),
+               [Device] = mnesia:read(device, DevName),
+               if Device#device.current_track == TrackId ->
+                     mnesia:write(Device#device{current_track = undef, links = Device#device.links#links{track = undef}});
+               true ->
+                  ok
+               end
+         end
+   end,
+   mnesia:transaction(F),
+   {noreply, State};
+
+
 on_amsg(Msg, State) ->
    log(error, "Unknown async message ~p.", [Msg]),
    {noreply, State}.

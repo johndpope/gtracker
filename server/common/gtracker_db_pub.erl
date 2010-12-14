@@ -22,8 +22,7 @@
    ]).
 
 -include("common_recs.hrl").
-
--define(db_ref, {global, gtracker_db}).
+-include("common_defs.hrl").
 
 % get_all_devices() -> [Device] | error
 %  Device = #device, See device record in gtracker/server/include/common_defs.hrl for details
@@ -103,9 +102,6 @@ insert_news(Date, Text) ->
 
 delete_news(NewsRef) ->
    gen_server:call(?db_ref, {delete_news, NewsRef}).
-
-new_track(Device = #device{links = #links{owner = O}}, true) when is_pid(O) ->
-   gtracker_track_pub:close(O);
 
 new_track(Device, Force) ->
    case gen_server:call(?db_ref, {new_track, Device#device.name, Force, []}) of

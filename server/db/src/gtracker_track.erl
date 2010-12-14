@@ -1,6 +1,7 @@
 -module(gtracker_track).
 
 -include("common_recs.hrl").
+-include("common_defs.hrl").
 
 -include_lib("eunit/include/eunit.hrl").
 
@@ -19,7 +20,7 @@ open(TrackId, Path, Owner) ->
    end.
 
 init(TrackId, Path, Owner) ->
-   {ok, Ref} = dets:open_file(TrackId, [{auto_save, 1000}, {file, Path}, {keypos, 5}]),
+   {ok, Ref} = dets:open_file(TrackId, [{auto_save, 1000}, {file, Path}, {keypos, ?FieldId(coord, timestamp)}]),
    loop(#state{track_id = TrackId, ref = Ref, owner = Owner}).
 
 loop(State = #state{track_id = TrackId, ref = Ref, owner = Owner}) ->
@@ -36,12 +37,14 @@ loop(State = #state{track_id = TrackId, ref = Ref, owner = Owner}) ->
          loop(State);
       {close, Peer} when Peer == Owner ->
          error_logger:info_msg("~p: owner ~p exited. Closing...~n", [TrackId, Owner]),
-         dets:close(Ref);
+         dets:close(Ref),
+         gen_server:cast(?db_ref, #track_closed{track_id = TrackId});
       {close, _} ->
          loop(State);
       {'EXIT', _, _} ->
          error_logger:info_msg("~p: Owner ~p exited. Closing...~n", [TrackId, Owner]),
-         dets:close(Ref);
+         dets:close(Ref),
+         gen_server:cast(?db_ref, #track_closed{track_id = TrackId});
       Msg ->
          error_logger:error_msg("~p: Unknown message ~p was ignored~n", [TrackId, Msg]),
          loop(State)
