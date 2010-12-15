@@ -1,25 +1,25 @@
 -module(news_editor).
 -compile(export_all).
 -include_lib("nitrogen/include/wf.hrl").
--include("db.hrl").
--define(DATETIME_FORMAT, "~w-~w-~w ~w:~w:~w").
+-include_lib("gtracker_db_pub/include/common_recs.hrl").
+-include("defines.hrl").
 
 main() ->
    #template { file="./site/templates/index.html" }.
 
 title() ->
-   "GTracker - News Editor".
+   "News Editor".
 
-body() ->
-   body(wf:session(admin)).
+render() ->
+   render(user:admin()).
 
-body(undefined) ->
-   #template { file="./site/templates/logon_first.html" };
+render(undefined) ->
+   #template { file="./site/templates/messages/logon_first" };
 
-body(0) ->
-   #template { file="./site/templates/denied.html" };
+render(false) ->
+   #template { file="./site/templates/messages/denied" };
 
-body(1) ->
+render(true) ->
    #panel { class=?MODULE, body=[
          #panel { class=view, body=select() },
          #panel { class=view, body=editor() }
@@ -28,31 +28,33 @@ body(1) ->
 select() ->
    [
       #h2 { text="News list:" },
-      case q:exec(?SHOW_ALL_NEWS) of
-         ?RESULT(News) ->
-            display(News);
-         _ ->
-            "No news"
+      case gtracker_db_pub:get_news() of
+         invalid_date ->
+            "Internal error: invalid date";
+         [] ->
+            "No news";
+         News ->
+            show(News)
       end
    ].
 
-display(News) ->
+show(News) ->
    Map = [
-      timestamp@text,
+      date@text,
       post@text,
       delete@postback
    ],
    #table { rows=[
          #tablerow { class=table_header, cells=
             [
-               #tableheader { style="width: 15%;", text="Timestamp" },
+               #tableheader { style="width: 15%;", text="Date" },
                #tableheader { style="width: 80%;", text="Post" },
                #tableheader { style="width: 5%;" }
             ]
          },
          #bind { data=News, map=Map, transform=fun convert_row/2, body=#tablerow { class=record, cells=
                [
-                  #tablecell { id=timestamp },
+                  #tablecell { id=date },
                   #tablecell { id=post },
                   #tablecell { body=#button { id=delete, text="Delete" } }
                ]
@@ -61,29 +63,46 @@ display(News) ->
       ]
    }.
 
-convert_row(DataRow, Acc) ->
-   [Id, {datetime,{{Year,Month,Day},{Hour,Minutes,Seconds}}}, Post] = DataRow,
-   { [wf:f(?DATETIME_FORMAT, [Year, Month, Day, Hour, Minutes, Seconds]), Post, {delete, Id}], Acc, [] }.
+convert_row(_DataRow = #news { id=NewsID, date={Year, Month, Day}, text=Post }, Acc) ->
+   { [wf:f("~2.10.0B/~2.10.0B/~w", [Day, Month, Year]), Post, {delete_news, NewsID}], Acc, [] }.
 
 editor() ->
-   {{Year,Month,Day},{Hour,Minutes,Seconds}} = erlang:localtime(),
+   {{Year,Month,Day},{_Hour,_Minutes,_Seconds}} = erlang:localtime(),
    [
       #h2 { text="News list:" },
       #panel { body=[
-            #span { text="Timestamp:" }, #br {},
-            #textbox { id=timestamp, text=wf:f(?DATETIME_FORMAT, [Year, Month, Day, Hour, Minutes, Seconds]) }, #br {},
+            #span { text="Date:" }, #br {},
+            #textbox { id=date, text=wf:f(?DATE_FMT, [Day, Month, Year]) }, #br {},
             #span { text="Post: " }, #br {},
             #textarea { id=post }, #p {},
-            #button { text="Publicate", postback=publicate }
+            #button { text="Publicate", postback=insert_news }
          ]}
    ].
 
-event(publicate) ->
-   Timestamp = wf:q(timestamp),
-   Post = wf:q(post),
-   q:exec(?CREATE_NEWS, [Timestamp, Post]),
-   wf:redirect(wf:path_info());
+event(insert_news) ->
+   F = fun() ->
+         {ok, [Day, Month, Year], []} = io_lib:fread("~2d/~2d/~4d", wf:q(date)),
+         {Year, Month, Day}
+   end,
+   try F() of
+      Date ->
+         Post = wf:q(post),
+         case gtracker_db_pub:insert_news(Date, Post) of
+            error ->
+               client:error("Failed to insert news");
+            RefID ->
+               wf:info("News inserted = [~p]", [RefID]),
+               wf:redirect(wf:path_info())
+         end
+   catch
+      _:_Err ->
+         client:error("Wrong date")
+   end;
 
-event({delete, Id}) ->
-   q:exec(?REMOVE_NEWS, [Id]),
-   wf:redirect(wf:path_info()).
+event({delete_news, RefID}) ->
+   case gtracker_db_pub:delete_news(RefID) of
+      error ->
+         client:error("Faield to remove news");
+      ok ->
+         wf:redirect(wf:path_info())
+   end.

@@ -2,4 +2,4 @@
 <p>Informatio about service</p>
 
 <h1>News</h1>
-<div>[[[news:display()]]]<div style="clear:both"></div></div>
+<div>[[[news:render()]]]<div style="clear:both"></div></div>

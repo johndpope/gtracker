@@ -292,6 +292,8 @@ input, textarea, select {
    border-top: 1px dotted gray;
    border-right: 1px dotted gray;
    padding: 5pt;
+   vertical-align: top;
+   min-width: 100px;
 }
 
 .user_settings table .first {
@@ -299,3 +301,28 @@ input, textarea, select {
    border-left: 1px dotted gray;
 }
 
+/*** Content-Devoce Settings style ***/
+.device_settings h2 {
+   font-weight: 700;
+   font-size: 1.2em;
+   color: #333;
+   margin-bottom: 5pt;
+}
+
+.device_settings table {
+   width: 400px;
+   border-bottom: 1px dotted gray;
+}
+
+.device_settings table td {
+   border-top: 1px dotted gray;
+   border-right: 1px dotted gray;
+   padding: 5pt;
+   vertical-align: top;
+   min-width: 100px;
+}
+
+.device_settings table .first {
+   width: 100%;
+   border-left: 1px dotted gray;
+}

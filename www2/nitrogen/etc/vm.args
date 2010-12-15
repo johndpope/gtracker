@@ -18,6 +18,7 @@
 
 ## Tweak GC to run more often 
 -env ERL_FULLSWEEP_AFTER 10
+-env ERL_LIBS $ERL_LIBS:/usr/local/lib/erlang
 
 ## Include .beam files for site.
 -pa ./site/ebin

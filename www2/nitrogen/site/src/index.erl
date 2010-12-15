@@ -6,7 +6,7 @@ main() ->
    #template { file="./site/templates/index.html" }.
 
 title() ->
-   "GTracker - Wellcome".
+   "Welcome".
 
-body() ->
-   #template { file="./site/templates/welcome_body.html" }.
+render() ->
+   #template { file="./site/templates/pages/welcome" }.

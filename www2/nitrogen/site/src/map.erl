@@ -6,10 +6,10 @@ main() ->
    #template { file="./site/templates/index.html" }.
 
 script() ->
-   #template { file="./site/templates/map_script.html" }.
+   #template { file="./site/templates/scripts/map" }.
 
 title() ->
-   "GTracker - Map".
+   "Map".
 
-body() ->
-   #template { file="./site/templates/map_body.html" }.
+render() ->
+   #template { file="./site/templates/pages/map" }.

@@ -3,7 +3,7 @@
 <head>
    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
    <link rel="shortcut icon" type="image/png" href="/images/favicon.png"/>
-   <title>[[[page:title()]]]</title>
+   <title>GTracker - [[[page:title()]]]</title>
 
    <script src='/nitrogen/jquery.js' type='text/javascript' charset='utf-8'></script>
    <script src='/nitrogen/jquery-ui.js' type='text/javascript' charset='utf-8'></script>
@@ -12,6 +12,7 @@
    <script src='/nitrogen/bert.js' type='text/javascript' charset='utf-8'></script>
 
    [[[page:script()]]]
+   [[[page:css()]]]
 
    <link rel="stylesheet" href="/nitrogen/jquery-ui/jquery.ui.all.css" type="text/css" media="screen" charset="utf-8" />
    <link rel="stylesheet" href="/nitrogen/nitrogen.css" />
@@ -19,15 +20,19 @@
 </head>
 <body>
 <div class="top_bar">
-   [[[top_bar:display()]]]
+   [[[top_bar:render()]]]
 </div>
 <div class="wrapper">
    <div class="block header">
       <a class="logo" href="/">GTracker</a>
-      [[[navigation:display()]]]
+      <ul class="navigation">
+         <li><a href="/map">Map</a></li>
+         <li><a href="/download">Download</a></li>
+         <li><a href="/contacts">Contacts</a></li>
+      </ul>
    </div>
    <div class="block content">
-      [[[page:body()]]]
+      [[[page:render()]]]
    </div>
    <div class="block footer">
    </div>

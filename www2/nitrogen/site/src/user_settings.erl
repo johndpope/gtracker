@@ -1,31 +1,43 @@
 -module(user_settings).
 -compile(export_all).
 -include_lib("nitrogen/include/wf.hrl").
--include("db.hrl").
+-include_lib("gtracker_db_pub/include/common_recs.hrl").
 
 main() ->
    #template { file="./site/templates/index.html" }.
 
 title() ->
-   "GTracker - User Settings".
+   "User Settings".
 
-body() ->
-   #panel { class=?MODULE, body=display(user:id()) }.
+render() ->
+   #panel { class=?MODULE, body=display(wf:user()) }.
 
 display(undefined) ->
-   #template { file="./site/templates/logon_first.html" };
+   #template { file="./site/templates/messages/logon_first" };
 
-display(UserID) ->
-   ?RESULT(Devices) = q:exec(?DEVICE_NAME_LIST, [UserID]),
-   wf:wire(add_button, device_text_box, #validate {
-         validators=[
-            #custom { text="Device not exists", function=fun device_exists_validator/2 }
-         ]}),
+display(Username) ->
    [
+      #panel { class=view, body=[
+            #h2 { text="Information:" },
+            #table { rows=[
+                  #tablerow { cells=[
+                        #tablecell { class=first, body="Username:" },
+                        #tablecell { body=Username }
+                     ]},
+                  #tablerow { cells=[
+                        #tablecell { class=first, body="Avatar:" },
+                        #tablecell { body=[
+                              "<div align=\"center\">",
+                              #link { body=#gravatar { email=Username, size="64", default="mm" }, url="http://gravatar.com" },
+                              "<div>"
+                           ]}
+                     ]}
+               ]}
+         ]},
       #panel { class=view, body=[
             #h2 { text="Your devices:" },
             #table { rows=[
-                  #bind { data=Devices, map=[ name@text, settings@postback, remove@postback ], transform=fun convert/2,
+                  #bind { data=user:devices(), map=[ name@text, settings@postback, remove@postback ], transform=fun convert/2,
                      body=#tablerow { cells=[
                            #tablecell { class=first, id=name },
                            #tablecell { body=#link { id=settings, text="Settings" } },
@@ -41,48 +53,60 @@ display(UserID) ->
       #panel { class=view, body=[
             #h2 { text="Look and feel:" },
             #span { text="Default Map:" },
-            #dropdown { id=map_type_dropdown, value=wf:session_default(map_id, "0"), options=[
-                  #option { text="OSM Mapnik", value="0" },
-                  #option { text="OSM CycleMap", value="1" },
-                  #option { text="OSM Osmarender", value="2" },
-                  #option { text="Google Maps", value="3" }
+            #dropdown { id=map_type_dropdown, value=user:map_type(), options=[
+                  #option { text="OSM Mapnik", value=0 },
+                  #option { text="OSM CycleMap", value=1 },
+                  #option { text="OSM Osmarender", value=2 },
+                  #option { text="Google Maps", value=3 }
                ]},
             #p {},
-            #button { text="Save", postback=save }
+            #button { text="Save", postback={save,wf:session(user_info)} }
          ]}
    ].
 
-convert(DataRow, Acc) ->
-   [DeviceID, Name] = DataRow,
-   { [Name, {settings, DeviceID}, {remove, user:id(), DeviceID}], Acc, [] }.
+convert(DeviceName, Acc) ->
+   { [DeviceName, {settings, DeviceName}, {remove, wf:session(user_info), DeviceName}], Acc, [] }.
 
-device_exists_validator(_Tag, Value) ->
-   case q:exec(?DEVICE_EXISTS, [Value]) of
-      ?RESULT([[_Id]]) ->
-         true;
-      ?RESULT([]) ->
-         false
-   end.
-
-event({settings, DeviceID}) ->
-   wf:session(device_id_settings, DeviceID),
+event({settings, DeviceName}) ->
+   wf:session(device_to_edit, DeviceName),
    wf:redirect("/device_settings");
 
-event({remove, UserID, DeviceID}) ->
-   q:exec(?USER_REMOVE_DEVICE, [UserID, DeviceID]),
-   user:load_devices_into_session(UserID),
-   wf:redirect(wf:path_info());
+event({remove, UserInfo, DeviceName}) ->
+   NewUserInfo = UserInfo#user{ devices=lists:delete(DeviceName, UserInfo#user.devices) },
+   case user:update(NewUserInfo) of
+      error ->
+         client:error("Failed to update");
+      UpdatedUserInfo ->
+         user:save_into_session(UpdatedUserInfo),
+         wf:redirect(wf:path_info())
+   end;
 
 event(add) ->
-   UserID=user:id(),
-   ?RESULT([[DeviceID]]) = q:exec(?DEVICE_EXISTS, [wf:q(device_text_box)]),
-   % add check to devices exists
-   q:exec(?USER_ADD_DEVICE, [UserID, DeviceID]),
-   user:load_devices_into_session(UserID),
-   wf:redirect(wf:path_info());
+   case gtracker_db_pub:get_device(wf:q(device_text_box)) of
+      no_such_device ->
+         client:error("device not exists");
+      error ->
+         client:error("unknown error");
+      Device ->
+         DeviceName = Device#device.name,
+         UserInfo = wf:session(user_info),
+         NewUserInfo = UserInfo#user{ devices=[DeviceName | UserInfo#user.devices] },
+         case user:update(NewUserInfo) of
+            error ->
+               client:error("Failed to update");
+            UpdatedUserInfo ->
+               user:save_into_session(UpdatedUserInfo),
+               wf:redirect(wf:path_info())
+         end
+   end;
 
-event(save) ->
-   MapType=wf:q(map_type_dropdown),
-   wf:session(map_id, MapType),
-   q:exec(?USER_SAVE_SETTINGS, [MapType, user:id()]),
-   wf:redirect(wf:path_info()).
+event({save, UserInfo}) ->
+   NewMapType = wf:q(map_type_dropdown),
+   NewUserInfo = UserInfo#user{map_type=NewMapType},
+   case user:update(NewUserInfo) of
+      error ->
+         client:error("Failed to update");
+      UpdatedUserInfo ->
+         user:save_into_session(UpdatedUserInfo),
+         wf:redirect(wf:path_info())
+   end.

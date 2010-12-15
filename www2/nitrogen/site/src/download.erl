@@ -6,7 +6,7 @@ main() ->
    #template { file="./site/templates/index.html" }.
 
 title() ->
-   "GTracker - Download".
+   "Download".
 
-body() ->
-   #template { file="./site/templates/download_body.html" }.
+render() ->
+   #template { file="./site/templates/pages/download" }.

@@ -1,17 +1,12 @@
 -module(registration).
 -compile(export_all).
 -include_lib("nitrogen/include/wf.hrl").
--include("records.hrl").
--include("db.hrl").
 
 main() -> #template { file="./site/templates/registration.html" }.
 
-title() -> "GTracker - Registration".
-
-body() ->
+render() ->
    wf:wire(register_button, user_text_box, #validate {
          validators=[
-            #custom { text="Email address already used", function=fun check_user/2 },
             #is_email { text="Not a valid email address" }
          ]}),
    wf:wire(register_button, password_text_box, #validate {
@@ -24,11 +19,11 @@ body() ->
          ]}),
    [
       #panel { class=registration_form, body=[
-            #label { text="Your email address:" },
+            #panel { body="Your email address:" },
             #textbox { id=user_text_box, next=password_text_box },
-            #label { text="Your password:" },
+            #panel { body="Your password:" },
             #password { id=password_text_box, next=password_confirm_text_box },
-            #label { text="Confirm password:" },
+            #panel { body="Confirm password:" },
             #password { id=password_confirm_text_box, next=register_button },
             #p {},
             #button { id=register_button, text="Register", postback=register_user }
@@ -39,17 +34,15 @@ body() ->
          ]}
    ].
 
-check_user(_Tag, User) ->
-   case q:exec(?USER_EXISTS, [User]) of
-      ?RESULT([[_Id]]) ->
-         false;
-      ?RESULT([]) ->
-         true
-   end.
-
 event(register_user) ->
-   User = wf:q(user_text_box),
-   Password = erlang:list_to_binary(md5:hex(wf:q(password_text_box))),
-   q:exec(?USER_CREATE, [User, Password]),
-   wf:user(User),
-   wf:redirect("/").
+   Username = wf:q(user_text_box),
+   Password = wf:q(password_text_box),
+   case gtracker_db_pub:new_user(Username, Password) of
+      already_exists ->
+         client:warning("email already exists");
+      error ->
+         client:warning("registration error");
+      UserInfo ->
+         user:save_into_session(UserInfo),
+         wf:redirect("/")
+   end.

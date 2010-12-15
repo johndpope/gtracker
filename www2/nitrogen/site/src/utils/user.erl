@@ -1,30 +1,57 @@
 -module(user).
 -include_lib("nitrogen/include/wf.hrl").
--include("db.hrl").
--compile(export_all).
+-include_lib("gtracker_db_pub/include/common_recs.hrl").
+-export([
+      save_into_session/1,
+      devices/0,
+      admin/0,
+      map_type/0,
+      update/1,
+      device_list/0
+   ]).
 
-load_settings_into_session(UserID) ->
-   % load user settings
-   case q:exec(?USER_LOAD_SETTINGS, [UserID]) of
-      ?RESULT([[Admin,MapID]]) ->
-         wf:session(admin, Admin),
-         wf:session(map_id, integer_to_list(MapID)),
-         wf:info("Settings saved into session (UserID=~w, Admin=~w, MapID=~w)", [UserID, Admin, MapID]);
+save_into_session(UserInfo) ->
+   wf:user(UserInfo#user.name),
+   wf:session(user_info, UserInfo).
 
-      ?RESULT([]) ->
-         wf:error("Failed to save settings into session, user not exist (UserID=~w)", [UserID]);
+devices() ->
+   UserInfo = wf:session(user_info),
+   UserInfo#user.devices.
 
-      bad_query ->
-         wf:error("Internal error (UserID=~w)", [UserID])
+admin() ->
+   UserInfo = wf:session(user_info),
+   UserInfo#user.is_admin.
+
+map_type() ->
+   UserInfo = wf:session(user_info),
+   UserInfo#user.map_type.
+
+update(UserInfo) ->
+   case gtracker_db_pub:update_user(UserInfo) of
+      no_such_user ->
+         error;
+      error ->
+         error;
+      SavedUserInfo ->
+         SavedUserInfo
    end.
 
-load_devices_into_session(UserID) ->
-   % load device list of user 
-   ?RESULT(List) = q:exec(?DEVICE_LIST, [UserID]),
-   wf:session(devices, List).
+device_list() ->
+   device_list(wf:session(device_list)).
 
-id() ->
-   wf:session(user_id).
+device_list(undefined) ->
+   UserInfo = wf:session(user_info),
+   Functor = fun(Name) ->
+         case gtracker_db_pub:get_device(Name) of
+            error ->
+               {Name, error};
+            Device ->
+               Device
+         end
+   end,
+   Devices = lists:map(Functor, UserInfo#user.devices),
+   wf:session(device_list, Devices),
+   Devices;
 
-id(UserID) ->
-   wf:session(user_id, UserID).
+device_list(Devices) ->
+   Devices.

@@ -1,35 +1,35 @@
 -module(top_bar).
 -include_lib("nitrogen/include/wf.hrl").
--export([display/0, event/1]).
--include("db.hrl").
+-export([render/0, event/1]).
 
-display() ->
+render() ->
    #panel { class=wrapper, body=
       #panel { body=[
             case wf:user() of
                undefined ->
-                  display_login();
+                  render_login();
                _ ->
-                  display_logout()
+                  render_logout()
             end
          ]}
    }.
 
-display_logout() ->
+render_logout() ->
+   IsAdmin = user:admin(),
    [
       #panel { class="info", body=[
-            #gravatar { email=wf:user(), size="22" },
+            #gravatar { email=wf:user(), size="22", default="mm" },
             #span { text=wf:user() },
-            #span { text=" (admin)", class=admin, show_if=wf:session(admin) },
+            #span { text=" (admin)", class=admin, show_if=IsAdmin },
             #panel { class=control, body=[
                   #link { text="Settings", url="/user_settings" },
-                  #link { text="News Editor", show_if=wf:session(admin), url="/news_editor" }
+                  #link { text="News Editor", show_if=IsAdmin, url="/news_editor" }
                ]}
          ]},
       #link { class=logout, text="Logout", postback=logout, delegate=?MODULE }
    ].
 
-display_login() ->
+render_login() ->
    [
       #span { text="Email: " },
       #textbox { id=user_text_box, next=password_text_box },
@@ -44,22 +44,14 @@ event(logout) ->
    wf:redirect(wf:path_info());
 
 event(login) ->
-   User = wf:q(user_text_box),
-   Password = erlang:list_to_binary(md5:hex(wf:q(password_text_box))),
-   case q:exec(?USER_AUTHENTICATE, [User]) of
-      ?RESULT([[UserID,RealPassword]]) when RealPassword == Password ->
-         wf:user(User),
-         user:id(UserID),
-         user:load_settings_into_session(UserID),
-         user:load_devices_into_session(UserID),
-         wf:redirect(wf:path_info());
-
-      ?RESULT([[_,_]]) ->
-         wf:wire(#alert { text="Incorrect password" });
-
-      ?RESULT([]) ->
-         wf:wire(#alert { text="Account not exists" });
-
-      bad_query ->
-         wf:wire(#alert { text="INTERNAL ERROR" })
+   Username = wf:q(user_text_box),
+   Password = wf:q(password_text_box),
+   case gtracker_db_pub:authenticate(Username, Password) of
+      rejected ->
+         client:warning("email/password combination is mismatch");
+      error ->
+         client:error("unknown");
+      UserInfo ->
+         user:save_into_session(UserInfo),
+         wf:redirect(wf:path_info())
    end.

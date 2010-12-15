@@ -2,11 +2,11 @@
 -compile(export_all).
 -include_lib("nitrogen/include/wf.hrl").
 
+title() ->
+   "Contacts".
+
 main() ->
    #template { file="./site/templates/index.html" }.
 
-title() ->
-   "GTracker - Contacts".
-
-body() ->
-   #template { file="./site/templates/contacts_body.html" }.
+render() ->
+   #template { file="./site/templates/pages/contacts" }.

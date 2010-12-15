@@ -55,7 +55,7 @@ var GMap = {
                         setOptions: function(options) {
                                 $.extend($opts, options);
                                 $line.setOptions({
-                                        strokeColor: '#' + $opts.color,
+                                        strokeColor: $opts.color,
                                         strokeWeight: $opts.weight
                                 });
                         },
