@@ -132,22 +132,5 @@ new_track_test() ->
          timer:sleep(1000)
    end.
 
-complete_device_test() ->
-   F = fun(Owner) ->
-      Device = gtracker_db_pub:register(),
-      gtracker_db_pub:unregister(Device#device.name),
-      gtracker_db_pub:new_track(Device, true),
-      Owner ! {Device, done}
-   end,
-   Owner = self(),
-   spawn(fun() -> F(Owner) end),
-   receive
-      {#device{name = N}, done} ->
-         timer:sleep(1000),
-         Device = gtracker_db_pub:get_device(N),
-         ?debugFmt("~p", [Device]),
-         ?assertMatch(#device{current_track = undef, links=#links{owner = undef, track=undef}}, Device)
-   end.
-
 stop_test() ->
    application:stop(gtracker_db).

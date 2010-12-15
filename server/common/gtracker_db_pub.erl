@@ -107,6 +107,8 @@ delete_news(NewsRef) ->
 
 new_track(Device, Force) ->
    case gen_server:call(?db_ref, {new_track, Device#device.name, Force, []}) of
+      device_not_registered ->
+         device_not_registered;
       Track when is_record(Track, track) ->
          TrackPid = gtracker_track_pub:open(Track),
          Links = Device#device.links,

@@ -236,6 +236,8 @@ on_msg({new_track, DevName, Force, FailuredNodes}, _From, State) ->
    case mnesia:dirty_read(device, DevName) of
       [] ->
          {reply, no_such_device, State};
+      [#device{links = #links{owner = undef}}] ->
+         {reply, device_not_registered, State};
       [Device = #device{links = #links{track = undef}}] ->
          NewTrack = create_track(Device, Force, FailuredNodes, State), % create new track here
          {reply, NewTrack, State};
