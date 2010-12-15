@@ -33,6 +33,7 @@ on_start(Opts) ->
    AsTrackNode = get_param(as_track_node, SelfOpts, false),
    TrackPath = get_param(track_pach, SelfOpts, "/tmp"),
    mnesia_start(),
+   process_flag(trap_exit, true),
    log(info, "Mnesia started."),
    {ok, #state{triggers = Triggers, track_path = TrackPath, as_track_node = AsTrackNode}}.
 
@@ -54,6 +55,7 @@ on_msg(register, {Pid, _}, State) ->
             log(debug, "Store device ~p", [DevName]),
             Ref = binary_to_hex(erlang:md5(erlang:list_to_binary(DevName))),
             Device = #device{name = DevName, alias = DevName, reference = Ref, online = true, links = #links{owner = Pid}},
+            erlang:link(Pid),
             mnesia:dirty_write(Device),
             {reply, Device, State};
          [#device{name = DevName}] ->
@@ -283,14 +285,16 @@ on_info({track_stat, _Stat}, State) ->
    log(error, "Statistic for track has been received"),
    {noreply, State};
 
-%on_info({'EXIT', Pid, _}, State) ->
-%   case mnesia:dirty_read(device, [{#device{links = #links{owner = Pid, _='_'}, _='_'}, [], ['$_']}]) of
-%      [Device] ->
-%         {reply, _, NewState} = on_msg({unregister, Device#device.name}, {Pid, undef}, State),
-%         {noreply, NewState};
-%      _ ->
-%         {noreply, State}
-%   end;
+on_info({'EXIT', Pid, _}, State) ->
+   log(info, "Process ~p exited. Trying to update device", [Pid]),
+   case mnesia:dirty_read(device, [{#device{links = #links{owner = Pid, _='_'}, _='_'}, [], ['$_']}]) of
+      [Device] ->
+         log(info, "Device ~p found. Will be unregistered.", [Device#device.name]),
+         {reply, _, NewState} = on_msg({unregister, Device#device.name}, {Pid, undef}, State),
+         {noreply, NewState};
+      _ ->
+         {noreply, State}
+   end;
 
 on_info(Msg, State) ->
    log(error, "Unknown info message ~p.", [Msg]),
@@ -338,6 +342,7 @@ get_trigger_process(DevName, Triggers) ->
    end.
 
 activate_device(Device = #device{name = DevName, links = Links}, Owner, Triggers) ->
+   erlang:link(Owner),
    Device#device
    {
       links = Links#links{owner = Owner, trigger = get_trigger_process(DevName, Triggers)},

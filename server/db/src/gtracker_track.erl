@@ -21,6 +21,7 @@ open(TrackId, Path, Owner) ->
 
 init(TrackId, Path, Owner) ->
    {ok, Ref} = dets:open_file(TrackId, [{auto_save, 1000}, {file, Path}, {keypos, ?FieldId(coord, timestamp)}]),
+   process_flag(trap_exit, true),
    loop(#state{track_id = TrackId, ref = Ref, owner = Owner}).
 
 loop(State = #state{track_id = TrackId, ref = Ref, owner = Owner}) ->
