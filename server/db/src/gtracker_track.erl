@@ -37,13 +37,13 @@ loop(State = #state{track_id = TrackId, ref = Ref, owner = Owner}) ->
          dets:delete_all_objects(Ref),
          loop(State);
       {close, Peer} when Peer == Owner ->
-         error_logger:info_msg("~p: owner ~p exited. Closing...~n", [TrackId, Owner]),
+         error_logger:info_msg("~p: owner ~p want me to close. Closing...~n", [TrackId, Owner]),
          dets:close(Ref),
          gen_server:cast(?db_ref, #track_closed{track_id = TrackId});
       {close, _} ->
          loop(State);
       {'EXIT', _, _} ->
-         error_logger:info_msg("~p: Owner ~p exited. Closing...~n", [TrackId, Owner]),
+         error_logger:info_msg("~p: owner ~p exited. Closing...~n", [TrackId, Owner]),
          dets:close(Ref),
          gen_server:cast(?db_ref, #track_closed{track_id = TrackId});
       Msg ->

@@ -50,6 +50,8 @@ register(DevName) ->
 
 % unregister(DevName) -> unregistered | no_such_device | error | wrong_owner
 unregister(DevName) ->
+   Device =  get_device(DevName),
+   gtracker_track_pub:close(Device#device.links#links.track),
    gen_server:call(?db_ref, {unregister, DevName}).
 
 % new_user(UserName, Password) -> User | already_exists | error

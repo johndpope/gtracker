@@ -7,17 +7,25 @@
 open(Track) ->
    rpc:call(Track#track.node, gtracker_track, open, [Track#track.id, Track#track.path, self()]).
 
+close(TrackPid) when is_pid(TrackPid) == false ->
+   ok;
 close(TrackPid) ->
    TrackPid ! {close, self()},
    ok.
 
+store(TrackPid, _) when is_pid(TrackPid) == false ->
+   ok;
 store(TrackPid, Coord) ->
    TrackPid ! Coord,
    ok.
 
+clear(TrackPid) when is_pid(TrackPid) == false ->
+   ok;
 clear(TrackPid) ->
    TrackPid ! clear.
 
+get_coords(TrackPid) when is_pid(TrackPid) == false ->
+   ok;
 get_coords(TrackPid) ->
    TrackPid ! {get_coords, self()},
    receive

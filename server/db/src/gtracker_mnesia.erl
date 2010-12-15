@@ -287,12 +287,13 @@ on_info({track_stat, _Stat}, State) ->
 
 on_info({'EXIT', Pid, _}, State) ->
    log(info, "Process ~p exited. Trying to update device", [Pid]),
-   case mnesia:dirty_read(device, [{#device{links = #links{owner = Pid, _='_'}, _='_'}, [], ['$_']}]) of
+   case mnesia:dirty_select(device, [{#device{links = #links{owner = '$1', _='_'}, _='_'}, [{'==', '$1', Pid}], ['$_']}]) of
       [Device] ->
          log(info, "Device ~p found. Will be unregistered.", [Device#device.name]),
          {reply, _, NewState} = on_msg({unregister, Device#device.name}, {Pid, undef}, State),
          {noreply, NewState};
       _ ->
+         log(info, "Device owned by ~p not found.", [Pid]),
          {noreply, State}
    end;
 
