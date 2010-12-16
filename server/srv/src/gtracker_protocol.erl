@@ -18,7 +18,6 @@
                 socket,         % device socket
                 listener,       % registered name of gtracker_listener process
                 db,             % registered name for database process
-                gt_pgroup,      % registered process group
                 logger = undef, % logger of this process
                 ecnt = 0,       % count of errors
                 ccnt = 0,       % number of received coordinated per session
@@ -42,7 +41,6 @@ start(Socket, Opts) ->
    ListenerOpts = get_param(self, AllOpts),
    CalcSpeed = get_param(calc_speed, ListenerOpts),
    Db = get_param(db, ListenerOpts),
-   GtPGroup = get_param(gt_pgroup, ListenerOpts, ?DEF_GT_PGROUP),
    RefPrefix = get_param(ref_prefix, ListenerOpts, ?DEF_REF_PREFIX),
    % build logger options
    LoggerOpts = dict:from_list(get_param(mds_logger, AllOpts)),
@@ -54,7 +52,6 @@ start(Socket, Opts) ->
             loop(#state{
                   socket = Socket,
                   db = Db,
-                  gt_pgroup = GtPGroup,
                   listener = Listener,
                   calc_speed = CalcSpeed,
                   ref_prefix = RefPrefix,
@@ -137,13 +134,13 @@ reply(State, Msg, Socket) ->
    gen_tcp:send(Socket, Msg).
 
 %=======================================================================================================================
-% generate new unique device name
+% register device
 %=======================================================================================================================
-get_device(State) ->
-   mds_gen_server:call(State#state.db, get_device, ?MAX_CALL_TIMEOUT).
+register(State) ->
+   gtracker_db_pub:register(State#state.db, ?MAX_CALL_TIMEOUT).
 
-get_device(DevName, State) ->
-   mds_gen_server:call(State#state.db, {get_device, DevName}, ?MAX_CALL_TIMEOUT).
+register(DevName, State) ->
+   gtracker_db_pub:register(State#state.db, DevName, ?MAX_CALL_TIMEOUT).
 
 %=======================================================================================================================
 % rename track
