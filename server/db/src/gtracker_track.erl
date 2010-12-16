@@ -33,6 +33,9 @@ loop(State = #state{track_id = TrackId, ref = Ref, owner = Owner}) ->
          Coords = dets:select(Ref, [{'_', [], ['$_']}]),
          Peer ! {reply, Coords},
          loop(State);
+      {owner, NewOwner} ->
+         error_logger:infO_msg("The owner ~p is changed to ~p~n", [Owner, NewOwner]),
+         loop(State#state{owner = NewOwner});
       clear ->
          dets:delete_all_objects(Ref),
          loop(State);

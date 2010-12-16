@@ -8,6 +8,8 @@
       ,register/0
       ,register/1
       ,unregister/1
+      ,subscribe/1
+      ,unsubscribe/1
       ,new_user/2
       ,update_user/1
       ,get_user/1
@@ -53,6 +55,16 @@ unregister(DevName) ->
    Device =  get_device(DevName),
    gtracker_track_pub:close(Device#device.links#links.track),
    gen_server:call(?db_ref, {unregister, DevName}).
+
+% subscribe(DevName) -> ok | atom()
+%   DevName = String()
+subscribe(DevName) ->
+   gen_server:call(?db_ref, {subscribe, DevName}).
+
+% unsubscribe(DevName) -> ok | atom()
+%   DevName = String()
+unsubscribe(DevName) ->
+   gen_server:call(?db_ref, {unsubscribe, DevName}).
 
 % new_user(UserName, Password) -> User | already_exists | error
 %  UserName = String(), e.g. demo@demo.org
