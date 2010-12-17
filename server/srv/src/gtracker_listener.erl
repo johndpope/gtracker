@@ -18,7 +18,7 @@
 -define(PORT, 7777).
 -define(MOD, {global, ?MODULE}).
 
--record(state, {lsocket, db, devices, opts}).
+-record(state, {lsocket, db, protocol, opts}).
 
 start_in_shell() ->
    start([{root_dir, "/tmp/gtracker"}, {db, nodb}, {log_level, debug}]).
@@ -34,11 +34,12 @@ on_start(Opts) ->
    ServerOpts = get_param(mds_server, Opts),
    Port = get_param(port, SelfOpts, ?PORT),
    Db = get_param(db, SelfOpts),
+   Proto = get_param(protocol, SelfOpts, gtracker_protocol),
    {ok, ListenSocket} = gen_tcp:listen(Port, [binary, {packet, 1}, {reuseaddr, true}, {active, once}]),
    RootDir = get_param(root_dir, ServerOpts),
    WorkingDir = get_param(working_dir, ServerOpts),
    log(info, "Started"),
-   {ok, #state{lsocket = ListenSocket, db = Db, opts = Opts}, ?TIMEOUT}.
+   {ok, #state{lsocket = ListenSocket, db = Db, protocol = Proto, opts = Opts}, ?TIMEOUT}.
 
 on_stop(Reason, _State) ->
    log(info, "Stopped <~p>.", [Reason]),
@@ -67,7 +68,7 @@ on_info(_Msg, State) ->
       {ok, PeerSocket} ->
          {ok, Addr} = inet:peername(PeerSocket),
          log(info, "Device connected from ~p.", [Addr]),
-         gtracker_protocol:start(PeerSocket, [{listener, ?MOD}, {opts, State#state.opts}]),
+         apply(State#state.protocol, start, [PeerSocket, [{listener, ?MOD}, {opts, State#state.opts}]]),
          {noreply, State, ?TIMEOUT};
       {error, timeout} ->
          {noreply, State, ?TIMEOUT}

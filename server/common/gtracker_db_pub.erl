@@ -28,7 +28,6 @@
 -include("common_recs.hrl").
 -include("common_defs.hrl").
 
--define(MAX_CALL_TIMEOUT, 30000).
 
 % get_all_devices(Db, Timeout) -> [Device] | error
 %  Db = registereg Db name

@@ -28,7 +28,6 @@
              }).
 
 -define(MAX_ERROR_COUNT, 10).
--define(MAX_CALL_TIMEOUT, 30000).
 -define(RECEIVE_TIMEOUT,  60000).
 -define(DEF_REF_PREFIX, "http://www.gtracker.ru/view/").
 
@@ -133,32 +132,23 @@ reply(State, Msg, Socket) ->
    log(State, debug, "Packet ~p was sent.", [Msg]),
    gen_tcp:send(Socket, Msg).
 
-%=======================================================================================================================
-% register device
-%=======================================================================================================================
-register(State) ->
-   gtracker_db_pub:register(State#state.db, ?MAX_CALL_TIMEOUT).
+%%=======================================================================================================================
+%% rename track
+%%=======================================================================================================================
+%rename_track(DevName, TrackName, State) ->
+%   mds_gen_server:call(State#state.db, {rename_track, DevName, TrackName}, ?MAX_CALL_TIMEOUT).
 
-register(DevName, State) ->
-   gtracker_db_pub:register(State#state.db, DevName, ?MAX_CALL_TIMEOUT).
+%%=======================================================================================================================
+%% start new track
+%%=======================================================================================================================
+%start_new_track(DevName, TrackName, State) ->
+%   mds_gen_server:call(State#state.db, {new_track, DevName, TrackName}).
 
-%=======================================================================================================================
-% rename track
-%=======================================================================================================================
-rename_track(DevName, TrackName, State) ->
-   mds_gen_server:call(State#state.db, {rename_track, DevName, TrackName}, ?MAX_CALL_TIMEOUT).
-
-%=======================================================================================================================
-% start new track
-%=======================================================================================================================
-start_new_track(DevName, TrackName, State) ->
-   mds_gen_server:call(State#state.db, {new_track, DevName, TrackName}).
-
-%=======================================================================================================================
-% work with device status
-%=======================================================================================================================
-register_device(DevName, L) ->
-   mds_gen_server:call(L, {register, DevName}).
+%%=======================================================================================================================
+%% work with device status
+%%=======================================================================================================================
+%register_device(DevName, L) ->
+%   mds_gen_server:call(L, {register, DevName}).
 
 %=======================================================================================================================
 % returns an error binary
@@ -181,7 +171,7 @@ parsePacket(Msg = <<>>, State = #state{ecnt = ErrCnt}) ->
    {return_error(?ERROR_WRONG_MSG), State#state{ecnt = ErrCnt + 1}}.
 
 %=======================================================================================================================
-% processing of incoming messages (version 1)
+% processing of incoming messages
 %=======================================================================================================================
 % device requests new device name
 processMsg(?AUTH_MSG, <<1:?VER>>, State = #state{listener = L, socket = S, dev_name = undef, ref_prefix = RefPrefix}) ->
