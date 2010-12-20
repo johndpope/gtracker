@@ -1,4 +1,4 @@
--module(gtracker_db_pub).
+-module(gtracker_pub).
 
 -compile({no_auto_import,[register/2]}).
 
@@ -69,7 +69,13 @@ register() ->
 %  Timeout - call timeout
 %  registers a existing device
 register(Db, DevName, Timeout) ->
-   gen_server:call(Db, {register, DevName}, Timeout).
+   case gen_server:call(Db, {register, DevName}, Timeout) of
+      D = #device{links = #links{track = undef}} ->
+         D;
+      D = #device{links = #links{owner = OwnerPid, track = TrackPid}} ->
+         gtracker_track_pub:set_owner(TrackPid, OwnerPid),
+         D
+   end.
 register(DevName) ->
    register(?db_ref, DevName, ?MAX_CALL_TIMEOUT).
 

@@ -76,15 +76,11 @@ on_msg({register, DevName}, {Pid, _}, State = #state{triggers = Triggers}) ->
       [Device = #device{links = #links{owner = Owner}}] when is_pid(Owner) andalso (Pid == Owner) ->
          {reply, Device, State};
       [Device = #device{links = #links{owner = Owner}}] ->
-         case rpc:call(node(Owner), erlang, is_process_alive, [Owner]) of
-            true ->
-               {reply, Device, State};
-            False ->
-               log(debug, "is_process_alive(~p): ~p", [Owner, False]),
-               NewDevice = activate_device(Device, Pid, Triggers),
-               mnesia:dirty_write(NewDevice),
-               {reply, NewDevice, State}
-         end
+         Owner ! stop,
+         log(info, "Trying to stop old owned with Pid = ~p", [Owner]),
+         NewDevice = activate_device(Device, Pid, Triggers),
+         mnesia:dirty_write(NewDevice),
+         {reply, NewDevice, State}
    end;
 
 on_msg({unregister, DevName}, {Pid, _}, State) ->

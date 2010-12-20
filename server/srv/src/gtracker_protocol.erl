@@ -6,6 +6,7 @@
 -include("fields.hrl").
 -include("msgs.hrl").
 -include("common_defs.hrl").
+-include("common_recs.hrl").
 
 -export([start/2, stop/1]).
 
@@ -174,14 +175,13 @@ parsePacket(Msg = <<>>, State = #state{ecnt = ErrCnt}) ->
 % processing of incoming messages
 %=======================================================================================================================
 % device requests new device name
-processMsg(?AUTH_MSG, <<1:?VER>>, State = #state{listener = L, socket = S, dev_name = undef, ref_prefix = RefPrefix}) ->
+processMsg(?AUTH_MSG, <<1:?VER>>, State = #state{socket = S, dev_name = undef, ref_prefix = RefPrefix}) ->
    {ok, PeerName} = inet:peername(S),
    log(State, info, "The device ~p requests a new device name.", [PeerName]),
-   case get_device(State) of
+   case gtracker_pub:register(State#state.db, ?MAX_CALL_TIMEOUT) of
       error ->
          {return_error(?ERROR_SERVER_UNAVAILABLE), State};
-      {DevName, Ref} ->
-         register_device(DevName, L),
+      #device{name = DevName, reference = Ref} ->
          NewState = create_logger(DevName, State),
          log(State, info, "The device ~p got a device name ~p.", [PeerName, DevName]),
          BinDevName = erlang:list_to_bitstring(DevName),
@@ -196,27 +196,19 @@ processMsg(?AUTH_MSG, <<1:?VER>>, State) -> % the device already has a name
 
 % device has a assigned device name and want to auth with it
 processMsg(?AUTH_MSG, <<1:?VER, BinDevName:?BIN_DEV_NAME>>,
-   State = #state{listener = L, socket = S, ref_prefix =RefPrefix, ecnt = ErrCnt}) ->
+   State = #state{socket = S, ref_prefix =RefPrefix, ecnt = ErrCnt}) ->
    DevName = erlang:bitstring_to_list(BinDevName),
-   case get_device(DevName, State) of
+   case gtracker_pub:register(State#state.db, DevName, ?MAX_CALL_TIMEOUT) of
       error ->
          {return_error(?ERROR_SERVER_UNAVAILABLE), State};
-      no_device -> % wrong device name, hacker?
+      no_such_device -> % wrong device name, hacker?
          log(State, warning, "Device name ~p not found. Error count ~p.", [DevName, ErrCnt + 1]),
          {return_error(?ERROR_WRONG_DEV_NAME), State#state{ecnt = ErrCnt + 1}};
       #device{reference = Ref} ->
-         case register_device(DevName, L) of
-            registered ->
-               log(State, info, "Device ~p was activated at ~p.", [DevName, inet:peername(S)]),
-               NewState = create_logger(DevName, State),
-               BinRef = fill_binary(erlang:list_to_binary(RefPrefix ++ Ref), ?REF_SIZE, <<0:8>>),
-               {<<?AUTH_ACK_MSG, BinDevName:?BIN_DEV_NAME, BinRef/binary>>, NewState#state{dev_name = DevName}};
-            already_registered ->
-               log(State, warning,
-                  "Device ~p can not be activated at ~p. Device is already online. Error count ~p.",
-                  [DevName, inet:peername(S), ErrCnt + 1]),
-               {return_error(?ERROR_ALREADY_AUTH), State#state{ecnt =  ErrCnt + 1}}
-         end;
+         log(State, info, "Device ~p was registered at ~p.", [DevName, inet:peername(S)]),
+         NewState = create_logger(DevName, State),
+         BinRef = fill_binary(erlang:list_to_binary(RefPrefix ++ Ref), ?REF_SIZE, <<0:8>>),
+         {<<?AUTH_ACK_MSG, BinDevName:?BIN_DEV_NAME, BinRef/binary>>, NewState#state{dev_name = DevName}};
       Msg ->
          log(State, error, "Unrecognized msg ~p during auth processing.", [Msg]),
          {return_error(?ERROR_SERVER_UNAVAILABLE), State}
@@ -224,98 +216,98 @@ processMsg(?AUTH_MSG, <<1:?VER, BinDevName:?BIN_DEV_NAME>>,
 
 % <<<<< BEGIN COORD processing >>>>>
 processMsg(?COORD_MSG, _Msg, State = #state{socket = S, ecnt = ErrCnt, dev_name = undef}) ->
-   log(State, error, "Device ~p sends coordinates, but not authenticated. Error count ~p",
-      [inet:peername(S), ErrCnt + 1]),
-   {return_error(?ERROR_NOT_AUTH), State#state{ecnt = ErrCnt + 1}};
+  log(State, error, "Device ~p sends coordinates, but not authenticated. Error count ~p",
+     [inet:peername(S), ErrCnt + 1]),
+  {return_error(?ERROR_NOT_AUTH), State#state{ecnt = ErrCnt + 1}};
 
-% tries to store first coordinate after connect
-processMsg(?COORD_MSG, <<Lat:?LAT, LatExp:?LAT_EXP, Lon:?LON, LonExp:?LON_EXP, Speed:?SPEED, TimeStamp:?TIMESTAMP>>, State =
-   #state{dev_name = DevName, gt_pgroup = PGroup, ccnt = 0}) ->
-   {NewLat, NewLon, _, _, NewTimestamp} = Coord =
-      {ints_to_float(Lat, LatExp), ints_to_float(Lon, LonExp), Speed, 0, unix_seconds_to_datetime(TimeStamp)},
-   log(State, debug, "First coordinate received {~p, ~p, ~p}.", [NewLat, NewLon, NewTimestamp]),
-   send_pg(PGroup, {coord, first, DevName, Coord}),
-   {noreply, State#state{ccnt = 1, last_coord = Coord}};
+%% tries to store first coordinate after connect
+%processMsg(?COORD_MSG, <<Lat:?LAT, LatExp:?LAT_EXP, Lon:?LON, LonExp:?LON_EXP, Speed:?SPEED, TimeStamp:?TIMESTAMP>>, State =
+%   #state{dev_name = DevName, gt_pgroup = PGroup, ccnt = 0}) ->
+%   {NewLat, NewLon, _, _, NewTimestamp} = Coord =
+%      {ints_to_float(Lat, LatExp), ints_to_float(Lon, LonExp), Speed, 0, unix_seconds_to_datetime(TimeStamp)},
+%   log(State, debug, "First coordinate received {~p, ~p, ~p}.", [NewLat, NewLon, NewTimestamp]),
+%   send_pg(PGroup, {coord, first, DevName, Coord}),
+%   {noreply, State#state{ccnt = 1, last_coord = Coord}};
 
-% tries to store next coordinates
-processMsg(?COORD_MSG, <<Lat:?LAT, LatExp:?LAT_EXP, Lon:?LON, LonExp:?LON_EXP, Speed:?SPEED, TimeStamp:?TIMESTAMP>>, State =
-   #state{dev_name = DevName, gt_pgroup = PGroup, ccnt = Ccnt, last_coord = LastCoord, calc_speed = CalcSpeed}) ->
-   {NewLat, NewLon, NewTimestamp} = {ints_to_float(Lat, LatExp), ints_to_float(Lon, LonExp), unix_seconds_to_datetime(TimeStamp)},
-   log(State, debug, "Coordinate received {~p, ~p, ~p}.", [NewLat, NewLon, NewTimestamp]),
-   {LastLat, LastLon, _, _, LastTimestamp} = LastCoord,
-   Distance = nmea_utils:calc_distance({LastLat, LastLon}, {NewLat, NewLon}),
-   SP = case CalcSpeed or ((Speed =:= 0) and (Distance =/= 0)) of
-           true ->
-              erlang:round(nmea_utils:calc_speed({LastLat, LastLon, LastTimestamp}, {NewLat, NewLon, NewTimestamp}));
-           false ->
-              Speed
-        end,
-   Coord = {NewLat, NewLon, SP, Distance, NewTimestamp},
-   send_pg(PGroup, {coord, DevName, Coord}),
-   {noreply, State#state{ccnt = Ccnt + 1, last_coord = Coord}};
-% <<<<< END COORD processing >>>>>
+%% tries to store next coordinates
+%processMsg(?COORD_MSG, <<Lat:?LAT, LatExp:?LAT_EXP, Lon:?LON, LonExp:?LON_EXP, Speed:?SPEED, TimeStamp:?TIMESTAMP>>, State =
+%   #state{dev_name = DevName, gt_pgroup = PGroup, ccnt = Ccnt, last_coord = LastCoord, calc_speed = CalcSpeed}) ->
+%   {NewLat, NewLon, NewTimestamp} = {ints_to_float(Lat, LatExp), ints_to_float(Lon, LonExp), unix_seconds_to_datetime(TimeStamp)},
+%   log(State, debug, "Coordinate received {~p, ~p, ~p}.", [NewLat, NewLon, NewTimestamp]),
+%   {LastLat, LastLon, _, _, LastTimestamp} = LastCoord,
+%   Distance = nmea_utils:calc_distance({LastLat, LastLon}, {NewLat, NewLon}),
+%   SP = case CalcSpeed or ((Speed =:= 0) and (Distance =/= 0)) of
+%           true ->
+%              erlang:round(nmea_utils:calc_speed({LastLat, LastLon, LastTimestamp}, {NewLat, NewLon, NewTimestamp}));
+%           false ->
+%              Speed
+%        end,
+%   Coord = {NewLat, NewLon, SP, Distance, NewTimestamp},
+%   send_pg(PGroup, {coord, DevName, Coord}),
+%   {noreply, State#state{ccnt = Ccnt + 1, last_coord = Coord}};
+%% <<<<< END COORD processing >>>>>
 
-processMsg(?RENAME_TRACK, <<_TrackName/bitstring>>, State = #state{socket = S, ecnt = ErrCnt, dev_name = undef}) ->
-   log(State, error, "Device ~p wants to rename track, but not authenticated. Error count ~p",
-      [inet:peername(S), ErrCnt + 1]),
-   {return_error(?ERROR_NOT_AUTH), State#state{ecnt = ErrCnt + 1}};
+%processMsg(?RENAME_TRACK, <<_TrackName/bitstring>>, State = #state{socket = S, ecnt = ErrCnt, dev_name = undef}) ->
+%   log(State, error, "Device ~p wants to rename track, but not authenticated. Error count ~p",
+%      [inet:peername(S), ErrCnt + 1]),
+%   {return_error(?ERROR_NOT_AUTH), State#state{ecnt = ErrCnt + 1}};
 
-processMsg(?RENAME_TRACK, <<BinTrackName/bitstring>>, State = #state{dev_name = DevName, ccnt = 0, ecnt = ErrCnt}) ->
-   TrackName = erlang:bitstring_to_list(BinTrackName),
-   log(State, info, "~p wants to rename current track to ~p, but track has not started yet", [DevName, TrackName]),
-   {return_error(?ERROR_TRACK_NOT_STARTED), State#state{ecnt = ErrCnt + 1}};
+%processMsg(?RENAME_TRACK, <<BinTrackName/bitstring>>, State = #state{dev_name = DevName, ccnt = 0, ecnt = ErrCnt}) ->
+%   TrackName = erlang:bitstring_to_list(BinTrackName),
+%   log(State, info, "~p wants to rename current track to ~p, but track has not started yet", [DevName, TrackName]),
+%   {return_error(?ERROR_TRACK_NOT_STARTED), State#state{ecnt = ErrCnt + 1}};
 
-processMsg(?RENAME_TRACK, <<BinTrackName/bitstring>>, State = #state{dev_name = DevName})
-when size(BinTrackName) =< 50 ->
-   TrackName = erlang:bitstring_to_list(BinTrackName),
-   log(State, info, "~p wants to rename current track to ~p", [DevName, TrackName]),
-   case rename_track(DevName, TrackName, State) of
-      error ->
-         {return_error(?ERROR_TRACK_RENAME), State};
-      ok ->
-         {<<?TRACK_STATUS, BinTrackName/binary>>, State}
-   end;
+%processMsg(?RENAME_TRACK, <<BinTrackName/bitstring>>, State = #state{dev_name = DevName})
+%when size(BinTrackName) =< 50 ->
+%   TrackName = erlang:bitstring_to_list(BinTrackName),
+%   log(State, info, "~p wants to rename current track to ~p", [DevName, TrackName]),
+%   case rename_track(DevName, TrackName, State) of
+%      error ->
+%         {return_error(?ERROR_TRACK_RENAME), State};
+%      ok ->
+%         {<<?TRACK_STATUS, BinTrackName/binary>>, State}
+%   end;
 
-processMsg(?RENAME_TRACK, <<_BinTrackName/bitstring>>, State) ->
-   {return_error(?ERROR_TRACK_NAME_TOO_LONG), State};
+%processMsg(?RENAME_TRACK, <<_BinTrackName/bitstring>>, State) ->
+%   {return_error(?ERROR_TRACK_NAME_TOO_LONG), State};
 
-processMsg(?START_NEW_TRACK, <<_TrackName/bitstring>>, State = #state{socket = S, ecnt = ErrCnt, dev_name = undef}) ->
-   log(State, error, "Device ~p wants to start new track, but not authenticated. Error count ~p",
-      [inet:peername(S), ErrCnt + 1]),
-   {return_error(?ERROR_NOT_AUTH), State#state{ecnt = ErrCnt + 1}};
+%processMsg(?START_NEW_TRACK, <<_TrackName/bitstring>>, State = #state{socket = S, ecnt = ErrCnt, dev_name = undef}) ->
+%   log(State, error, "Device ~p wants to start new track, but not authenticated. Error count ~p",
+%      [inet:peername(S), ErrCnt + 1]),
+%   {return_error(?ERROR_NOT_AUTH), State#state{ecnt = ErrCnt + 1}};
 
-processMsg(?START_NEW_TRACK, <<BinTrackName/bitstring>>, State = #state{dev_name = DevName, ccnt = 0, ecnt = ErrCnt}) ->
-   TrackName = erlang:bitstring_to_list(BinTrackName),
-   log(State, info, "~p wants to start new track ~p, but there was no coordinates received.", [DevName, TrackName]),
-   {return_error(?ERROR_TRACK_NOT_STARTED), State#state{ecnt = ErrCnt + 1}};
+%processMsg(?START_NEW_TRACK, <<BinTrackName/bitstring>>, State = #state{dev_name = DevName, ccnt = 0, ecnt = ErrCnt}) ->
+%   TrackName = erlang:bitstring_to_list(BinTrackName),
+%   log(State, info, "~p wants to start new track ~p, but there was no coordinates received.", [DevName, TrackName]),
+%   {return_error(?ERROR_TRACK_NOT_STARTED), State#state{ecnt = ErrCnt + 1}};
 
-processMsg(?START_NEW_TRACK, <<BinTrackName/bitstring>>, State = #state{dev_name = DevName})
-when size(BinTrackName) =< 50 ->
-   TrackName = erlang:bitstring_to_list(BinTrackName),
-   log(State, info, "~p wants to start new track ~p", [DevName, TrackName]),
-   case start_new_track(DevName, TrackName, State) of
-      error ->
-         {return_error(?ERROR_START_NEW_TRACK), State};
-      ok ->
-         {<<?TRACK_STATUS, BinTrackName/binary>>, State}
-   end;
+%processMsg(?START_NEW_TRACK, <<BinTrackName/bitstring>>, State = #state{dev_name = DevName})
+%when size(BinTrackName) =< 50 ->
+%   TrackName = erlang:bitstring_to_list(BinTrackName),
+%   log(State, info, "~p wants to start new track ~p", [DevName, TrackName]),
+%   case start_new_track(DevName, TrackName, State) of
+%      error ->
+%         {return_error(?ERROR_START_NEW_TRACK), State};
+%      ok ->
+%         {<<?TRACK_STATUS, BinTrackName/binary>>, State}
+%   end;
 
-processMsg(?START_NEW_TRACK, <<_BinTrackName/bitstring>>, State) ->
-   {return_error(?ERROR_TRACK_NAME_TOO_LONG), State};
+%processMsg(?START_NEW_TRACK, <<_BinTrackName/bitstring>>, State) ->
+%   {return_error(?ERROR_TRACK_NAME_TOO_LONG), State};
 
-processMsg(?HEARTBEAT_MSG, <<>>, State) ->
-   log(State, debug, "Heartbeat message received."),
-   {<<?HEARTBEAT_RESPONSE>>, State};
+%processMsg(?HEARTBEAT_MSG, <<>>, State) ->
+%   log(State, debug, "Heartbeat message received."),
+%   {<<?HEARTBEAT_RESPONSE>>, State};
 
-processMsg(?SOS_MSG, <<>>, #state{socket = S, dev_name = undef, ecnt = ErrCnt} = State) ->
-   log(State, debug, "SOS message received from device ~p, but device hasn't registered yet. Ignored. Error count ~p",
-      [inet:peername(S), ErrCnt + 1]),
-   {return_error(?ERROR_NOT_AUTH), State#state{ecnt = ErrCnt + 1}};
+%processMsg(?SOS_MSG, <<>>, #state{socket = S, dev_name = undef, ecnt = ErrCnt} = State) ->
+%   log(State, debug, "SOS message received from device ~p, but device hasn't registered yet. Ignored. Error count ~p",
+%      [inet:peername(S), ErrCnt + 1]),
+%   {return_error(?ERROR_NOT_AUTH), State#state{ecnt = ErrCnt + 1}};
 
-processMsg(?SOS_MSG, <<>>, #state{dev_name = DevName, gt_pgroup = PGroup} = State) ->
-   log(State, debug, "SOS message received."),
-   send_pg(PGroup, {sos, DevName}),
-   {noreply, State};
+%processMsg(?SOS_MSG, <<>>, #state{dev_name = DevName, gt_pgroup = PGroup} = State) ->
+%   log(State, debug, "SOS message received."),
+%   send_pg(PGroup, {sos, DevName}),
+%   {noreply, State};
 
 processMsg(Type, Msg, State = #state{ecnt = ErrCnt}) ->
    log(State, error, "Wrong message ~p. Error count ~p.", [<<Type, Msg/binary>>, ErrCnt + 1]),
