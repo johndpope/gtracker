@@ -226,32 +226,37 @@ processMsg(?COORD_MSG, _Msg, State = #state{socket = S, ecnt = ErrCnt, dev = und
      [inet:peername(S), ErrCnt + 1]),
   {return_error(?ERROR_NOT_AUTH), State#state{ecnt = ErrCnt + 1}};
 
-%% tries to store first coordinate after connect
-%processMsg(?COORD_MSG, <<Lat:?LAT, LatExp:?LAT_EXP, Lon:?LON, LonExp:?LON_EXP, Speed:?SPEED, TimeStamp:?TIMESTAMP>>, State =
-%   #state{dev_name = DevName, gt_pgroup = PGroup, ccnt = 0}) ->
-%   {NewLat, NewLon, _, _, NewTimestamp} = Coord =
-%      {ints_to_float(Lat, LatExp), ints_to_float(Lon, LonExp), Speed, 0, unix_seconds_to_datetime(TimeStamp)},
-%   log(State, debug, "First coordinate received {~p, ~p, ~p}.", [NewLat, NewLon, NewTimestamp]),
-%   send_pg(PGroup, {coord, first, DevName, Coord}),
-%   {noreply, State#state{ccnt = 1, last_coord = Coord}};
+processMsg(?COORD_MSG, Coord, State = #state{db = Db, dev = Device, track = undef}) ->
+  Track = tracker_pub:new_track(Db, Device, false, ?MAX_CALL_TIMEOUT),
+  processMsg(?COORD_MSG, Coord, State#state{track = Track});
 
-%% tries to store next coordinates
-%processMsg(?COORD_MSG, <<Lat:?LAT, LatExp:?LAT_EXP, Lon:?LON, LonExp:?LON_EXP, Speed:?SPEED, TimeStamp:?TIMESTAMP>>, State =
-%   #state{dev_name = DevName, gt_pgroup = PGroup, ccnt = Ccnt, last_coord = LastCoord, calc_speed = CalcSpeed}) ->
-%   {NewLat, NewLon, NewTimestamp} = {ints_to_float(Lat, LatExp), ints_to_float(Lon, LonExp), unix_seconds_to_datetime(TimeStamp)},
-%   log(State, debug, "Coordinate received {~p, ~p, ~p}.", [NewLat, NewLon, NewTimestamp]),
-%   {LastLat, LastLon, _, _, LastTimestamp} = LastCoord,
-%   Distance = nmea_utils:calc_distance({LastLat, LastLon}, {NewLat, NewLon}),
-%   SP = case CalcSpeed or ((Speed =:= 0) and (Distance =/= 0)) of
-%           true ->
-%              erlang:round(nmea_utils:calc_speed({LastLat, LastLon, LastTimestamp}, {NewLat, NewLon, NewTimestamp}));
-%           false ->
-%              Speed
-%        end,
-%   Coord = {NewLat, NewLon, SP, Distance, NewTimestamp},
-%   send_pg(PGroup, {coord, DevName, Coord}),
-%   {noreply, State#state{ccnt = Ccnt + 1, last_coord = Coord}};
-%% <<<<< END COORD processing >>>>>
+% tries to store first coordinate after connect
+processMsg(?COORD_MSG, <<Lat:?LAT, LatExp:?LAT_EXP, Lon:?LON, LonExp:?LON_EXP, Speed:?SPEED, TimeStamp:?TIMESTAMP>>, State =
+  #state{track = Track, ccnt = 0}) ->
+  {NewLat, NewLon, _, _, NewTimestamp} = Coord =
+     {ints_to_float(Lat, LatExp), ints_to_float(Lon, LonExp), Speed, 0, unix_seconds_to_datetime(TimeStamp)},
+  log(State, debug, "First coordinate received {~p, ~p, ~p}.", [NewLat, NewLon, NewTimestamp]),
+  gtracker_track_pub:store(Track, Coord),
+  {noreply, State#state{ccnt = 1, last_coord = Coord}};
+
+% tries to store next coordinates
+processMsg(?COORD_MSG, <<Lat:?LAT, LatExp:?LAT_EXP, Lon:?LON, LonExp:?LON_EXP, Speed:?SPEED, TimeStamp:?TIMESTAMP>>, State =
+  #state{track = Track, ccnt = Ccnt, last_coord = LastCoord, calc_speed = CalcSpeed}) ->
+  {NewLat, NewLon, NewTimestamp} = {ints_to_float(Lat, LatExp), ints_to_float(Lon, LonExp), unix_seconds_to_datetime(TimeStamp)},
+  log(State, debug, "Coordinate received {~p, ~p, ~p}.", [NewLat, NewLon, NewTimestamp]),
+  {LastLat, LastLon, _, _, LastTimestamp} = LastCoord,
+  Distance = nmea_utils:calc_distance({LastLat, LastLon}, {NewLat, NewLon}),
+  SP = case CalcSpeed or ((Speed =:= 0) and (Distance =/= 0)) of
+          true ->
+             erlang:round(nmea_utils:calc_speed({LastLat, LastLon, LastTimestamp}, {NewLat, NewLon, NewTimestamp}));
+          false ->
+             Speed
+       end,
+  Coord = {NewLat, NewLon, SP, Distance, NewTimestamp},
+  gtracker_track_pub:store(Track, Coord),
+  {noreply, State#state{ccnt = Ccnt + 1, last_coord = Coord}};
+
+% <<<<< END COORD processing >>>>>
 
 %processMsg(?RENAME_TRACK, <<_TrackName/bitstring>>, State = #state{socket = S, ecnt = ErrCnt, dev_name = undef}) ->
 %   log(State, error, "Device ~p wants to rename track, but not authenticated. Error count ~p",

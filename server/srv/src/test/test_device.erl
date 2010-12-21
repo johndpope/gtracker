@@ -32,7 +32,7 @@ emul_init(Commands) ->
 
 emul_loop([], #state{socket = Socket}) ->
    gen_tcp:close(Socket),
-   io:format("Finished");
+   io:format("Finished~n");
 
 emul_loop([{connect, Host, Port}|Rest], State) ->
    {ok, Socket} = gen_tcp:connect(Host, Port, [binary, {packet, 1}]),

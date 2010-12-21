@@ -13,10 +13,10 @@ close(TrackPid) ->
    TrackPid ! {close, self()},
    ok.
 
-store(TrackPid, _) when is_pid(TrackPid) == false ->
+store(#track{pid = Pid}, _) when is_pid(Pid) == false ->
    ok;
-store(TrackPid, Coord) ->
-   TrackPid ! Coord,
+store(#track{pid = Pid}, Coord) ->
+   Pid ! Coord,
    ok.
 
 clear(TrackPid) when is_pid(TrackPid) == false ->
