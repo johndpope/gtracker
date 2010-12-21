@@ -32,6 +32,7 @@
 -define(RECEIVE_TIMEOUT,  60000).
 -define(DEF_REF_PREFIX, "http://www.gtracker.ru/view/").
 
+-compile({no_auto_import, [unregister/1]}).
 %=======================================================================================================================
 % gtracker_protocol exports
 %=======================================================================================================================
@@ -78,10 +79,13 @@ loop(State) ->
          log(State, error, "Device ~p with ID = ~p was closed.", [self(), State#state.dev#device.name]);
       stop ->
          log(State, info, "Device was forced to stop."),
+         unregister(State),
          gen_tcp:close(State#state.socket);
       {tcp_closed, _Socket} ->
+         unregister(State),
          log(State, info, "Device ~p with ID = ~p was closed by peer.", [self(), State#state.dev#device.name]);
       {'EXIT', _, _} ->
+         unregister(State),
          gen_tcp:close(State#state.socket),
          log(State, info, "Device was forced to stop.")
    after ?RECEIVE_TIMEOUT ->
@@ -145,11 +149,13 @@ reply(State, Msg, Socket) ->
 %start_new_track(DevName, TrackName, State) ->
 %   mds_gen_server:call(State#state.db, {new_track, DevName, TrackName}).
 
-%%=======================================================================================================================
-%% work with device status
-%%=======================================================================================================================
-%register_device(DevName, L) ->
-%   mds_gen_server:call(L, {register, DevName}).
+%=======================================================================================================================
+% work with device status
+%=======================================================================================================================
+unregister(#state{dev = undef}) ->
+   ok;
+unregister(#state{db = Db, dev = #device{name = Name}}) ->
+   gtracker_pub:unregister(Db, Name, ?MAX_CALL_TIMEOUT).
 
 %=======================================================================================================================
 % returns an error binary
