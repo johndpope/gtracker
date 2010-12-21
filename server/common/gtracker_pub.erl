@@ -23,6 +23,7 @@
       ,get_tracks/1, get_tracks/3
       ,new_track/2, new_track/4
       ,get_triggers/1, get_triggers/3
+      ,update_track/1, update_track/3
    ]).
 
 -include("common_recs.hrl").
@@ -69,13 +70,7 @@ register() ->
 %  Timeout - call timeout
 %  registers a existing device
 register(Db, DevName, Timeout) ->
-   case gen_server:call(Db, {register, DevName}, Timeout) of
-      D = #device{links = #links{track = undef}} ->
-         D;
-      D = #device{links = #links{owner = OwnerPid, track = TrackPid}} ->
-         gtracker_track_pub:set_owner(TrackPid, OwnerPid),
-         D
-   end.
+   gen_server:call(Db, {register, DevName}, Timeout).
 register(DevName) ->
    register(?db_ref, DevName, ?MAX_CALL_TIMEOUT).
 
@@ -83,8 +78,6 @@ register(DevName) ->
 %  Db = registereg Db name
 %  Timeout - call timeout
 unregister(Db, DevName, Timeout) ->
-   Device =  get_device(DevName),
-   gtracker_track_pub:close(Device#device.links#links.track),
    gen_server:call(Db, {unregister, DevName}, Timeout).
 unregister(DevName) ->
    unregister(?db_ref, DevName, ?MAX_CALL_TIMEOUT).
@@ -189,13 +182,17 @@ new_track(Db, Device, Force, Timeout) ->
    case gen_server:call(Db, {new_track, Device#device.name, Force, []}, Timeout) of
       device_not_registered ->
          device_not_registered;
-      Track when is_record(Track, track) ->
+      Track = #track{pid = undef} ->
          TrackPid = gtracker_track_pub:open(Track),
-         Links = Device#device.links,
-         update_device(Db, Device#device{links = Links#links{track = TrackPid}, current_track = Track#track.id}, Timeout),
-         TrackPid;
-      {already_has_active_track, TrackPid} ->
-         TrackPid
+         update_track(Db, Track#track{pid = TrackPid}, Timeout);
+      Track ->
+         Track
    end.
 new_track(Device, Force) ->
    new_track(?db_ref, Device, Force, ?MAX_CALL_TIMEOUT).
+
+
+update_track(Db, Track, Timeout) ->
+   get_server:call(Db, {update_track, Track}, Timeout).
+update_track(Track) ->
+   update_track(?db_ref, Track, ?MAX_CALL_TIMEOUT).

@@ -54,7 +54,7 @@ on_msg(register, {Pid, _}, State) ->
          [] ->
             log(debug, "Store device ~p", [DevName]),
             Ref = binary_to_hex(erlang:md5(erlang:list_to_binary(DevName))),
-            Device = #device{name = DevName, alias = DevName, reference = Ref, online = true, links = #links{owner = Pid}},
+            Device = #device{name = DevName, alias = DevName, reference = Ref, online = true, owner = Pid},
             erlang:link(Pid),
             mnesia:dirty_write(Device),
             {reply, Device, State};
@@ -69,13 +69,13 @@ on_msg({register, DevName}, {Pid, _}, State = #state{triggers = Triggers}) ->
    case mnesia:dirty_read(device, DevName) of
       [] ->
          {reply, no_such_device, State};
-      [Device = #device{links = #links{owner = undef}, online = false}] ->
+      [Device = #device{owner = undef, online = false}] ->
          NewDevice = activate_device(Device, Pid, Triggers),
          mnesia:dirty_write(NewDevice),
          {reply, NewDevice, State};
-      [Device = #device{links = #links{owner = Owner}}] when is_pid(Owner) andalso (Pid == Owner) ->
+      [Device = #device{owner = Owner}] when is_pid(Owner) andalso (Pid == Owner) ->
          {reply, Device, State};
-      [Device = #device{links = #links{owner = Owner}}] ->
+      [Device = #device{owner = Owner}] ->
          Owner ! stop,
          log(info, "Trying to stop old owned with Pid = ~p", [Owner]),
          NewDevice = activate_device(Device, Pid, Triggers),
@@ -88,19 +88,19 @@ on_msg({unregister, DevName}, {Pid, _}, State) ->
    case mnesia:dirty_read(device, DevName) of
       [] ->
          {reply, no_such_device, State};
-      [Device = #device{links = #links{owner = undef}, online = false}] ->
+      [Device = #device{owner = undef, online = false}] ->
          {reply, Device, State};
-      [Device = #device{links = #links{owner = Owner}}] when is_pid(Owner) andalso (Pid == Owner) ->
-         NewDevice = Device#device{links = #links{}, online = false},
+      [Device = #device{owner = Owner}] when is_pid(Owner) andalso (Pid == Owner) ->
+         NewDevice = Device#device{owner = undef, online = false},
          mnesia:dirty_write(NewDevice),
          {reply, NewDevice, State};
-      [Device = #device{links = #links{owner = Owner}}] ->
+      [Device = #device{owner = Owner}] ->
          case rpc:call(erlang, is_process_alive, [node(Owner), Owner]) of
             true ->
                {reply, wrong_owner, State};
             False ->
                log(debug, "is_process_alive(~p): ~p", [Owner, False]),
-               NewDevice = Device#device{links = #links{}, online = false},
+               NewDevice = Device#device{owner = undef, online = false},
                mnesia:dirty_write(NewDevice),
                {reply, NewDevice, State}
          end
@@ -177,14 +177,14 @@ on_msg({get_device, DevName}, _From, State) ->
    end;
 
 on_msg({update_device,
-      D = #device{name = DevName, alias = A, links = L, timezone = T, color = C, weight = W, pixmap = P, twitter_auth =
+      D = #device{name = DevName, alias = A, timezone = T, color = C, weight = W, pixmap = P, twitter_auth =
          TA, current_track = CT}}, _From, State) ->
    log(debug, "update_device(~p). State: ~p", [D, dump_state(State)]),
    case mnesia:dirty_read(device, DevName) of
       [] ->
          {reply, no_such_device, State};
       [Device] ->
-         NewDevice = Device#device{alias = A, links = L, timezone = T, color = C, weight = W, pixmap = P, twitter_auth =
+         NewDevice = Device#device{alias = A, timezone = T, color = C, weight = W, pixmap = P, twitter_auth =
             TA, current_track = CT},
          mnesia:dirty_write(NewDevice),
          {reply, NewDevice, State}
@@ -232,22 +232,39 @@ on_msg({new_track, DevName, Force, FailuredNodes}, _From, State) ->
    case mnesia:dirty_read(device, DevName) of
       [] ->
          {reply, no_such_device, State};
-      [#device{links = #links{owner = undef}}] ->
+      [#device{owner = undef}] ->
          {reply, device_not_registered, State};
-      [Device = #device{links = #links{track = undef}}] ->
+      [Device = #device{current_track = undef}] ->
          NewTrack = create_track(Device, Force, FailuredNodes, State), % create new track here
          {reply, NewTrack, State};
-      [Device = #device{links = #links{track = TrackPid}}] ->
-         case rpc:call(node(TrackPid), erlang, is_process_alive, [TrackPid]) of
-            true when (Force == true) ->
+      [Device = #device{current_track = TrackId}] ->
+         case mnesia:dirty_read(track, TrackId) of
+            [] ->
                NewTrack = create_track(Device, Force, FailuredNodes, State), % create new track here
                {reply, NewTrack, State};
-            true when (Force == false) ->
-               {reply, {already_has_active_track, TrackPid}, State};
-            false ->
-               NewTrack = create_track(Device, Force, FailuredNodes, State), % create new track here
-               {reply, NewTrack, State}
+            [Track = #track{pid = Pid}] ->
+               case rpc:call(node(Pid), erlang, is_process_alive, [Pid]) of
+                  true when (Force == true) ->
+                     NewTrack = create_track(Device, Force, FailuredNodes, State), % create new track here
+                     {reply, NewTrack, State};
+                  true when (Force == false) ->
+                     {reply, Track, State};
+                  false ->
+                     NewTrack = create_track(Device, Force, FailuredNodes, State), % create new track here
+                     {reply, NewTrack, State}
+               end
          end
+   end;
+
+on_msg({update_track, T = #track{id = TrackId, name = TrackName, pid = Pid}}, _From, State) ->
+   log(debug, "update_track(~p). State: ~p", [T, dump_state(State)]),
+   case mnesia:dirty_read(track, TrackId) of
+      [] ->
+         {reply, no_such_track, State};
+      [Track] ->
+         NewTrack = Track#track{name = TrackName, pid = Pid},
+         mnesia:dirty_write(NewTrack),
+         {reply, NewTrack, State}
    end;
 
 on_msg(Msg, _From, State) ->
@@ -265,7 +282,7 @@ on_amsg(T = #track_closed{track_id = TrackId, start = Start, stop = Stop, length
                   Track#track{status = closed, start = Start, stop = Stop, length = Length, avg_speed = AvgSpeed}),
                [Device] = mnesia:read(device, DevName),
                if Device#device.current_track == TrackId ->
-                     mnesia:write(Device#device{current_track = undef, links = Device#device.links#links{track = undef}});
+                     mnesia:write(Device#device{current_track = undef});
                true ->
                   ok
                end
@@ -285,7 +302,7 @@ on_info({track_stat, _Stat}, State) ->
 
 on_info({'EXIT', Pid, _}, State) ->
    log(info, "Process ~p exited. Trying to update device", [Pid]),
-   case mnesia:dirty_select(device, [{#device{links = #links{owner = '$1', _='_'}, _='_'}, [{'==', '$1', Pid}], ['$_']}]) of
+   case mnesia:dirty_select(device, [{#device{owner = '$1', _='_'}, [{'==', '$1', Pid}], ['$_']}]) of
       [Device] ->
          log(info, "Device ~p found. Will be unregistered.", [Device#device.name]),
          {reply, _, NewState} = on_msg({unregister, Device#device.name}, {Pid, undef}, State),
@@ -340,11 +357,13 @@ get_trigger_process(DevName, Triggers) ->
          get_best_process(Triggers)
    end.
 
-activate_device(Device = #device{name = DevName, links = Links}, Owner, Triggers) ->
+activate_device(Device = #device{name = DevName}, Owner, Triggers) ->
    erlang:link(Owner),
+   Trigger = get_trigger_process(DevName, Triggers),
    Device#device
    {
-      links = Links#links{owner = Owner, trigger = get_trigger_process(DevName, Triggers)},
+      owner = Owner,
+      subs = [Trigger],
       online = true,
       registered_at = now()
    }.

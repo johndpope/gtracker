@@ -14,8 +14,8 @@
 
 -import(gtracker_common, [unix_seconds_to_datetime/1, ints_to_float/2, send_pg/2, fill_binary/3]).
 
--record(state, {dev_name = undef,
-                dev_ref = undef,
+-record(state, {dev = undef,
+                track = undef,
                 socket,         % device socket
                 listener,       % registered name of gtracker_listener process
                 db,             % registered name for database process
@@ -75,12 +75,12 @@ loop(State) ->
          inet:setopts(Socket, [{active, once}]),
          loop(NewState);
       {error, closed} ->
-         log(State, error, "Device ~p with ID = ~p was closed.", [self(), State#state.dev_name]);
+         log(State, error, "Device ~p with ID = ~p was closed.", [self(), State#state.dev#device.name]);
       stop ->
          log(State, info, "Device was forced to stop."),
          gen_tcp:close(State#state.socket);
       {tcp_closed, _Socket} ->
-         log(State, info, "Device ~p with ID = ~p was closed by peer.", [self(), State#state.dev_name]);
+         log(State, info, "Device ~p with ID = ~p was closed by peer.", [self(), State#state.dev#device.name]);
       {'EXIT', _, _} ->
          gen_tcp:close(State#state.socket),
          log(State, info, "Device was forced to stop.")
@@ -109,7 +109,7 @@ create_logger(DevName, State = #state{logger = undef, logger_opts = LOpts}) ->
    {ok, Pid} = mds_logger:start_link(Name, ClntLoggerOpts),
    State#state{logger = Pid};
 
-create_logger(DevName, State = #state{dev_name = DevName}) ->
+create_logger(DevName, State = #state{dev = #device.name = DevName}) ->
    State;
 
 create_logger(DevName, State) ->
@@ -175,23 +175,23 @@ parsePacket(Msg = <<>>, State = #state{ecnt = ErrCnt}) ->
 % processing of incoming messages
 %=======================================================================================================================
 % device requests new device name
-processMsg(?AUTH_MSG, <<1:?VER>>, State = #state{socket = S, dev_name = undef, ref_prefix = RefPrefix}) ->
+processMsg(?AUTH_MSG, <<1:?VER>>, State = #state{socket = S, dev = undef, ref_prefix = RefPrefix}) ->
    {ok, PeerName} = inet:peername(S),
    log(State, info, "The device ~p requests a new device name.", [PeerName]),
    case gtracker_pub:register(State#state.db, ?MAX_CALL_TIMEOUT) of
       error ->
          {return_error(?ERROR_SERVER_UNAVAILABLE), State};
-      #device{name = DevName, reference = Ref} ->
+      Device = #device{name = DevName, reference = Ref} ->
          NewState = create_logger(DevName, State),
          log(State, info, "The device ~p got a device name ~p.", [PeerName, DevName]),
          BinDevName = erlang:list_to_bitstring(DevName),
          BinRef = fill_binary(erlang:list_to_binary(RefPrefix ++ Ref), ?REF_SIZE, <<0:8>>),
-         { <<?AUTH_ACK_MSG, BinDevName:?BIN_DEV_NAME, BinRef/binary>>, NewState#state{dev_name = DevName, dev_ref = Ref} }
+         { <<?AUTH_ACK_MSG, BinDevName:?BIN_DEV_NAME, BinRef/binary>>, NewState#state{dev = Device} }
    end;
 
 processMsg(?AUTH_MSG, <<1:?VER>>, State) -> % the device already has a name
-   BinDevName = erlang:list_to_bitstring(State#state.dev_name),
-   BinRef = fill_binary(erlang:list_to_binary(State#state.ref_prefix ++ State#state.dev_ref), ?REF_SIZE, <<0:8>>),
+   BinDevName = erlang:list_to_bitstring(State#state.dev#device.name),
+   BinRef = fill_binary(erlang:list_to_binary(State#state.ref_prefix ++ State#state.dev#device.reference), ?REF_SIZE, <<0:8>>),
    { <<?AUTH_ACK_MSG, BinDevName:?BIN_DEV_NAME, BinRef/binary>>, State };
 
 % device has a assigned device name and want to auth with it
@@ -204,18 +204,18 @@ processMsg(?AUTH_MSG, <<1:?VER, BinDevName:?BIN_DEV_NAME>>,
       no_such_device -> % wrong device name, hacker?
          log(State, warning, "Device name ~p not found. Error count ~p.", [DevName, ErrCnt + 1]),
          {return_error(?ERROR_WRONG_DEV_NAME), State#state{ecnt = ErrCnt + 1}};
-      #device{reference = Ref} ->
+      Device = #device{reference = Ref} ->
          log(State, info, "Device ~p was registered at ~p.", [DevName, inet:peername(S)]),
          NewState = create_logger(DevName, State),
          BinRef = fill_binary(erlang:list_to_binary(RefPrefix ++ Ref), ?REF_SIZE, <<0:8>>),
-         {<<?AUTH_ACK_MSG, BinDevName:?BIN_DEV_NAME, BinRef/binary>>, NewState#state{dev_name = DevName}};
+         {<<?AUTH_ACK_MSG, BinDevName:?BIN_DEV_NAME, BinRef/binary>>, NewState#state{dev = Device}};
       Msg ->
          log(State, error, "Unrecognized msg ~p during auth processing.", [Msg]),
          {return_error(?ERROR_SERVER_UNAVAILABLE), State}
    end;
 
 % <<<<< BEGIN COORD processing >>>>>
-processMsg(?COORD_MSG, _Msg, State = #state{socket = S, ecnt = ErrCnt, dev_name = undef}) ->
+processMsg(?COORD_MSG, _Msg, State = #state{socket = S, ecnt = ErrCnt, dev = undef}) ->
   log(State, error, "Device ~p sends coordinates, but not authenticated. Error count ~p",
      [inet:peername(S), ErrCnt + 1]),
   {return_error(?ERROR_NOT_AUTH), State#state{ecnt = ErrCnt + 1}};
