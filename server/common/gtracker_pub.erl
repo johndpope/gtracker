@@ -193,6 +193,6 @@ new_track(Device, Force) ->
 
 
 update_track(Db, Track, Timeout) ->
-   get_server:call(Db, {update_track, Track}, Timeout).
+   gen_server:call(Db, {update_track, Track}, Timeout).
 update_track(Track) ->
    update_track(?db_ref, Track, ?MAX_CALL_TIMEOUT).

@@ -14,11 +14,11 @@ device_register_device_test() ->
    F = fun(Owner) ->
       Device = gtracker_pub:register(),
       ?assertEqual(true, Device#device.online),
-      ?assertEqual(self(), Device#device.links#links.owner),
+      ?assertEqual(self(), Device#device.owner),
       ?assertEqual(Device, gtracker_pub:register(Device#device.name)),
       Device1 = gtracker_pub:unregister(Device#device.name),
       ?assertEqual(false, Device1#device.online),
-      ?assertEqual(undef, Device1#device.links#links.owner),
+      ?assertEqual(undef, Device1#device.owner),
       ?assertEqual(no_such_device, gtracker_pub:register("QWERTYASDFQW")),
       Owner ! {Device, done}
    end,
@@ -120,9 +120,9 @@ news_test() ->
 new_track_test() ->
    F = fun(Owner) ->
       Device = gtracker_pub:register(),
-      Track1 = gtracker_pub:new_track(Device, true),
-      ?assertEqual(is_pid(Track1), true),
-      gtracker_track_pub:close(Track1),
+      Track = gtracker_pub:new_track(Device, true),
+      ?assertEqual(is_record(Track, track), true),
+      gtracker_track_pub:close(Track#track.pid),
       Owner ! {Device, done}
    end,
    Owner = self(),
