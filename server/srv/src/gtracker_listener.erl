@@ -36,8 +36,6 @@ on_start(Opts) ->
    Db = get_param(db, SelfOpts),
    Proto = get_param(protocol, SelfOpts, gtracker_protocol),
    {ok, ListenSocket} = gen_tcp:listen(Port, [binary, {packet, 1}, {reuseaddr, true}, {active, once}]),
-   RootDir = get_param(root_dir, ServerOpts),
-   WorkingDir = get_param(working_dir, ServerOpts),
    log(info, "Started"),
    {ok, #state{lsocket = ListenSocket, db = Db, protocol = Proto, opts = Opts}, ?TIMEOUT}.
 

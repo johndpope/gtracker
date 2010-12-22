@@ -126,8 +126,8 @@ on_msg({get_user, UserName}, _From, State) ->
          {reply, User, State}
    end;
 
-on_msg({update_user, User = #user{name = UserName}}, _From, State) ->
-   log(debug, "update_user(~p). State: ~p", [User, dump_state(State)]),
+on_msg({update, User = #user{name = UserName}}, _From, State) ->
+   log(debug, "update(~p). State: ~p", [User, dump_state(State)]),
    case mnesia:dirty_read(user, UserName) of
       [] ->
          {reply, no_such_user, State};
@@ -176,10 +176,10 @@ on_msg({get_device, DevName}, _From, State) ->
          {reply, Device, State}
    end;
 
-on_msg({update_device,
+on_msg({update,
       D = #device{name = DevName, alias = A, timezone = T, color = C, weight = W, pixmap = P, twitter_auth =
          TA, current_track = CT}}, _From, State) ->
-   log(debug, "update_device(~p). State: ~p", [D, dump_state(State)]),
+   log(debug, "update(~p). State: ~p", [D, dump_state(State)]),
    case mnesia:dirty_read(device, DevName) of
       [] ->
          {reply, no_such_device, State};
@@ -256,8 +256,8 @@ on_msg({new_track, DevName, Force, FailuredNodes}, _From, State) ->
          end
    end;
 
-on_msg({update_track, T = #track{id = TrackId, name = TrackName, pid = Pid}}, _From, State) ->
-   log(debug, "update_track(~p). State: ~p", [T, dump_state(State)]),
+on_msg({update, T = #track{id = TrackId, name = TrackName, pid = Pid}}, _From, State) ->
+   log(debug, "update(~p). State: ~p", [T, dump_state(State)]),
    case mnesia:dirty_read(track, TrackId) of
       [] ->
          {reply, no_such_track, State};

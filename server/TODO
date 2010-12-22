@@ -1,0 +1,4 @@
+1. Make subcription
+2. make logging to tracks
+3. Move speed/distance calc in track
+4. Make statistic calc in track. This statistic shall be passed to db

@@ -7,8 +7,8 @@
 start_test() ->
    application:start(gtracker_db).
 
-device_get_all_devices_test() ->
-  ?assertEqual([], gtracker_pub:get_all_devices()).
+device_get_devices_test() ->
+  ?assertEqual([], gtracker_pub:get_devices()).
 
 device_register_device_test() ->
    F = fun(Owner) ->
@@ -29,9 +29,9 @@ device_register_device_test() ->
          timer:sleep(1000)
    end.
 
-device_get_all_devices2_test() ->
+device_get_devices2_test() ->
    F = fun(Owner) ->
-      Devices = gtracker_pub:get_all_devices(),
+      Devices = gtracker_pub:get_devices(),
       ?assertEqual(true, is_list(Devices)),
       ?assertEqual(1, length(Devices)),
       ?assertEqual(true, is_record(hd(Devices), device)),
@@ -46,7 +46,7 @@ device_get_all_devices2_test() ->
 
 get_device_test() ->
    F = fun(Owner) ->
-      [Device = #device{name = Name, online = O}] = gtracker_pub:get_all_devices(),
+      [Device = #device{name = Name, online = O}] = gtracker_pub:get_devices(),
       Device1 = gtracker_pub:get_device(Name),
       ?assertEqual(Device, Device1),
       ?assertEqual(false, O),
@@ -63,9 +63,9 @@ get_device_test() ->
 
 update_device_test() ->
    F = fun(Owner) ->
-      [#device{name = Name}] = gtracker_pub:get_all_devices(),
+      [#device{name = Name}] = gtracker_pub:get_devices(),
       Device = gtracker_pub:get_device(Name),
-      gtracker_pub:update_device(Device#device{alias = "TEST_ALIAS"}),
+      gtracker_pub:update(Device#device{alias = "TEST_ALIAS"}),
       Owner ! {Device, done}
    end,
    Owner = self(),
@@ -80,7 +80,7 @@ device_user_test() ->
       User = gtracker_pub:new_user("dmitryme@gmail.com", "123"),
       ?assertMatch(#user{name = "dmitryme@gmail.com", online = false, map_type = 0, is_admin = false, devices = []}, User),
       ?assertEqual(already_exists, gtracker_pub:new_user("dmitryme@gmail.com", "321")),
-      User1 = gtracker_pub:update_user(User#user{is_admin = true, map_type = 1, devices = ["DMITRYME_!@#"]}),
+      User1 = gtracker_pub:update(User#user{is_admin = true, map_type = 1, devices = ["DMITRYME_!@#"]}),
       ?assertMatch(#user{name = "dmitryme@gmail.com", map_type = 1, is_admin = true, devices = ["DMITRYME_!@#"]}, User1),
       ?assertEqual(User1, gtracker_pub:get_user("dmitryme@gmail.com")),
       ?assertEqual(not_found, gtracker_pub:get_user("dmitryme")),
@@ -122,7 +122,7 @@ new_track_test() ->
       Device = gtracker_pub:register(),
       Track = gtracker_pub:new_track(Device, true),
       ?assertEqual(is_record(Track, track), true),
-      gtracker_track_pub:close(Track#track.pid),
+      gtracker_track_pub:close(Track),
       Owner ! {Device, done}
    end,
    Owner = self(),
