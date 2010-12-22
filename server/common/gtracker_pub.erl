@@ -183,8 +183,8 @@ new_track(Db, Device, Force, Timeout) ->
       device_not_registered ->
          device_not_registered;
       Track = #track{pid = undef} ->
-         TrackPid = gtracker_track_pub:open(Track),
-         update_track(Db, Track#track{pid = TrackPid}, Timeout);
+         Track1 = gtracker_track_pub:open(Db, Track),
+         update_track(Db, Track1, Timeout);
       Track ->
          Track
    end.

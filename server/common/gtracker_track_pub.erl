@@ -2,32 +2,34 @@
 
 -include("common_recs.hrl").
 
--export([open/1, close/1, store/2, clear/1, get_coords/1, set_owner/2]).
+-export([open/2, close/1, store/2, clear/1, get_coords/1, set_owner/2]).
 
-open(Track) ->
-   rpc:call(Track#track.node, gtracker_track, open, [Track#track.id, Track#track.path, self()]).
+open(Db, Track) ->
+   Pid = rpc:call(Track#track.node, gtracker_track, open, [Db, Track#track.id, Track#track.path, self()]),
+   Track#track{pid = Pid}.
 
-close(TrackPid) when is_pid(TrackPid) == false ->
-   ok;
-close(TrackPid) ->
-   TrackPid ! {close, self()},
+close(#track{pid = Pid}) when is_pid(Pid) == false ->
+   wrong_pid;
+close(#track{pid = Pid}) ->
+   Pid ! {close, self()},
    ok.
 
 store(#track{pid = Pid}, _) when is_pid(Pid) == false ->
-   ok;
+   wrong_pid;
 store(#track{pid = Pid}, Coord) ->
    Pid ! Coord,
    ok.
 
-clear(TrackPid) when is_pid(TrackPid) == false ->
-   ok;
-clear(TrackPid) ->
-   TrackPid ! clear.
+clear(#track{pid = Pid}) when is_pid(Pid) == false ->
+   wrong_pid;
+clear(#track{pid = Pid}) ->
+   Pid ! clear,
+   ok.
 
-get_coords(TrackPid) when is_pid(TrackPid) == false ->
-   ok;
-get_coords(TrackPid) ->
-   TrackPid ! {get_coords, self()},
+get_coords(#track{pid = Pid}) when is_pid(Pid) == false ->
+   wrong_pid;
+get_coords(#track{pid = Pid}) ->
+   Pid ! {get_coords, self()},
    receive
       {reply, Coords} ->
          Coords;
@@ -35,68 +37,71 @@ get_coords(TrackPid) ->
          {unexpected, Res}
    end.
 
-set_owner(TrackPid, OwnerPid) ->
-   TrackPid ! {owner, OwnerPid}.
+set_owner(#track{pid = Pid}, _OwnerPid) when is_pid(Pid) == false ->
+   wrong_pid;
+set_owner(#track{pid = Pid}, OwnerPid) ->
+   Pid ! {owner, OwnerPid}.
 
 %=======================================================================================================================
 %  unit testing facilities
 %=======================================================================================================================
 -ifdef(TEST).
 -include_lib("eunit/include/eunit.hrl").
+-include("common_defs.hrl").
 
 track_test() ->
- Track = #track{id = 'track_1', path = "/tmp/track_1"},
- TrackPid = gtracker_track_pub:open(Track),
- ?assertEqual(TrackPid, gtracker_track_pub:open(Track)),
- gtracker_track_pub:close(TrackPid).
+ TmpTrack = #track{id = 'track_1', path = "/tmp/track_1"},
+ Track = gtracker_track_pub:open(?db_ref, TmpTrack),
+ ?assertEqual(Track, gtracker_track_pub:open(?db_ref, TmpTrack)),
+ gtracker_track_pub:close(Track).
 
 track1_test() ->
-  Track = #track{id = 'track_2', path = "/tmp/track_2"},
-  TrackPid = gtracker_track_pub:open(Track),
-  gtracker_track_pub:clear(TrackPid),
+  TmpTrack = #track{id = 'track_2', path = "/tmp/track_2"},
+  Track = gtracker_track_pub:open(?db_ref, TmpTrack),
+  gtracker_track_pub:clear(Track),
 
-  Coord1 = #coord{lat = 123.1, lon = 321.12, speed = 45, timestamp = now()},
-  TrackPid ! Coord1,
+ Coord1 = #coord{lat = 123.1, lon = 321.12, speed = 45, timestamp = now()},
+ gtracker_track_pub:store(Track, Coord1),
 
-  Coord2 = #coord{lat = 123.2, lon = 321.3, speed = 45, timestamp = now()},
-  TrackPid ! Coord2,
+ Coord2 = #coord{lat = 123.2, lon = 321.3, speed = 45, timestamp = now()},
+ gtracker_track_pub:store(Track, Coord2),
 
-  Coord3 = #coord{lat = 123.2, lon = 321.3, speed = 45, timestamp = now()},
-  TrackPid ! Coord3,
+ Coord3 = #coord{lat = 123.2, lon = 321.3, speed = 45, timestamp = now()},
+ gtracker_track_pub:store(Track, Coord3),
 
-  Coord4 = #coord{lat = 123.2, lon = 321.3, speed = 45, timestamp = now()},
-  TrackPid ! Coord4,
+ Coord4 = #coord{lat = 123.2, lon = 321.3, speed = 45, timestamp = now()},
+ gtracker_track_pub:store(Track, Coord4),
 
-  ?assertEqual(lists:sort([Coord1, Coord2, Coord3, Coord4]), lists:sort(gtracker_track_pub:get_coords(TrackPid))),
+ ?assertEqual(lists:sort([Coord1, Coord2, Coord3, Coord4]), lists:sort(gtracker_track_pub:get_coords(Track))),
 
-  gtracker_track_pub:clear(TrackPid),
+ gtracker_track_pub:clear(Track),
 
-  ?assertEqual([], lists:sort(get_coords(TrackPid))),
+ ?assertEqual([], lists:sort(get_coords(Track))),
 
-  gtracker_track_pub:close(TrackPid).
+ gtracker_track_pub:close(Track).
 
 track2_test() ->
-  Track = #track{id = 'track_2', path = "/tmp/track_3"},
-  TrackPid = gtracker_track_pub:open(Track),
-  gtracker_track_pub:clear(TrackPid),
+ TmpTrack = #track{id = 'track_2', path = "/tmp/track_3"},
+ Track = gtracker_track_pub:open(?db_ref, TmpTrack),
+ gtracker_track_pub:clear(Track),
 
-  TrackPid ! #coord{lat = 123.1, lon = 321.12, speed = 45, timestamp = now()},
-  TrackPid ! #coord{lat = 123.2, lon = 321.3, speed = 45, timestamp = now()},
-  TrackPid ! #coord{lat = 123.2, lon = 321.3, speed = 45, timestamp = now()},
-  TrackPid ! #coord{lat = 123.2, lon = 321.3, speed = 45, timestamp = now()},
+ gtracker_track_pub:store(Track, #coord{lat = 123.1, lon = 321.12, speed = 45, timestamp = now()}),
+ gtracker_track_pub:store(Track, #coord{lat = 123.2, lon = 321.3, speed = 45, timestamp = now()}),
+ gtracker_track_pub:store(Track, #coord{lat = 123.2, lon = 321.3, speed = 45, timestamp = now()}),
+ gtracker_track_pub:store(Track, #coord{lat = 123.2, lon = 321.3, speed = 45, timestamp = now()}),
 
-  gtracker_track_pub:close(TrackPid),
+ gtracker_track_pub:close(Track),
 
-  timer:sleep(200),
+ timer:sleep(200),
 
-  TrackPid1 = gtracker_track_pub:open(Track),
-  TrackPid2 = gtracker_track_pub:open(Track),
+ Track1 = gtracker_track_pub:open(?db_ref, Track),
+ Track2 = gtracker_track_pub:open(?db_ref, Track),
 
-  Res1 = lists:sort(gtracker_track_pub:get_coords(TrackPid1)),
-  Res2 = lists:sort(gtracker_track_pub:get_coords(TrackPid2)),
-  ?assertEqual(Res1, Res2),
+ Res1 = lists:sort(gtracker_track_pub:get_coords(Track1)),
+ Res2 = lists:sort(gtracker_track_pub:get_coords(Track2)),
+ ?assertEqual(Res1, Res2),
 
-  gtracker_track_pub:close(TrackPid1),
-  gtracker_track_pub:close(TrackPid2).
+ gtracker_track_pub:close(Track1),
+ gtracker_track_pub:close(Track2).
 
 -endif.

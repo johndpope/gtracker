@@ -372,7 +372,7 @@ create_track(#device{name = DevName}, _Force, FailuredNodes,
    #state{track_path = TrackPath, as_track_node = AsTrackNode}) ->
    Node = get_best_node(AsTrackNode, FailuredNodes),
    Count = length(mnesia:dirty_select(track, [{#track{dev_name = '$1', _='_'}, [{'==', '$1', DevName}], ['$_']}])) + 1,
-   TrackName = list_to_atom(lists:flatten(io_lib:format("~s_~p", [DevName, Count]))),
+   TrackName = list_to_atom(lists:flatten(io_lib:format("~s_~p.track", [DevName, Count]))),
    NewTrack = #track{id = TrackName, dev_name = DevName, node = Node, path = filename:join(TrackPath, TrackName)},
    mnesia:dirty_write(NewTrack),
    NewTrack.

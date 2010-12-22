@@ -137,18 +137,6 @@ reply(State, Msg, Socket) ->
    log(State, debug, "Packet ~p was sent.", [Msg]),
    gen_tcp:send(Socket, Msg).
 
-%%=======================================================================================================================
-%% rename track
-%%=======================================================================================================================
-%rename_track(DevName, TrackName, State) ->
-%   mds_gen_server:call(State#state.db, {rename_track, DevName, TrackName}, ?MAX_CALL_TIMEOUT).
-
-%%=======================================================================================================================
-%% start new track
-%%=======================================================================================================================
-%start_new_track(DevName, TrackName, State) ->
-%   mds_gen_server:call(State#state.db, {new_track, DevName, TrackName}).
-
 %=======================================================================================================================
 % work with device status
 %=======================================================================================================================
@@ -227,7 +215,7 @@ processMsg(?COORD_MSG, _Msg, State = #state{socket = S, ecnt = ErrCnt, dev = und
   {return_error(?ERROR_NOT_AUTH), State#state{ecnt = ErrCnt + 1}};
 
 processMsg(?COORD_MSG, Coord, State = #state{db = Db, dev = Device, track = undef}) ->
-  Track = tracker_pub:new_track(Db, Device, false, ?MAX_CALL_TIMEOUT),
+  Track = gtracker_pub:new_track(Db, Device, false, ?MAX_CALL_TIMEOUT),
   processMsg(?COORD_MSG, Coord, State#state{track = Track});
 
 % tries to store first coordinate after connect
