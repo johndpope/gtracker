@@ -177,14 +177,14 @@ on_msg({get_device, DevName}, _From, State) ->
    end;
 
 on_msg({update,
-      D = #device{name = DevName, alias = A, timezone = T, color = C, weight = W, pixmap = P, twitter_auth =
+      D = #device{name = DevName, alias = A, subs = S, timezone = T, color = C, weight = W, pixmap = P, twitter_auth =
          TA, current_track = CT}}, _From, State) ->
    log(debug, "update(~p). State: ~p", [D, dump_state(State)]),
    case mnesia:dirty_read(device, DevName) of
       [] ->
          {reply, no_such_device, State};
       [Device] ->
-         NewDevice = Device#device{alias = A, timezone = T, color = C, weight = W, pixmap = P, twitter_auth =
+         NewDevice = Device#device{alias = A, subs = S, timezone = T, color = C, weight = W, pixmap = P, twitter_auth =
             TA, current_track = CT},
          mnesia:dirty_write(NewDevice),
          {reply, NewDevice, State}

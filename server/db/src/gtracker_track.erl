@@ -7,7 +7,7 @@
 
 -export([open/4, init/4, loop/1]).
 
--record(state, {db, track_id, ref, owner}).
+-record(state, {db, track_id, subs = [], ref, owner}).
 
 open(Db, TrackId, Path, Owner) ->
    case erlang:whereis(TrackId) of
@@ -24,7 +24,7 @@ init(Db, TrackId, Path, Owner) ->
    process_flag(trap_exit, true),
    loop(#state{db = Db, track_id = TrackId, ref = Ref, owner = Owner}).
 
-loop(State = #state{db = Db, track_id = TrackId, ref = Ref, owner = Owner}) ->
+loop(State = #state{db = Db, track_id = TrackId, subs = S, ref = Ref, owner = Owner}) ->
    receive
       Coord when is_record(Coord, coord) ->
          ok = dets:insert(Ref, Coord),
@@ -36,6 +36,8 @@ loop(State = #state{db = Db, track_id = TrackId, ref = Ref, owner = Owner}) ->
       {owner, NewOwner} ->
          error_logger:infO_msg("The owner ~p is changed to ~p~n", [Owner, NewOwner]),
          loop(State#state{owner = NewOwner});
+      {subscribers, NewSubs} ->
+         loop(State#state{subs = NewSubs});
       clear ->
          dets:delete_all_objects(Ref),
          loop(State);

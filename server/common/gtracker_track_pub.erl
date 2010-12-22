@@ -2,7 +2,7 @@
 
 -include("common_recs.hrl").
 
--export([open/2, close/1, store/2, clear/1, get_coords/1, set_owner/2]).
+-export([open/2, close/1, store/2, clear/1, get_coords/1, set_owner/2, set_subscribers/2]).
 
 open(Db, Track) ->
    Pid = rpc:call(Track#track.node, gtracker_track, open, [Db, Track#track.id, Track#track.path, self()]),
@@ -41,6 +41,11 @@ set_owner(#track{pid = Pid}, _OwnerPid) when is_pid(Pid) == false ->
    wrong_pid;
 set_owner(#track{pid = Pid}, OwnerPid) ->
    Pid ! {owner, OwnerPid}.
+
+set_subscribers(#track{pid = Pid}, _) when is_pid(Pid) == false ->
+   wrong_pid;
+set_subscribers(#track{pid = Pid}, Subscribers) ->
+   Pid ! {subscribers, Subscribers}.
 
 %=======================================================================================================================
 %  unit testing facilities

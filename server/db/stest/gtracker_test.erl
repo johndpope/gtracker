@@ -132,5 +132,21 @@ new_track_test() ->
          timer:sleep(1000)
    end.
 
+subscribe_test() ->
+   F = fun(Owner) ->
+      Device = gtracker_pub:register(),
+      SubDevice = gtracker_pub:subscribe(Device),
+      ?assertEqual(SubDevice#device.subs, [self()]),
+      UbDevice = gtracker_pub:unsubscribe(SubDevice),
+      ?assertEqual(UbDevice#device.subs, []),
+      Owner ! {Device, done}
+   end,
+   Owner = self(),
+   spawn(fun() -> F(Owner) end),
+   receive
+      {_, done} ->
+         timer:sleep(1000)
+   end.
+
 stop_test() ->
    application:stop(gtracker_db).

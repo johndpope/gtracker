@@ -87,7 +87,15 @@ loop(State) ->
       {'EXIT', _, _} ->
          unregister(State),
          gen_tcp:close(State#state.socket),
-         log(State, info, "Device was forced to stop.")
+         log(State, info, "Device was forced to stop.");
+      {updated, D = #device{name = DevName}} when DevName =/= State#state.dev#device.name ->
+         log(State, error, "updated(~p) received from alien device.", [D]),
+         loop(State);
+      {updated, Device} when is_record(Device, device) ->
+         gtracker_track_pub:set_subscribers(Device#device.subs),
+         loop(State#state{dev = Device});
+      Msg ->
+         log(State, error, "Unknown message '~p' received.", [Msg])
    after ?RECEIVE_TIMEOUT ->
          log(State, error, "No data received in ~p interval.", [?RECEIVE_TIMEOUT]),
          self() ! stop,

@@ -80,21 +80,33 @@ unregister(Db, DevName, Timeout) ->
 unregister(DevName) ->
    unregister(?db_ref, DevName, ?MAX_CALL_TIMEOUT).
 
-% subscribe(Db, DevName, Timeout) -> ok | atom()
+% subscribe(Db, Device(), Timeout) -> ok | atom()
 %  Db = registereg Db name
 %  Timeout - call timeout
-%   DevName = String()
-subscribe(Db, DevName, Timeout) ->
-   gen_server:call(Db, {subscribe, DevName}, Timeout).
-subscribe(DevName) ->
-   subscribe(?db_ref, DevName, ?MAX_CALL_TIMEOUT).
+subscribe(Db, Device, Timeout) ->
+   NewDevice = Device#device{subs = lists:usort([self() | Device#device.subs])},
+   UpDevice = update(Db, NewDevice, Timeout),
+   if (is_pid(UpDevice#device.owner) == true) ->
+      UpDevice#device.owner ! {updated, UpDevice},
+      UpDevice;
+   true ->
+      UpDevice
+   end.
+subscribe(Device) ->
+   subscribe(?db_ref, Device, ?MAX_CALL_TIMEOUT).
 
-% unsubscribe(Db, DevName, Timeout) -> ok | atom()
+% unsubscribe(Db, Device(), Timeout) -> ok | atom()
 %  Db = registereg Db name
 %  Timeout - call timeout
-%   DevName = String()
-unsubscribe(Db, DevName, Timeout) ->
-   gen_server:call(Db, {unsubscribe, DevName}, Timeout).
+unsubscribe(Db, Device, Timeout) ->
+   NewDevice = Device#device{subs = lists:delete(self(), Device#device.subs)},
+   UpDevice = update(Db, NewDevice, Timeout),
+   if (is_pid(UpDevice#device.owner) == true) ->
+      UpDevice#device.owner ! {updated, UpDevice},
+      UpDevice;
+   true ->
+      UpDevice
+   end.
 unsubscribe(DevName) ->
    unsubscribe(?db_ref, DevName, ?MAX_CALL_TIMEOUT).
 
