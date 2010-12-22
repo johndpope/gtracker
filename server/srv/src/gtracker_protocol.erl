@@ -221,9 +221,10 @@ processMsg(?COORD_MSG, Coord, State = #state{db = Db, dev = Device, track = unde
 % tries to store first coordinate after connect
 processMsg(?COORD_MSG, <<Lat:?LAT, LatExp:?LAT_EXP, Lon:?LON, LonExp:?LON_EXP, Speed:?SPEED, TimeStamp:?TIMESTAMP>>, State =
   #state{track = Track, ccnt = 0}) ->
-  {NewLat, NewLon, _, _, NewTimestamp} = Coord =
+  {NewLat, NewLon, _, _, NewTimestamp} =
      {ints_to_float(Lat, LatExp), ints_to_float(Lon, LonExp), Speed, 0, unix_seconds_to_datetime(TimeStamp)},
   log(State, debug, "First coordinate received {~p, ~p, ~p}.", [NewLat, NewLon, NewTimestamp]),
+  Coord = #coord{lat = NewLat, lon = NewLon, timestamp = NewTimestamp},
   gtracker_track_pub:store(Track, Coord),
   {noreply, State#state{ccnt = 1, last_coord = Coord}};
 
@@ -232,7 +233,7 @@ processMsg(?COORD_MSG, <<Lat:?LAT, LatExp:?LAT_EXP, Lon:?LON, LonExp:?LON_EXP, S
   #state{track = Track, ccnt = Ccnt, last_coord = LastCoord, calc_speed = CalcSpeed}) ->
   {NewLat, NewLon, NewTimestamp} = {ints_to_float(Lat, LatExp), ints_to_float(Lon, LonExp), unix_seconds_to_datetime(TimeStamp)},
   log(State, debug, "Coordinate received {~p, ~p, ~p}.", [NewLat, NewLon, NewTimestamp]),
-  {LastLat, LastLon, _, _, LastTimestamp} = LastCoord,
+  #coord{lat = LastLat, lon = LastLon, timestamp = LastTimestamp} = LastCoord,
   Distance = nmea_utils:calc_distance({LastLat, LastLon}, {NewLat, NewLon}),
   SP = case CalcSpeed or ((Speed =:= 0) and (Distance =/= 0)) of
           true ->
@@ -240,7 +241,7 @@ processMsg(?COORD_MSG, <<Lat:?LAT, LatExp:?LAT_EXP, Lon:?LON, LonExp:?LON_EXP, S
           false ->
              Speed
        end,
-  Coord = {NewLat, NewLon, SP, Distance, NewTimestamp},
+  Coord = #coord{lat = NewLat, lon = NewLon, speed = SP, distance =  Distance, timestamp = NewTimestamp},
   gtracker_track_pub:store(Track, Coord),
   {noreply, State#state{ccnt = Ccnt + 1, last_coord = Coord}};
 

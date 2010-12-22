@@ -8,7 +8,7 @@
 -record(user, {name, password, online = false, map_type = 0, is_admin = false,  devices = []}).
 -record(track, {id, dev_name, name = undef, pid = undef, node = node(), status = opened, path = undef, start = undef, stop = undef, length = 0, avg_speed = 0}).
 -record(trigger, {dev_name, enabled, name, type, email, sms, twitter, text, config, ready = true, executed_at = undef, schedule = allways}).
--record(coord, {lat, lon, speed, distance, timestamp}).
+-record(coord, {lat, lon, speed = 0, distance = 0, timestamp}).
 -record(news, {id, date, text}).
 
 
