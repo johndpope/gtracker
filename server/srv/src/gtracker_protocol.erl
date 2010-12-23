@@ -92,7 +92,7 @@ loop(State) ->
          log(State, error, "updated(~p) received from alien device.", [D]),
          loop(State);
       {updated, Device} when is_record(Device, device) ->
-         gtracker_track_pub:set_subscribers(Device#device.subs),
+         gtracker_track_pub:set_subscribers(State#state.track, Device#device.subs),
          loop(State#state{dev = Device});
       Msg ->
          log(State, error, "Unknown message '~p' received.", [Msg])

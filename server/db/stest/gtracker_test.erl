@@ -26,7 +26,7 @@ device_register_device_test() ->
    spawn(fun() -> F(Owner) end),
    receive
       {_, done} ->
-         timer:sleep(1000)
+         ok
    end.
 
 device_get_devices2_test() ->
@@ -41,7 +41,7 @@ device_get_devices2_test() ->
    spawn(fun() -> F(Owner) end),
    receive
       {_, done} ->
-         timer:sleep(1000)
+         ok
    end.
 
 get_device_test() ->
@@ -58,7 +58,7 @@ get_device_test() ->
    spawn(fun() -> F(Owner) end),
    receive
       {_, done} ->
-         timer:sleep(1000)
+         ok
    end.
 
 update_device_test() ->
@@ -72,7 +72,7 @@ update_device_test() ->
    spawn(fun() -> F(Owner) end),
    receive
       {_, done} ->
-         timer:sleep(1000)
+         ok
    end.
 
 device_user_test() ->
@@ -93,7 +93,7 @@ device_user_test() ->
    spawn(fun() -> F(Owner) end),
    receive
       {_, done} ->
-         timer:sleep(1000)
+         ok
    end.
 
 news_test() ->
@@ -114,7 +114,7 @@ news_test() ->
    spawn(fun() -> F(Owner) end),
    receive
       {_, done} ->
-         timer:sleep(1000)
+         ok
    end.
 
 new_track_test() ->
@@ -129,7 +129,7 @@ new_track_test() ->
    spawn(fun() -> F(Owner) end),
    receive
       {_, done} ->
-         timer:sleep(1000)
+         ok
    end.
 
 subscribe_test() ->
@@ -145,7 +145,7 @@ subscribe_test() ->
    spawn(fun() -> F(Owner) end),
    receive
       {_, done} ->
-         timer:sleep(1000)
+         ok
    end.
 
 stop_test() ->

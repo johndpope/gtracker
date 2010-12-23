@@ -60,7 +60,7 @@ loop(State = #state{db = Db, track_id = TrackId, subs = S, ref = Ref, owner = Ow
 send2subs(Subs, Msg) ->
    lists:foldl(
       fun(S, Acc) ->
-         case rpc:call(erlang, is_process_alive, [node(S), S]) of
+         case rpc:call(node(S), erlang, is_process_alive, [S]) of
             true ->
                S ! Msg,
                [S|Acc];
