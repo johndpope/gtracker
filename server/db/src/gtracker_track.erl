@@ -28,7 +28,8 @@ loop(State = #state{db = Db, track_id = TrackId, subs = S, ref = Ref, owner = Ow
    receive
       Coord when is_record(Coord, coord) ->
          ok = dets:insert(Ref, Coord),
-         loop(State);
+         NewS = send2subs(S, Coord),
+         loop(State#state{subs = NewS});
       {get_coords, Peer} ->
          Coords = dets:select(Ref, [{'_', [], ['$_']}]),
          Peer ! {reply, Coords},
@@ -55,3 +56,16 @@ loop(State = #state{db = Db, track_id = TrackId, subs = S, ref = Ref, owner = Ow
          error_logger:error_msg("~p: Unknown message ~p was ignored~n", [TrackId, Msg]),
          loop(State)
    end.
+
+send2subs(Subs, Msg) ->
+   lists:foldl(
+      fun(S, Acc) ->
+         case rpc:call(erlang, is_process_alive, [node(S), S]) of
+            true ->
+               S ! Msg,
+               [S|Acc];
+            false ->
+               Acc
+         end
+      end,
+      [], Subs).
