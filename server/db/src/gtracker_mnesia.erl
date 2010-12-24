@@ -54,7 +54,7 @@ on_msg(register, {Pid, _}, State) ->
          [] ->
             log(debug, "Store device ~p", [DevName]),
             Ref = binary_to_hex(erlang:md5(erlang:list_to_binary(DevName))),
-            Device = #device{name = DevName, alias = DevName, reference = Ref, online = true, owner = Pid},
+            Device = #device{name = DevName, alias = DevName, reference = Ref, status = online, owner = Pid},
             erlang:link(Pid),
             mnesia:dirty_write(Device),
             {reply, Device, State};
@@ -69,7 +69,7 @@ on_msg({register, DevName}, {Pid, _}, State = #state{triggers = Triggers}) ->
    case mnesia:dirty_read(device, DevName) of
       [] ->
          {reply, no_such_device, State};
-      [Device = #device{owner = undef, online = false}] ->
+      [Device = #device{owner = undef, status = offline}] ->
          NewDevice = activate_device(Device, Pid, Triggers),
          mnesia:dirty_write(NewDevice),
          {reply, NewDevice, State};
@@ -77,7 +77,7 @@ on_msg({register, DevName}, {Pid, _}, State = #state{triggers = Triggers}) ->
          {reply, Device, State};
       [Device = #device{owner = Owner}] ->
          Owner ! stop,
-         log(info, "Trying to stop old owned with Pid = ~p", [Owner]),
+         log(info, "Trying to stop old owner with Pid = ~p", [Owner]),
          NewDevice = activate_device(Device, Pid, Triggers),
          mnesia:dirty_write(NewDevice),
          {reply, NewDevice, State}
@@ -88,19 +88,27 @@ on_msg({unregister, DevName}, {Pid, _}, State) ->
    case mnesia:dirty_read(device, DevName) of
       [] ->
          {reply, no_such_device, State};
-      [Device = #device{owner = undef, online = false}] ->
-         {reply, Device, State};
-      [Device = #device{owner = Owner}] when is_pid(Owner) andalso (Pid == Owner) ->
-         NewDevice = Device#device{owner = undef, online = false},
+      [Device = #device{owner = undef, status = offline, subs = Subs}] ->
+         NewSubs = gtracker_common:send2subs(Subs, {offline, DevName}),
+         if (NewSubs =/= Subs) ->
+            mnesia:dirty_write(Device#device{subs = NewSubs}),
+            {reply, Device, State};
+         true ->
+            {reply, Device, State}
+         end;
+      [Device = #device{owner = Owner, subs = Subs}] when is_pid(Owner) andalso (Pid == Owner) ->
+         NewSubs = gtracker_common:send2subs(Subs, {offline, DevName}),
+         NewDevice = Device#device{owner = undef, status = offline, subs = NewSubs},
          mnesia:dirty_write(NewDevice),
          {reply, NewDevice, State};
-      [Device = #device{owner = Owner}] ->
+      [Device = #device{owner = Owner, subs = Subs}] ->
          case rpc:call(erlang, is_process_alive, [node(Owner), Owner]) of
             true ->
                {reply, wrong_owner, State};
             False ->
                log(debug, "is_process_alive(~p): ~p", [Owner, False]),
-               NewDevice = Device#device{owner = undef, online = false},
+               NewSubs = gtracker_common:send2subs(Subs, {offline, DevName}),
+               NewDevice = Device#device{owner = undef, status = offline, subs = NewSubs},
                mnesia:dirty_write(NewDevice),
                {reply, NewDevice, State}
          end
@@ -186,6 +194,29 @@ on_msg({update,
       [Device] ->
          NewDevice = Device#device{alias = A, subs = S, timezone = T, color = C, weight = W, pixmap = P, twitter_auth =
             TA, current_track = CT},
+         mnesia:dirty_write(NewDevice),
+         {reply, NewDevice, State}
+   end;
+
+on_msg({subscribe, DevName, Pid}, _From, State) ->
+   log(debug, "subscribe(~p, ~p). State: ~p", [DevName, Pid, dump_state(State)]),
+   case mnesia:dirty_read(device, DevName) of
+      [] ->
+         {reply, no_such_device, State};
+      [Device = #device{status = Status, subs = Subs}] ->
+         NewDevice = Device#device{subs = lists:usort([Pid|Subs])},
+         Pid ! {Status, Device#device.name},
+         mnesia:dirty_write(NewDevice),
+         {reply, NewDevice, State}
+   end;
+
+on_msg({unsubscribe, DevName, Pid}, _From, State) ->
+   log(debug, "unsubscribe(~p, ~p). State: ~p", [DevName, Pid, dump_state(State)]),
+   case mnesia:dirty_read(device, DevName) of
+      [] ->
+         {reply, no_such_device, State};
+      [Device = #device{subs = Subs}] ->
+         NewDevice = Device#device{subs = lists:delete(Pid, Subs)},
          mnesia:dirty_write(NewDevice),
          {reply, NewDevice, State}
    end;
@@ -357,14 +388,15 @@ get_trigger_process(DevName, Triggers) ->
          get_best_process(Triggers)
    end.
 
-activate_device(Device = #device{name = DevName}, Owner, Triggers) ->
+activate_device(Device = #device{name = DevName, subs = Subs}, Owner, Triggers) ->
    erlang:link(Owner),
-   Trigger = get_trigger_process(DevName, Triggers),
+   %Trigger = get_trigger_process(DevName, Triggers),
+   NewSubs = gtracker_common:send2subs(Subs, {online, DevName}),
    Device#device
    {
       owner = Owner,
-      subs = [Trigger],
-      online = true,
+      subs = NewSubs, %[Trigger],
+      status = online,
       registered_at = now()
    }.
 

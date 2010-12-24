@@ -221,40 +221,45 @@ processMsg(?AUTH_MSG, <<1:?VER, BinDevName:?BIN_DEV_NAME>>,
 
 % <<<<< BEGIN COORD processing >>>>>
 processMsg(?COORD_MSG, _Msg, State = #state{socket = S, ecnt = ErrCnt, dev = undef}) ->
-  log(State, error, "Device ~p sends coordinates, but not authenticated. Error count ~p",
+   log(State, error, "Device ~p sends coordinates, but not authenticated. Error count ~p",
      [inet:peername(S), ErrCnt + 1]),
-  {return_error(?ERROR_NOT_AUTH), State#state{ecnt = ErrCnt + 1}};
+   {return_error(?ERROR_NOT_AUTH), State#state{ecnt = ErrCnt + 1}};
 
-processMsg(?COORD_MSG, Coord, State = #state{db = Db, dev = #device{name = DevName}, track = undef}) ->
-  Track = gtracker_pub:new_track(Db, DevName, false, ?MAX_CALL_TIMEOUT),
-  processMsg(?COORD_MSG, Coord, State#state{track = Track});
+processMsg(?COORD_MSG, Coord, State = #state{db = Db, dev = #device{name = DevName, subs = Subs}, track = undef, ecnt = ErrCnt}) ->
+   case gtracker_pub:new_track(Db, DevName, false, ?MAX_CALL_TIMEOUT) of
+      no_such_device ->
+         {return_error(?ERROR_WRONG_DEV_NAME), State#state{ecnt = ErrCnt + 1}};
+      Track when is_record(Track, track) ->
+         gtracker_track_pub:set_subscribers(Track, Subs),
+         processMsg(?COORD_MSG, Coord, State#state{track = Track})
+   end;
 
 % tries to store first coordinate after connect
 processMsg(?COORD_MSG, <<Lat:?LAT, LatExp:?LAT_EXP, Lon:?LON, LonExp:?LON_EXP, Speed:?SPEED, TimeStamp:?TIMESTAMP>>, State =
-  #state{track = Track, ccnt = 0}) ->
-  {NewLat, NewLon, _, _, NewTimestamp} =
+   #state{track = Track, ccnt = 0}) ->
+   {NewLat, NewLon, _, _, NewTimestamp} =
      {ints_to_float(Lat, LatExp), ints_to_float(Lon, LonExp), Speed, 0, unix_seconds_to_datetime(TimeStamp)},
-  log(State, debug, "First coordinate received {~p, ~p, ~p}.", [NewLat, NewLon, NewTimestamp]),
-  Coord = #coord{lat = NewLat, lon = NewLon, timestamp = NewTimestamp},
-  gtracker_track_pub:store(Track, Coord),
-  {noreply, State#state{ccnt = 1, last_coord = Coord}};
+   log(State, debug, "First coordinate received {~p, ~p, ~p}.", [NewLat, NewLon, NewTimestamp]),
+   Coord = #coord{lat = NewLat, lon = NewLon, timestamp = NewTimestamp},
+   gtracker_track_pub:store(Track, Coord),
+   {noreply, State#state{ccnt = 1, last_coord = Coord}};
 
 % tries to store next coordinates
 processMsg(?COORD_MSG, <<Lat:?LAT, LatExp:?LAT_EXP, Lon:?LON, LonExp:?LON_EXP, Speed:?SPEED, TimeStamp:?TIMESTAMP>>, State =
-  #state{track = Track, ccnt = Ccnt, last_coord = LastCoord, calc_speed = CalcSpeed}) ->
-  {NewLat, NewLon, NewTimestamp} = {ints_to_float(Lat, LatExp), ints_to_float(Lon, LonExp), unix_seconds_to_datetime(TimeStamp)},
-  log(State, debug, "Coordinate received {~p, ~p, ~p}.", [NewLat, NewLon, NewTimestamp]),
-  #coord{lat = LastLat, lon = LastLon, timestamp = LastTimestamp} = LastCoord,
-  Distance = nmea_utils:calc_distance({LastLat, LastLon}, {NewLat, NewLon}),
-  SP = case CalcSpeed or ((Speed =:= 0) and (Distance =/= 0)) of
-          true ->
-             erlang:round(nmea_utils:calc_speed({LastLat, LastLon, LastTimestamp}, {NewLat, NewLon, NewTimestamp}));
-          false ->
-             Speed
-       end,
-  Coord = #coord{lat = NewLat, lon = NewLon, speed = SP, distance =  Distance, timestamp = NewTimestamp},
-  gtracker_track_pub:store(Track, Coord),
-  {noreply, State#state{ccnt = Ccnt + 1, last_coord = Coord}};
+   #state{track = Track, ccnt = Ccnt, last_coord = LastCoord, calc_speed = CalcSpeed}) ->
+   {NewLat, NewLon, NewTimestamp} = {ints_to_float(Lat, LatExp), ints_to_float(Lon, LonExp), unix_seconds_to_datetime(TimeStamp)},
+   log(State, debug, "Coordinate received {~p, ~p, ~p}.", [NewLat, NewLon, NewTimestamp]),
+   #coord{lat = LastLat, lon = LastLon, timestamp = LastTimestamp} = LastCoord,
+   Distance = nmea_utils:calc_distance({LastLat, LastLon}, {NewLat, NewLon}),
+   SP = case CalcSpeed or ((Speed =:= 0) and (Distance =/= 0)) of
+         true ->
+            erlang:round(nmea_utils:calc_speed({LastLat, LastLon, LastTimestamp}, {NewLat, NewLon, NewTimestamp}));
+         false ->
+            Speed
+   end,
+   Coord = #coord{lat = NewLat, lon = NewLon, speed = SP, distance =  Distance, timestamp = NewTimestamp},
+   gtracker_track_pub:store(Track, Coord),
+   {noreply, State#state{ccnt = Ccnt + 1, last_coord = Coord}};
 
 % <<<<< END COORD processing >>>>>
 

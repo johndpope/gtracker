@@ -38,6 +38,7 @@ loop(State = #state{db = Db, track_id = TrackId, subs = S, ref = Ref, owner = Ow
          error_logger:infO_msg("The owner ~p is changed to ~p~n", [Owner, NewOwner]),
          loop(State#state{owner = NewOwner});
       {subscribers, NewSubs} ->
+         io:format("subscribers ~p", [NewSubs]),
          loop(State#state{subs = NewSubs});
       clear ->
          dets:delete_all_objects(Ref),

@@ -2,7 +2,7 @@
 -record(sms,   {enabled = false, value = undef}).
 -record(device,
    {
-      name, alias = undef, reference = undef, online = false, owner = undef, subs = [], timezone = "UTC",
+      name, alias = undef, reference = undef, status = online, owner = undef, subs = [], timezone = "UTC",
       registered_at = now(), color = undef, weight = 1, pixmap = undef, twitter_auth = undef, current_track = undef
    }).
 -record(user, {name, password, online = false, map_type = 0, is_admin = false,  devices = []}).
