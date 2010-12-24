@@ -31,7 +31,6 @@ stop() ->
 
 on_start(Opts) ->
    SelfOpts = get_param('self', Opts),
-   ServerOpts = get_param(mds_server, Opts),
    Port = get_param(port, SelfOpts, ?PORT),
    Db = get_param(db, SelfOpts),
    Proto = get_param(protocol, SelfOpts, gtracker_protocol),

@@ -20,15 +20,15 @@ open(Db, TrackId, Path, Owner) ->
    end.
 
 init(Db, TrackId, Path, Owner) ->
-   {ok, Ref} = dets:open_file(TrackId, [{auto_save, 1000}, {file, Path}, {keypos, ?FieldId(coord, timestamp)}]),
    process_flag(trap_exit, true),
+   {ok, Ref} = dets:open_file(TrackId, [{auto_save, 1000}, {file, Path}, {keypos, ?FieldId(coord, timestamp)}]),
    loop(#state{db = Db, track_id = TrackId, ref = Ref, owner = Owner}).
 
 loop(State = #state{db = Db, track_id = TrackId, subs = S, ref = Ref, owner = Owner}) ->
    receive
       Coord when is_record(Coord, coord) ->
          ok = dets:insert(Ref, Coord),
-         NewS = send2subs(S, Coord),
+         NewS = gtracker_common:send2subs(S, Coord),
          loop(State#state{subs = NewS});
       {get_coords, Peer} ->
          Coords = dets:select(Ref, [{'_', [], ['$_']}]),
@@ -57,15 +57,3 @@ loop(State = #state{db = Db, track_id = TrackId, subs = S, ref = Ref, owner = Ow
          loop(State)
    end.
 
-send2subs(Subs, Msg) ->
-   lists:foldl(
-      fun(S, Acc) ->
-         case rpc:call(node(S), erlang, is_process_alive, [S]) of
-            true ->
-               S ! Msg,
-               [S|Acc];
-            false ->
-               Acc
-         end
-      end,
-      [], Subs).

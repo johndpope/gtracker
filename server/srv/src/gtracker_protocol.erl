@@ -66,7 +66,7 @@ stop(Pid) ->
 %=======================================================================================================================
 % gtracker_protocol main loop
 %=======================================================================================================================
-loop(State) ->
+loop(State = #state{dev = Device, track = Track, socket = Socket}) ->
    receive
       {tcp, Socket, Data} ->
          {ok, PeerName} = inet:peername(Socket),
@@ -76,24 +76,27 @@ loop(State) ->
          inet:setopts(Socket, [{active, once}]),
          loop(NewState);
       {error, closed} ->
-         log(State, error, "Device ~p with ID = ~p was closed.", [self(), State#state.dev#device.name]);
+         log(State, error, "Device ~p with ID = ~p was closed.", [self(), Device#device.name]);
       stop ->
          log(State, info, "Device was forced to stop."),
          unregister(State),
-         gen_tcp:close(State#state.socket);
+         gen_tcp:close(Socket);
       {tcp_closed, _Socket} ->
          unregister(State),
-         log(State, info, "Device ~p with ID = ~p was closed by peer.", [self(), State#state.dev#device.name]);
+         log(State, info, "Device ~p with ID = ~p was closed by peer.", [self(), Device#device.name]);
+      {'EXIT', _, Pid} when State#state.track#track.pid =:= Pid ->
+         log(State, info, "Track ~p has been crashed.", [Track#track.id]),
+         loop(State#state{track = undef});
       {'EXIT', _, _} ->
          unregister(State),
          gen_tcp:close(State#state.socket),
          log(State, info, "Device was forced to stop.");
-      {updated, D = #device{name = DevName}} when DevName =/= State#state.dev#device.name ->
+      {updated, D = #device{name = DevName}} when DevName =/= Device#device.name ->
          log(State, error, "updated(~p) received from alien device.", [D]),
          loop(State);
-      {updated, Device} when is_record(Device, device) ->
-         gtracker_track_pub:set_subscribers(State#state.track, Device#device.subs),
-         loop(State#state{dev = Device});
+      {updated, NewDevice} when is_record(NewDevice, device) ->
+         gtracker_track_pub:set_subscribers(Track, NewDevice#device.subs),
+         loop(State#state{dev = NewDevice});
       Msg ->
          log(State, error, "Unknown message '~p' received.", [Msg])
    after ?RECEIVE_TIMEOUT ->
@@ -222,8 +225,8 @@ processMsg(?COORD_MSG, _Msg, State = #state{socket = S, ecnt = ErrCnt, dev = und
      [inet:peername(S), ErrCnt + 1]),
   {return_error(?ERROR_NOT_AUTH), State#state{ecnt = ErrCnt + 1}};
 
-processMsg(?COORD_MSG, Coord, State = #state{db = Db, dev = Device, track = undef}) ->
-  Track = gtracker_pub:new_track(Db, Device, false, ?MAX_CALL_TIMEOUT),
+processMsg(?COORD_MSG, Coord, State = #state{db = Db, dev = #device{name = DevName}, track = undef}) ->
+  Track = gtracker_pub:new_track(Db, DevName, false, ?MAX_CALL_TIMEOUT),
   processMsg(?COORD_MSG, Coord, State#state{track = Track});
 
 % tries to store first coordinate after connect

@@ -18,6 +18,7 @@
       ,binary_to_hex/1
       ,fill_binary/3
       ,get_best_process/1
+      ,send2subs/2
    ]).
 
 -define(SWAMP, "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789").
@@ -108,6 +109,18 @@ get_best_process(ProcGroup) ->
          undef
    end.
 
+send2subs(Subs, Msg) ->
+   lists:foldl(
+      fun(S, Acc) ->
+         case rpc:call(node(S), erlang, is_process_alive, [S]) of
+            true ->
+               S ! Msg,
+               [S|Acc];
+            false ->
+               Acc
+         end
+      end,
+   [], Subs).
 %=======================================================================================================================
 %  pivate
 %=======================================================================================================================

@@ -80,32 +80,30 @@ unregister(Db, DevName, Timeout) ->
 unregister(DevName) ->
    unregister(?db_ref, DevName, ?MAX_CALL_TIMEOUT).
 
-% subscribe(Db, Device(), Timeout) -> ok | atom()
+% subscribe(Db, DevName, Timeout) -> ok | atom()
 %  Db = registereg Db name
 %  Timeout - call timeout
-subscribe(Db, Device, Timeout) ->
-   NewDevice = Device#device{subs = lists:usort([self() | Device#device.subs])},
-   UpDevice = update(Db, NewDevice, Timeout),
-   if (is_pid(UpDevice#device.owner) == true) ->
-      UpDevice#device.owner ! {updated, UpDevice},
-      UpDevice;
-   true ->
-      UpDevice
+%  DevName = Sttring()
+subscribe(Db, DevName, Timeout) ->
+   case  gen_server:call(Db, {subscribe, DevName, self()}, Timeout) of
+      Device = #device{owner = Owner} ->
+         Owner ! {updated, Device};
+      Msg ->
+         Msg
    end.
-subscribe(Device) ->
-   subscribe(?db_ref, Device, ?MAX_CALL_TIMEOUT).
+subscribe(DevName) ->
+   subscribe(?db_ref, DevName, ?MAX_CALL_TIMEOUT).
 
-% unsubscribe(Db, Device(), Timeout) -> ok | atom()
+% unsubscribe(Db, DevName, Timeout) -> ok | atom()
 %  Db = registereg Db name
 %  Timeout - call timeout
-unsubscribe(Db, Device, Timeout) ->
-   NewDevice = Device#device{subs = lists:delete(self(), Device#device.subs)},
-   UpDevice = update(Db, NewDevice, Timeout),
-   if (is_pid(UpDevice#device.owner) == true) ->
-      UpDevice#device.owner ! {updated, UpDevice},
-      UpDevice;
-   true ->
-      UpDevice
+%  DevName = String()
+unsubscribe(Db, DevName, Timeout) ->
+   case  gen_server:call(Db, {unsubscribe, DevName, self()}, Timeout) of
+      Device = #device{owner = Owner} ->
+         Owner ! {updated, Device};
+      Msg ->
+         Msg
    end.
 unsubscribe(DevName) ->
    unsubscribe(?db_ref, DevName, ?MAX_CALL_TIMEOUT).
@@ -180,8 +178,8 @@ delete_news(Db, NewsRef, Timeout) ->
 delete_news(NewsRef) ->
    delete_news(?db_ref, NewsRef, ?MAX_CALL_TIMEOUT).
 
-new_track(Db, Device, Force, Timeout) ->
-   case gen_server:call(Db, {new_track, Device#device.name, Force, []}, Timeout) of
+new_track(Db, DevName, Force, Timeout) ->
+   case gen_server:call(Db, {new_track, DevName, Force, []}, Timeout) of
       device_not_registered ->
          device_not_registered;
       Track = #track{pid = undef} ->

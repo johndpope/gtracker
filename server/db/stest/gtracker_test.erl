@@ -120,7 +120,7 @@ news_test() ->
 new_track_test() ->
    F = fun(Owner) ->
       Device = gtracker_pub:register(),
-      Track = gtracker_pub:new_track(Device, true),
+      Track = gtracker_pub:new_track(Device#device.name, true),
       ?assertEqual(is_record(Track, track), true),
       gtracker_track_pub:close(Track),
       Owner ! {Device, done}
@@ -135,9 +135,9 @@ new_track_test() ->
 subscribe_test() ->
    F = fun(Owner) ->
       Device = gtracker_pub:register(),
-      SubDevice = gtracker_pub:subscribe(Device),
+      SubDevice = gtracker_pub:subscribe(Device#device.name),
       ?assertEqual(SubDevice#device.subs, [self()]),
-      UbDevice = gtracker_pub:unsubscribe(SubDevice),
+      UbDevice = gtracker_pub:unsubscribe(SubDevice#device.name),
       ?assertEqual(UbDevice#device.subs, []),
       Owner ! {Device, done}
    end,
