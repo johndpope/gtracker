@@ -181,7 +181,7 @@ delete_news(NewsRef) ->
 new_track(Db, DevName, Force, Timeout) ->
    case gen_server:call(Db, {new_track, DevName, Force, []}, Timeout) of
       device_not_registered ->
-         device_not_registered;
+         {error, device_not_registered, [DevName]};
       Track = #track{pid = undef} ->
          Track1 = gtracker_track_pub:open(Db, Track),
          update(Db, Track1, Timeout);

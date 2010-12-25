@@ -68,16 +68,24 @@ on_msg({register, DevName}, {Pid, _}, State = #state{triggers = Triggers}) ->
    log(debug, "register(~p). State: ~p", [DevName, dump_state(State)]),
    case mnesia:dirty_read(device, DevName) of
       [] ->
-         {reply, no_such_device, State};
+         {reply, {error, no_such_device, [DevName]}, State};
       [Device = #device{owner = undef, status = offline}] ->
          NewDevice = activate_device(Device, Pid, Triggers),
          mnesia:dirty_write(NewDevice),
          {reply, NewDevice, State};
       [Device = #device{owner = Owner}] when is_pid(Owner) andalso (Pid == Owner) ->
          {reply, Device, State};
-      [Device = #device{owner = Owner}] ->
-         Owner ! stop,
+      [Device = #device{owner = Owner, current_track = TrackId}] ->
+         log(info, "Device ~p", [Device]),
+         case mnesia:dirty_read(track, TrackId) of
+            [] ->
+               ok;
+            [Track] ->
+               log(info, "Track ~p found. Set new owner ~p to him.", [Track, Pid]),
+               gtracker_track_pub:set_owner(Track, Pid)
+         end,
          log(info, "Trying to stop old owner with Pid = ~p", [Owner]),
+         Owner ! stop,
          NewDevice = activate_device(Device, Pid, Triggers),
          mnesia:dirty_write(NewDevice),
          {reply, NewDevice, State}
@@ -87,7 +95,7 @@ on_msg({unregister, DevName}, {Pid, _}, State) ->
    log(debug, "unregister(~p). State: ~p", [DevName, dump_state(State)]),
    case mnesia:dirty_read(device, DevName) of
       [] ->
-         {reply, no_such_device, State};
+         {reply, {error, no_such_device, [DevName]}, State};
       [Device = #device{owner = undef, status = offline, subs = Subs}] ->
          NewSubs = gtracker_common:send2subs(Subs, {offline, DevName}),
          if (NewSubs =/= Subs) ->
@@ -102,9 +110,9 @@ on_msg({unregister, DevName}, {Pid, _}, State) ->
          mnesia:dirty_write(NewDevice),
          {reply, NewDevice, State};
       [Device = #device{owner = Owner, subs = Subs}] ->
-         case rpc:call(erlang, is_process_alive, [node(Owner), Owner]) of
+         case rpc:call(node(Owner), erlang, is_process_alive, [Owner]) of
             true ->
-               {reply, wrong_owner, State};
+               {reply, {error, wrong_owner, [Pid, Owner]}, State};
             False ->
                log(debug, "is_process_alive(~p): ~p", [Owner, False]),
                NewSubs = gtracker_common:send2subs(Subs, {offline, DevName}),
@@ -122,14 +130,14 @@ on_msg({new_user, UserName, Password}, _From, State) ->
          mnesia:dirty_write(User),
          {reply, User, State};
       _User ->
-         {reply, already_exists, State}
+         {reply, {error, already_exists, [UserName]}, State}
    end;
 
 on_msg({get_user, UserName}, _From, State) ->
    log(debug, "get_user(~p). State: ~p", [UserName, dump_state(State)]),
    case mnesia:dirty_read(user, UserName) of
       [] ->
-         {reply, not_found, State};
+         {reply, {error, not_found, [UserName]}, State};
       [User] ->
          {reply, User, State}
    end;
@@ -138,7 +146,7 @@ on_msg({update, User = #user{name = UserName}}, _From, State) ->
    log(debug, "update(~p). State: ~p", [User, dump_state(State)]),
    case mnesia:dirty_read(user, UserName) of
       [] ->
-         {reply, no_such_user, State};
+         {reply, {error, no_such_user, [UserName]}, State};
       [_] ->
          mnesia:dirty_write(User),
          {reply, User, State}
@@ -148,7 +156,7 @@ on_msg({login, UserName, Password}, _From, State) ->
    log(debug, "login(~p, ~p). State: ~p", [UserName, Password, dump_state(State)]),
    case mnesia:dirty_read(user, UserName) of
       [] ->
-         {reply, rejected, State};
+         {reply, {error, rejected, [UserName, Password]}, State};
       [User = #user{name = U, password = P}] ->
          case (U == UserName) andalso (P == erlang:md5(Password)) of
             true ->
@@ -156,7 +164,7 @@ on_msg({login, UserName, Password}, _From, State) ->
                mnesia:dirty_write(OnlineUser),
                {reply, OnlineUser, State};
             false ->
-               {reply, rejected, State}
+               {reply, {error, rejected, [UserName, Password]}, State}
          end
    end;
 
@@ -164,7 +172,7 @@ on_msg({logout, UserName}, _From, State) ->
    log(debug, "logout(~p). State: ~p", [UserName, dump_state(State)]),
    case mnesia:dirty_read(user, UserName) of
       [] ->
-         {reply, rejected, State};
+         {reply, {error, rejected, [UserName]}, State};
       [User = #user{name = UserName}] ->
          mnesia:dirty_write(User#user{online = false}),
          {reply, ok, State}
@@ -179,7 +187,7 @@ on_msg({get_device, DevName}, _From, State) ->
    log(debug, "get_device(~p). State: ~p", [DevName, dump_state(State)]),
    case mnesia:dirty_read(device, DevName) of
       [] ->
-         {reply, no_such_device, State};
+         {reply, {error, no_such_device, [DevName]}, State};
       [Device] ->
          {reply, Device, State}
    end;
@@ -190,7 +198,7 @@ on_msg({update,
    log(debug, "update(~p). State: ~p", [D, dump_state(State)]),
    case mnesia:dirty_read(device, DevName) of
       [] ->
-         {reply, no_such_device, State};
+         {reply, {error, no_such_device, [DevName]}, State};
       [Device] ->
          NewDevice = Device#device{alias = A, subs = S, timezone = T, color = C, weight = W, pixmap = P, twitter_auth =
             TA, current_track = CT},
@@ -202,7 +210,7 @@ on_msg({subscribe, DevName, Pid}, _From, State) ->
    log(debug, "subscribe(~p, ~p). State: ~p", [DevName, Pid, dump_state(State)]),
    case mnesia:dirty_read(device, DevName) of
       [] ->
-         {reply, no_such_device, State};
+         {reply, {error, no_such_device, [DevName]}, State};
       [Device = #device{status = Status, subs = Subs}] ->
          NewDevice = Device#device{subs = lists:usort([Pid|Subs])},
          Pid ! {Status, Device#device.name},
@@ -214,7 +222,7 @@ on_msg({unsubscribe, DevName, Pid}, _From, State) ->
    log(debug, "unsubscribe(~p, ~p). State: ~p", [DevName, Pid, dump_state(State)]),
    case mnesia:dirty_read(device, DevName) of
       [] ->
-         {reply, no_such_device, State};
+         {reply, {error, no_such_device, [DevName]}, State};
       [Device = #device{subs = Subs}] ->
          NewDevice = Device#device{subs = lists:delete(Pid, Subs)},
          mnesia:dirty_write(NewDevice),
@@ -239,7 +247,7 @@ on_msg({get_news, UpToDate}, _From, State) ->
          Result = mnesia:dirty_select(news, [{#news{date = '$1', _='_'}, [{'=<', '$1', {Date}}], ['$_']}]),
          {reply, Result, State};
       false ->
-         {reply, invalid_date, State}
+         {reply, {error, invalid_date, [UpToDate]}, State}
    end;
 
 on_msg({insert_news, Date, Text}, _From, State) ->
@@ -250,7 +258,7 @@ on_msg({insert_news, Date, Text}, _From, State) ->
          mnesia:dirty_write(#news{id = Ref, date = Date, text = Text}),
          {reply, Ref, State};
       false ->
-         {reply, invalid_date, State}
+         {reply, {error, invalid_date, [Date]}, State}
    end;
 
 on_msg({delete_news, NewsRef}, _From, State) ->
@@ -262,26 +270,30 @@ on_msg({new_track, DevName, Force, FailuredNodes}, _From, State) ->
    log(debug, "new_track(~p, ~p). State: ~p", [Force, DevName, dump_state(State)]),
    case mnesia:dirty_read(device, DevName) of
       [] ->
-         {reply, no_such_device, State};
+         {reply, {error, no_such_device, {DevName}}, State};
       [#device{owner = undef}] ->
-         {reply, device_not_registered, State};
+         {reply, {error, device_not_registered, [DevName]}, State};
       [Device = #device{current_track = undef}] ->
          NewTrack = create_track(Device, Force, FailuredNodes, State), % create new track here
+         mnesia:dirty_write(Device#device{current_track = NewTrack#track.id}),
          {reply, NewTrack, State};
       [Device = #device{current_track = TrackId}] ->
          case mnesia:dirty_read(track, TrackId) of
             [] ->
                NewTrack = create_track(Device, Force, FailuredNodes, State), % create new track here
+               mnesia:dirty_write(Device#device{current_track = NewTrack#track.id}),
                {reply, NewTrack, State};
             [Track = #track{pid = Pid}] ->
                case rpc:call(node(Pid), erlang, is_process_alive, [Pid]) of
                   true when (Force == true) ->
                      NewTrack = create_track(Device, Force, FailuredNodes, State), % create new track here
+                     mnesia:dirty_write(Device#device{current_track = NewTrack#track.id}),
                      {reply, NewTrack, State};
                   true when (Force == false) ->
                      {reply, Track, State};
                   false ->
                      NewTrack = create_track(Device, Force, FailuredNodes, State), % create new track here
+                     mnesia:dirty_write(Device#device{current_track = NewTrack#track.id}),
                      {reply, NewTrack, State}
                end
          end
@@ -291,7 +303,7 @@ on_msg({update, T = #track{id = TrackId, name = TrackName, pid = Pid}}, _From, S
    log(debug, "update(~p). State: ~p", [T, dump_state(State)]),
    case mnesia:dirty_read(track, TrackId) of
       [] ->
-         {reply, no_such_track, State};
+         {reply, {error, no_such_track, [TrackId]}, State};
       [Track] ->
          NewTrack = Track#track{name = TrackName, pid = Pid},
          mnesia:dirty_write(NewTrack),

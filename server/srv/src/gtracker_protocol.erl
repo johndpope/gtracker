@@ -84,7 +84,7 @@ loop(State = #state{dev = Device, track = Track, socket = Socket}) ->
       {tcp_closed, _Socket} ->
          unregister(State),
          log(State, info, "Device ~p with ID = ~p was closed by peer.", [self(), Device#device.name]);
-      {'EXIT', _, Pid} when State#state.track#track.pid =:= Pid ->
+      {'EXIT', Pid, _} when State#state.track#track.pid =:= Pid ->
          log(State, info, "Track ~p has been crashed.", [Track#track.id]),
          loop(State#state{track = undef});
       {'EXIT', _, _} ->

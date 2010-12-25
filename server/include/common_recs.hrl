@@ -11,5 +11,4 @@
 -record(coord, {lat, lon, speed = 0, distance = 0, timestamp}).
 -record(news, {id, date, text}).
 
-
 -record(track_closed, {track_id, start = undef, stop = undef, length = 0, avg_speed = 0}).
