@@ -322,7 +322,7 @@ on_amsg(T = #track_closed{track_id = TrackId, start = Start, stop = Stop, length
                log(warning, "track_closed event has been received, but track ~p not exists in DB.", [TrackId]);
             [Track = #track{dev_name = DevName}] ->
                mnesia:write(
-                  Track#track{status = closed, start = Start, stop = Stop, length = Length, avg_speed = AvgSpeed}),
+                  Track#track{status = closed, pid = undef, start = Start, stop = Stop, length = Length, avg_speed = AvgSpeed}),
                [Device] = mnesia:read(device, DevName),
                if Device#device.current_track == TrackId ->
                      mnesia:write(Device#device{current_track = undef});
