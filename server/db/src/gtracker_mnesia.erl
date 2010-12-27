@@ -442,19 +442,61 @@ valid_date(Date = {Y, M, D}) when is_number(Y) andalso is_number(M) andalso is_n
 valid_date(_) ->
    false.
 
+merge_device(#device{name = DevName1}, #device{name = DevName2}, _) when DevName1 =/= DevName2 ->
+   throw({error, unable_to_merge_diff_devices, [DevName1, DevName2]});
+merge_device(Device, NewDevice, Mask) ->
+   check_mask(
+      Mask,
+      [alias, owner, subs, timezone, color, weight, pixmap, twitter_auth, current_track],
+      fun(ValidatedMask) -> merge_devices_aux(Device, NewDevice, ValidatedMask) end).
+
+merge_tracks(#track{id = ID1}, #track{id = ID2}, _) when ID1 =/= ID2 ->
+   throw({error, unable_to_merge_diff_tracks, [ID1, ID2]});
+merge_tracks(Track, NewTrack, Mask) ->
+   check_mask(
+      Mask,
+      [name, pid, start, stop, length, avg_speed],
+      fun(ValidatedMask) -> merge_tracks_aux(Track, NewTrack, ValidatedMask) end).
+
+merge_tracks_aux(Track, _, []) ->
+   Track;
+merge_tracks_aux(Track, NewTrack, [Field|Rest]) ->
+   Index = ?FieldId(track, Field),
+   Value = erlang:element(Index, NewTrack),
+   merge_tracks_aux(erlang:setelement(Index, Track, Value), NewTrack, Rest).
+
+merge_devices_aux(Device, _, []) ->
+   Device;
+merge_devices_aux(Device, NewDevice, [Field|Rest]) ->
+   Index = ?FieldId(device, Field),
+   Value = erlang:element(Index, NewDevice),
+   merge_devices_aux(erlang:setelement(Index, Device, Value), NewDevice, Rest).
+
+check_mask(Mask, AlowedFields, Fun) ->
+   {ValidatedMask, InvalidMask} = lists:partition(fun(E) -> lists:member(E, AlowedFields) end, lists:usort(Mask)),
+   case length(InvalidMask) > 0 of
+      true ->
+         throw({error, invalid_mask_elements, InvalidMask});
+      false ->
+         Fun(ValidatedMask)
+   end.
+
 %=======================================================================================================================
 %  unit testing facilities
 %=======================================================================================================================
 -ifdef(TEST).
 -include_lib("eunit/include/eunit.hrl").
 
-get_device_test() ->
-   ok.
-   %Pid = gtracker_edb:start([]),
-   %timer:sleep(100),
-   %{DevName, _} = gen_server:call(?mod, get_device),
-   %Device = gen_server:call(?mod, {get_device, DevName}),
-   %?assertEqual(DevName, Device#device.name).
+
+merge_tracks_test() ->
+   Track1 = #track{id='1'},
+   Track2 = #track{id='1', name = "TrackName", start={1,2,3}, stop={2,3,4}, length = 1000, avg_speed = 45.0},
+   MergedTrack1 = merge_tracks(Track1, Track2, [name, start, stop, length, avg_speed]),
+   ?assertEqual(MergedTrack1, Track2),
+   MergedTrack2 = merge_tracks(Track1, Track2, [name]),
+   ?assertEqual(MergedTrack2, #track{id='1', name="TrackName"}),
+   ?assertThrow({error, unable_to_merge_diff_tracks, ['1', '2']}, merge_tracks(Track1, #track{id='2', name="BLA"},[name])),
+   ?assertThrow({error, invalid_mask_elements, [id, name1]}, merge_tracks(Track1, #track{id='1', name="BLA"}, [id, name1])).
 
 get_best_node_test() ->
    ?assertEqual(node(), get_best_node(true, [])).
