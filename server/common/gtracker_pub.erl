@@ -6,7 +6,7 @@
    [
       get_devices/0, get_devices/2
       ,get_device/1, get_device/3
-      ,update/1, update/3
+      ,update/2, update/4
       ,register/0, register/1, register/2, register/3
       ,unregister/1, unregister/3
       ,subscribe/1, subscribe/3
@@ -45,14 +45,16 @@ get_device(Db, DevName, Timeout) ->
 get_device(DevName) ->
    get_device(?db_ref, DevName, ?MAX_CALL_TIMEOUT).
 
-% update(Db, Object(), Timeout) -> Object() | error
+% update(Db, Object(), Mask, Timeout) -> Object() | error
 %  Db = registereg Db name
 %  Object = Device(), Track(), User()
 %  Timeout - call timeout
-update(Db, Object, Timeout) ->
-   gen_server:call(Db, {update, Object}, Timeout).
-update(Object) ->
-   update(?db_ref, Object, ?MAX_CALL_TIMEOUT).
+%  Mask = [FieldName]
+%  FieldName = atom()
+update(Db, Object, Mask, Timeout) ->
+   gen_server:call(Db, {update, Object, Mask}, Timeout).
+update(Object, Mask) ->
+   update(?db_ref, Object, Mask, ?MAX_CALL_TIMEOUT).
 
 % register(Db, Timeout) -> Device() | error
 %  Db = registereg Db name
@@ -87,7 +89,8 @@ unregister(DevName) ->
 subscribe(Db, DevName, Timeout) ->
    case  gen_server:call(Db, {subscribe, DevName, self()}, Timeout) of
       Device = #device{owner = Owner} ->
-         Owner ! {updated, Device};
+         Owner ! {updated, Device},
+         Device;
       Msg ->
          Msg
    end.
@@ -101,7 +104,8 @@ subscribe(DevName) ->
 unsubscribe(Db, DevName, Timeout) ->
    case  gen_server:call(Db, {unsubscribe, DevName, self()}, Timeout) of
       Device = #device{owner = Owner} ->
-         Owner ! {updated, Device};
+         Owner ! {updated, Device},
+         Device;
       Msg ->
          Msg
    end.
@@ -184,7 +188,7 @@ new_track(Db, DevName, Force, Timeout) ->
          {error, device_not_registered, [DevName]};
       Track = #track{pid = undef} ->
          Track1 = gtracker_track_pub:open(Db, Track),
-         update(Db, Track1, Timeout);
+         update(Db, Track1, [pid], Timeout);
       Track ->
          Track
    end.

@@ -142,14 +142,24 @@ on_msg({get_user, UserName}, _From, State) ->
          {reply, User, State}
    end;
 
-on_msg({update, User = #user{name = UserName}}, _From, State) ->
-   log(debug, "update(~p). State: ~p", [User, dump_state(State)]),
-   case mnesia:dirty_read(user, UserName) of
-      [] ->
-         {reply, {error, no_such_user, [UserName]}, State};
-      [_] ->
-         mnesia:dirty_write(User),
-         {reply, User, State}
+on_msg({update, NewUser = #user{name = UserName}, Mask}, _From, State) ->
+   log(debug, "update(~p, ~p). State: ~p", [NewUser, Mask, dump_state(State)]),
+   F = fun() ->
+      case mnesia:dirty_read(user, UserName) of
+         [] ->
+            {error, no_such_user, [UserName]};
+         [User] ->
+            MergedUser = merge_users(User, NewUser, Mask),
+            mnesia:dirty_write(MergedUser),
+            MergedUser
+      end
+   end,
+   try F() of
+      Res ->
+         {reply, Res, State}
+   catch
+      _:Err ->
+         {reply, Err, State}
    end;
 
 on_msg({login, UserName, Password}, _From, State) ->
@@ -192,18 +202,24 @@ on_msg({get_device, DevName}, _From, State) ->
          {reply, Device, State}
    end;
 
-on_msg({update,
-      D = #device{name = DevName, alias = A, subs = S, timezone = T, color = C, weight = W, pixmap = P, twitter_auth =
-         TA, current_track = CT}}, _From, State) ->
-   log(debug, "update(~p). State: ~p", [D, dump_state(State)]),
-   case mnesia:dirty_read(device, DevName) of
-      [] ->
-         {reply, {error, no_such_device, [DevName]}, State};
-      [Device] ->
-         NewDevice = Device#device{alias = A, subs = S, timezone = T, color = C, weight = W, pixmap = P, twitter_auth =
-            TA, current_track = CT},
-         mnesia:dirty_write(NewDevice),
-         {reply, NewDevice, State}
+on_msg({update, NewDevice = #device{name = DevName}, Mask}, _From, State) ->
+   log(debug, "update(~p). State: ~p", [NewDevice, dump_state(State)]),
+   F = fun() ->
+      case mnesia:dirty_read(device, DevName) of
+         [] ->
+            {error, no_such_device, [DevName]};
+         [Device] ->
+            MergedDevice = merge_devices(Device, NewDevice, Mask),
+            mnesia:dirty_write(MergedDevice),
+            MergedDevice
+      end
+   end,
+   try F() of
+      Res ->
+         {reply, Res, State}
+   catch
+      _:Err ->
+         {reply, Err, State}
    end;
 
 on_msg({subscribe, DevName, Pid}, _From, State) ->
@@ -299,15 +315,24 @@ on_msg({new_track, DevName, Force, FailuredNodes}, _From, State) ->
          end
    end;
 
-on_msg({update, T = #track{id = TrackId, name = TrackName, pid = Pid}}, _From, State) ->
-   log(debug, "update(~p). State: ~p", [T, dump_state(State)]),
-   case mnesia:dirty_read(track, TrackId) of
-      [] ->
-         {reply, {error, no_such_track, [TrackId]}, State};
-      [Track] ->
-         NewTrack = Track#track{name = TrackName, pid = Pid},
-         mnesia:dirty_write(NewTrack),
-         {reply, NewTrack, State}
+on_msg({update, NewTrack = #track{id = TrackId}, Mask}, _From, State) ->
+   log(debug, "update(~p, ~p). State: ~p", [NewTrack, Mask, dump_state(State)]),
+   F = fun() ->
+         case mnesia:dirty_read(track, TrackId) of
+            [] ->
+               {error, no_such_track, [TrackId]};
+            [Track] ->
+               MergedTrack = merge_tracks(Track, NewTrack, Mask),
+               mnesia:dirty_write(MergedTrack),
+               MergedTrack
+         end
+   end,
+   try F() of
+      Res ->
+         {reply, Res, State}
+   catch
+      _:Err ->
+         {reply, Err, State}
    end;
 
 on_msg(Msg, _From, State) ->
@@ -442,9 +467,17 @@ valid_date(Date = {Y, M, D}) when is_number(Y) andalso is_number(M) andalso is_n
 valid_date(_) ->
    false.
 
-merge_device(#device{name = DevName1}, #device{name = DevName2}, _) when DevName1 =/= DevName2 ->
+merge_users(#user{name = Username1}, #device{name = Username2}, _) when Username1 =/= Username2 ->
+   throw({error, unable_to_merge_diff_users, [Username1, Username2]});
+merge_users(User, NewUser, Mask) ->
+   check_mask(
+      Mask,
+      [password, map_type, is_admin, devices],
+      fun(ValidatedMask) -> merge_users_aux(User, NewUser, ValidatedMask) end).
+
+merge_devices(#device{name = DevName1}, #device{name = DevName2}, _) when DevName1 =/= DevName2 ->
    throw({error, unable_to_merge_diff_devices, [DevName1, DevName2]});
-merge_device(Device, NewDevice, Mask) ->
+merge_devices(Device, NewDevice, Mask) ->
    check_mask(
       Mask,
       [alias, owner, subs, timezone, color, weight, pixmap, twitter_auth, current_track],
@@ -457,6 +490,13 @@ merge_tracks(Track, NewTrack, Mask) ->
       Mask,
       [name, pid, start, stop, length, avg_speed],
       fun(ValidatedMask) -> merge_tracks_aux(Track, NewTrack, ValidatedMask) end).
+
+merge_users_aux(User, _, []) ->
+   User;
+merge_users_aux(User, NewUser, [Field|Rest]) ->
+   Index = ?FieldId(user, Field),
+   Value = erlang:element(Index, NewUser),
+   merge_users_aux(erlang:setelement(Index, User, Value), NewUser, Rest).
 
 merge_tracks_aux(Track, _, []) ->
    Track;
