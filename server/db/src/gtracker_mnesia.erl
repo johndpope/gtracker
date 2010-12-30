@@ -247,7 +247,7 @@ on_msg({unsubscribe, DevName, Pid}, _From, State) ->
 
 on_msg({get_tracks, DevName}, _From, State) ->
    log(debug, "get_tracks(~p). State: ~p", [DevName, dump_state(State)]),
-   Tracks = mnesia:dirty_select(track, [{#track{dev_name = '$1', _='_'}, [{'==', '$1', DevName}], ['$_']}]),
+   Tracks = mnesia:dirty_index_read(track, DevName, #track.dev_name),
    {reply, Tracks, State};
 
 on_msg({get_triggers, DevName}, _From, State) ->
@@ -412,7 +412,8 @@ mnesia_start() ->
    ?create_table(trigger),
    ?create_table(user),
    ?create_table(track),
-   ?create_table(news).
+   ?create_table(news),
+   mnesia:add_table_index(track, dev_name).
 
 dump_state(State) ->
    State.
