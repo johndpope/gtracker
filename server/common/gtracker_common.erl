@@ -18,6 +18,7 @@
       ,binary_to_hex/1
       ,fill_binary/3
       ,get_best_process/1
+      ,get_best_node/2
       ,send2subs/2
    ]).
 
@@ -109,6 +110,16 @@ get_best_process(ProcGroup) ->
          undef
    end.
 
+get_best_node(DiscoverSelf, FailuredNodes) ->
+   AllNodes = erlang:nodes(if DiscoverSelf == true -> [connected, this]; true -> connected end),
+   Nodes = lists:subtract(AllNodes, FailuredNodes),
+   ProcNodes = lists:foldl(
+      fun(Node, Acc) ->
+         [{ rpc:call(Node, erlang, system_info, [process_count]), Node} | Acc]
+      end, [], Nodes),
+   [ {_, BestNode } | _ ] = lists:sort(fun({A, _}, {B, _}) -> A < B end, ProcNodes),
+   BestNode.
+
 send2subs(Subs, Msg) ->
    lists:foldl(
       fun(S, Acc) ->
@@ -154,6 +165,9 @@ fill_binary_aux(Bin, TailSize, Val) ->
 %=======================================================================================================================
 -ifdef(TEST).
 -include_lib("eunit/include/eunit.hrl").
+
+get_best_node_test() ->
+   ?assertEqual(node(), get_best_node(true, [])).
 
 list_to_urlencoded_test() ->
    SampleList="Hello World",

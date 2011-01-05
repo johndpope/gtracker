@@ -1,3 +1,3 @@
 1. make logging to tracks
 2. Determine a failured node, when new track is created
-3. determine best listener
+3. implement gtracker_protocol:reconnect_to

@@ -5,7 +5,7 @@
 -export([start/1, stop/0, on_start/1, on_stop/2, on_msg/3, on_amsg/2, on_info/2]).
 
 -import(mds_utils, [get_param/2, get_param/3]).
--import(gtracker_common, [gen_dev_name/0, binary_to_hex/1, get_best_process/1]).
+-import(gtracker_common, [gen_dev_name/0, binary_to_hex/1, get_best_process/1, get_best_node/2]).
 
 -include("common_defs.hrl").
 -include("common_recs.hrl").
@@ -486,16 +486,6 @@ get_last_track(DevName) ->
          Track
    end.
 
-get_best_node(AsTrackNode, FailuredNodes) ->
-   AllNodes = erlang:nodes(if AsTrackNode == true -> [connected, this]; true -> connected end),
-   Nodes = lists:subtract(AllNodes, FailuredNodes),
-   ProcNodes = lists:foldl(
-      fun(Node, Acc) ->
-         [{ rpc:call(Node, erlang, system_info, [process_count]), Node} | Acc]
-      end, [], Nodes),
-   [ {_, BestNode } | _ ] = lists:sort(fun({A, _}, {B, _}) -> A < B end, ProcNodes),
-   BestNode.
-
 valid_date(Date = {Y, M, D}) when is_number(Y) andalso is_number(M) andalso is_number(D) ->
    case calendar:valid_date(Date) of
       true ->
@@ -577,9 +567,6 @@ merge_tracks_test() ->
    ?assertEqual(MergedTrack2, #track{id='1', name="TrackName"}),
    ?assertThrow({error, unable_to_merge_diff_tracks, ['1', '2']}, merge_tracks(Track1, #track{id='2', name="BLA"},[name])),
    ?assertThrow({error, invalid_mask_elements, [id, name1]}, merge_tracks(Track1, #track{id='1', name="BLA"}, [id, name1])).
-
-get_best_node_test() ->
-   ?assertEqual(node(), get_best_node(true, [])).
 
 new_track_test() ->
    ok.
