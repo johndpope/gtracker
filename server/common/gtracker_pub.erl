@@ -19,7 +19,7 @@
       ,insert_news/2, insert_news/4
       ,delete_news/1, delete_news/3
       ,get_tracks/1, get_tracks/3
-      ,new_track/2, new_track/4
+      ,new_track/3, new_track/5
       ,get_triggers/1, get_triggers/3
    ]).
 
@@ -182,15 +182,15 @@ delete_news(Db, NewsRef, Timeout) ->
 delete_news(NewsRef) ->
    delete_news(?db_ref, NewsRef, ?MAX_CALL_TIMEOUT).
 
-new_track(Db, DevName, Force, Timeout) ->
+new_track(Db, DevName, Force, CalcSpeed, Timeout) ->
    case gen_server:call(Db, {new_track, DevName, Force, []}, Timeout) of
       device_not_registered ->
          {error, device_not_registered, [DevName]};
       Track = #track{pid = undef} ->
-         Track1 = gtracker_track_pub:open(Db, Track),
+         Track1 = gtracker_track_pub:open(Db, Track, CalcSpeed),
          update(Db, Track1, [pid], Timeout);
       Track ->
          Track
    end.
-new_track(Device, Force) ->
-   new_track(?db_ref, Device, Force, ?MAX_CALL_TIMEOUT).
+new_track(Device, Force, CalcSpeed) ->
+   new_track(?db_ref, Device, Force, CalcSpeed, ?MAX_CALL_TIMEOUT).

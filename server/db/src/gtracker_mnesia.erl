@@ -339,18 +339,18 @@ on_msg(Msg, _From, State) ->
    log(error, "Unknown sync message ~p.", [Msg]),
    {noreply, State}.
 
-on_amsg(T = #track_closed{track_id = TrackId, start = Start, stop = Stop, length = Length, avg_speed = AvgSpeed}, State) ->
-   log(debug, "track_closed(~p)", [T]),
+on_amsg({closed, NewTrack = #track{id = TrackId}}, State) ->
+   log(debug, "{closed, ~p}", [NewTrack]),
    F = fun() ->
          case mnesia:read(track, TrackId) of
             [] ->
                log(warning, "track_closed event has been received, but track ~p not exists in DB.", [TrackId]);
             [Track = #track{dev_name = DevName}] ->
-               mnesia:write(
-                  Track#track{status = closed, pid = undef, start = Start, stop = Stop, length = Length, avg_speed = AvgSpeed}),
+               MergedTrack = merge_tracks(Track, NewTrack, [length, avg_speed, start, stop, coord_count]),
+               mnesia:write(MergedTrack),
                [Device] = mnesia:read(device, DevName),
                if Device#device.current_track == TrackId ->
-                     mnesia:write(Device#device{current_track = undef});
+                  mnesia:write(Device#device{current_track = undef});
                true ->
                   ok
                end
@@ -359,6 +359,16 @@ on_amsg(T = #track_closed{track_id = TrackId, start = Start, stop = Stop, length
    mnesia:transaction(F),
    {noreply, State};
 
+on_amsg({updated, NewTrack = #track{id = TrackId}}, State) ->
+   log(debug, "{updated, ~p}", [NewTrack]),
+   case mnesia:dirty_read(track, TrackId) of
+      [] ->
+         log(warning, "track_updated event has been received, but track ~p not exists in DB.", [TrackId]);
+      [Track] ->
+         MergedTrack = merge_tracks(Track, NewTrack, [length, avg_speed, start, stop, coord_count]),
+         mnesia:dirty_write(MergedTrack)
+   end,
+   {noreply, State};
 
 on_amsg(Msg, State) ->
    log(error, "Unknown async message ~p.", [Msg]),
@@ -438,14 +448,43 @@ activate_device(Device = #device{name = DevName, subs = Subs}, Owner, Triggers) 
       registered_at = now()
    }.
 
-create_track(#device{name = DevName}, _Force, FailuredNodes,
-   #state{track_path = TrackPath, as_track_node = AsTrackNode}) ->
-   Node = get_best_node(AsTrackNode, FailuredNodes),
-   Count = length(mnesia:dirty_select(track, [{#track{dev_name = '$1', _='_'}, [{'==', '$1', DevName}], ['$_']}])) + 1,
-   TrackName = list_to_atom(lists:flatten(io_lib:format("~s_~p.track", [DevName, Count]))),
-   NewTrack = #track{id = TrackName, dev_name = DevName, node = Node, path = filename:join(TrackPath, TrackName)},
-   mnesia:dirty_write(NewTrack),
-   NewTrack.
+create_track(#device{name = DevName}, _Force, FailuredNodes, #state{track_path = TrackPath, as_track_node = AsTrackNode}) ->
+   F = fun(Suffix) ->
+         Node = get_best_node(AsTrackNode, FailuredNodes),
+         TrackName = list_to_atom(lists:flatten(io_lib:format("~s_~p.track", [DevName, Suffix]))),
+         NewTrack = #track{id = TrackName, dev_name = DevName, node = Node, path = filename:join(TrackPath, TrackName)},
+         mnesia:dirty_write(NewTrack),
+         NewTrack
+   end,
+   case get_last_track(DevName) of
+      [] ->
+         F(1);
+      T = #track{stop = undef} ->
+         T;
+      T = #track{id = Id, stop = Timestamp} ->
+         Diff = calendar:datetime_to_gregorian_seconds(calendar:universal_time()) -
+            calendar:datetime_to_gregorian_seconds(Timestamp),
+         if (Diff > 600) -> % start new track
+            F(get_track_suffix(Id));
+         true -> % use old one
+            T
+         end
+   end.
+
+get_track_suffix(Id) ->
+   TrackName = atom_to_list(Id),
+   {ok, MP} = re:compile(".*_([0-9]+)"),
+   {match, [LSuffix]} = re:run(TrackName, MP, [{capture, [1], list}]),
+   list_to_integer(LSuffix).
+
+get_last_track(DevName) ->
+   Tracks = mnesia:dirty_select(track, [{#track{dev_name = '$1', _='_'}, [{'==', '$1', DevName}], ['$_']}]),
+   case lists:sort(fun(#track{id = A}, #track{id = B}) -> A >= B end, Tracks) of
+      [] ->
+         [];
+      [Track|_] ->
+         Track
+   end.
 
 get_best_node(AsTrackNode, FailuredNodes) ->
    AllNodes = erlang:nodes(if AsTrackNode == true -> [connected, this]; true -> connected end),
@@ -489,7 +528,7 @@ merge_tracks(#track{id = ID1}, #track{id = ID2}, _) when ID1 =/= ID2 ->
 merge_tracks(Track, NewTrack, Mask) ->
    check_mask(
       Mask,
-      [name, pid, start, stop, length, avg_speed],
+      [name, pid, start, stop, length, avg_speed, coord_count],
       fun(ValidatedMask) -> merge_tracks_aux(Track, NewTrack, ValidatedMask) end).
 
 merge_users_aux(User, _, []) ->

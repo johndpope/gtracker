@@ -121,7 +121,7 @@ news_test() ->
 new_track_test() ->
    F = fun(Owner) ->
       Device = gtracker_pub:register(),
-      Track = gtracker_pub:new_track(Device#device.name, true),
+      Track = gtracker_pub:new_track(Device#device.name, true, true),
       ?assertEqual(is_record(Track, track), true),
       gtracker_track_pub:close(Track),
       Owner ! {Device, done}
