@@ -208,10 +208,12 @@ on_msg({update, NewDevice = #device{name = DevName}, Mask}, _From, State) ->
       case mnesia:dirty_read(device, DevName) of
          [] ->
             {error, no_such_device, [DevName]};
-         [Device] ->
+         [Device = #device{subs = Subs}] ->
             MergedDevice = merge_devices(Device, NewDevice, Mask),
-            mnesia:dirty_write(MergedDevice),
-            MergedDevice
+            NewSubs = gtracker_comon:send2subs(Subs, {updated, MergedDevice}),
+            MergedDevice2 = MergedDevice#device{subs = NewSubs},
+            mnesia:dirty_write(MergedDevice2),
+            MergedDevice2
       end
    end,
    try F() of
@@ -324,6 +326,8 @@ on_msg({update, NewTrack = #track{id = TrackId}, Mask}, _From, State) ->
             [Track] ->
                MergedTrack = merge_tracks(Track, NewTrack, Mask),
                mnesia:dirty_write(MergedTrack),
+               [Device] = mnesia:dirty_read(device, Track#track.dev_name),
+               gtracker_common:send2subs(Device#device.subs, {updated, MergedTrack}),
                MergedTrack
          end
    end,

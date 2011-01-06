@@ -19,7 +19,6 @@
                 db,             % registered name for database process
                 logger = undef, % logger of this process
                 ecnt = 0,       % count of errors
-                ccnt = 0,       % number of received coordinated per session
                 last_coord = undef, % last received coordinate
                 calc_speed = false,
                 ref_prefix,
@@ -239,52 +238,49 @@ processMsg(?COORD_MSG, Coord, State = #state{db = Db, calc_speed = CS, dev = #de
          processMsg(?COORD_MSG, Coord, State#state{track = Track})
    end;
 
-% tries to store first coordinate after connect
+% store coordinates
 processMsg(?COORD_MSG, <<Lat:?LAT, LatExp:?LAT_EXP, Lon:?LON, LonExp:?LON_EXP, Speed:?SPEED, TimeStamp:?TIMESTAMP>>, State =
-   #state{track = Track, ccnt = 0}) ->
-   {NewLat, NewLon, _, _, NewTimestamp} =
-     {ints_to_float(Lat, LatExp), ints_to_float(Lon, LonExp), Speed, 0, unix_seconds_to_datetime(TimeStamp)},
-   log(State, debug, "First coordinate received {~p, ~p, ~p}.", [NewLat, NewLon, NewTimestamp]),
-   Coord = #coord{lat = NewLat, lon = NewLon, timestamp = NewTimestamp},
-   gtracker_track_pub:store(Track, Coord),
-   {noreply, State#state{ccnt = 1, last_coord = Coord}};
-
-% tries to store next coordinates
-processMsg(?COORD_MSG, <<Lat:?LAT, LatExp:?LAT_EXP, Lon:?LON, LonExp:?LON_EXP, Speed:?SPEED, TimeStamp:?TIMESTAMP>>, State =
-   #state{track = Track, ccnt = Ccnt, last_coord = LastCoord}) ->
+   #state{track = Track, last_coord = LastCoord}) ->
    {NewLat, NewLon, NewTimestamp} = {ints_to_float(Lat, LatExp), ints_to_float(Lon, LonExp), unix_seconds_to_datetime(TimeStamp)},
    log(State, debug, "Coordinate received {~p, ~p, ~p}.", [NewLat, NewLon, NewTimestamp]),
    #coord{lat = LastLat, lon = LastLon} = LastCoord,
    Distance = nmea_utils:calc_distance({LastLat, LastLon}, {NewLat, NewLon}),
    Coord = #coord{lat = NewLat, lon = NewLon, speed = Speed, distance =  Distance, timestamp = NewTimestamp},
    gtracker_track_pub:store(Track, Coord),
-   {noreply, State#state{ccnt = Ccnt + 1, last_coord = Coord}};
+   {noreply, State#state{last_coord = Coord}};
 
 % <<<<< END COORD processing >>>>>
 
-%processMsg(?RENAME_TRACK, <<_TrackName/bitstring>>, State = #state{socket = S, ecnt = ErrCnt, dev_name = undef}) ->
-%   log(State, error, "Device ~p wants to rename track, but not authenticated. Error count ~p",
-%      [inet:peername(S), ErrCnt + 1]),
-%   {return_error(?ERROR_NOT_AUTH), State#state{ecnt = ErrCnt + 1}};
+% <<<<< BEGIN RENAME TRACK processing >>>>>
 
-%processMsg(?RENAME_TRACK, <<BinTrackName/bitstring>>, State = #state{dev_name = DevName, ccnt = 0, ecnt = ErrCnt}) ->
-%   TrackName = erlang:bitstring_to_list(BinTrackName),
-%   log(State, info, "~p wants to rename current track to ~p, but track has not started yet", [DevName, TrackName]),
-%   {return_error(?ERROR_TRACK_NOT_STARTED), State#state{ecnt = ErrCnt + 1}};
+processMsg(?RENAME_TRACK, <<_TrackName/bitstring>>, State = #state{socket = S, ecnt = ErrCnt, dev = undef}) ->
+  log(State, error, "Device ~p wants to rename track, but not authenticated. Error count ~p",
+     [inet:peername(S), ErrCnt + 1]),
+  {return_error(?ERROR_NOT_AUTH), State#state{ecnt = ErrCnt + 1}};
 
-%processMsg(?RENAME_TRACK, <<BinTrackName/bitstring>>, State = #state{dev_name = DevName})
-%when size(BinTrackName) =< 50 ->
-%   TrackName = erlang:bitstring_to_list(BinTrackName),
-%   log(State, info, "~p wants to rename current track to ~p", [DevName, TrackName]),
-%   case rename_track(DevName, TrackName, State) of
-%      error ->
-%         {return_error(?ERROR_TRACK_RENAME), State};
-%      ok ->
-%         {<<?TRACK_STATUS, BinTrackName/binary>>, State}
-%   end;
+processMsg(?RENAME_TRACK, <<BinTrackName/bitstring>>, State = #state{dev = #device{name = DevName}, track = undef, ecnt = ErrCnt}) ->
+  TrackName = erlang:bitstring_to_list(BinTrackName),
+  log(State, info, "~p wants to rename current track to ~p, but track has not started yet", [DevName, TrackName]),
+  {return_error(?ERROR_TRACK_NOT_STARTED), State#state{ecnt = ErrCnt + 1}};
 
-%processMsg(?RENAME_TRACK, <<_BinTrackName/bitstring>>, State) ->
-%   {return_error(?ERROR_TRACK_NAME_TOO_LONG), State};
+processMsg(?RENAME_TRACK, <<BinTrackName/bitstring>>, State = #state{dev = #device{name = DevName}, db = Db, track =
+      Track})
+when size(BinTrackName) =< 50 ->
+  TrackName = erlang:bitstring_to_list(BinTrackName),
+  log(State, info, "~p wants to rename current track to ~p", [DevName, TrackName]),
+  case gtracker_pub:update(Db, Track#track{name = TrackName}, ?MAX_CALL_TIMEOUT) of
+     {error, _, _} ->
+        {return_error(?ERROR_TRACK_RENAME), State};
+     ok ->
+        {<<?TRACK_STATUS, BinTrackName/binary>>, State}
+  end;
+
+processMsg(?RENAME_TRACK, <<_BinTrackName/bitstring>>, State) ->
+  {return_error(?ERROR_TRACK_NAME_TOO_LONG), State};
+
+% <<<<< END RENAME TRACK processing >>>>>
+
+% <<<<< BEGIN NEW TRACK processing >>>>>
 
 %processMsg(?START_NEW_TRACK, <<_TrackName/bitstring>>, State = #state{socket = S, ecnt = ErrCnt, dev_name = undef}) ->
 %   log(State, error, "Device ~p wants to start new track, but not authenticated. Error count ~p",
@@ -307,12 +303,14 @@ processMsg(?COORD_MSG, <<Lat:?LAT, LatExp:?LAT_EXP, Lon:?LON, LonExp:?LON_EXP, S
 %         {<<?TRACK_STATUS, BinTrackName/binary>>, State}
 %   end;
 
-%processMsg(?START_NEW_TRACK, <<_BinTrackName/bitstring>>, State) ->
-%   {return_error(?ERROR_TRACK_NAME_TOO_LONG), State};
+processMsg(?START_NEW_TRACK, <<_BinTrackName/bitstring>>, State) ->
+  {return_error(?ERROR_TRACK_NAME_TOO_LONG), State};
 
-%processMsg(?HEARTBEAT_MSG, <<>>, State) ->
-%   log(State, debug, "Heartbeat message received."),
-%   {<<?HEARTBEAT_RESPONSE>>, State};
+% <<<<< END NEW TRACK processing >>>>>
+
+processMsg(?HEARTBEAT_MSG, <<>>, State) ->
+  log(State, debug, "Heartbeat message received."),
+  {<<?HEARTBEAT_RESPONSE>>, State};
 
 %processMsg(?SOS_MSG, <<>>, #state{socket = S, dev_name = undef, ecnt = ErrCnt} = State) ->
 %   log(State, debug, "SOS message received from device ~p, but device hasn't registered yet. Ignored. Error count ~p",
