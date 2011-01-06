@@ -2,7 +2,7 @@
 
 -export([start/1, stop/1]).
 
--include("../../include/common_recs.hrl").
+-include("common_recs.hrl").
 
 start(DevName) ->
    spawn_link(fun() -> subscribe(DevName) end).

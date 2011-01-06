@@ -1,3 +1,4 @@
 1. make logging to tracks
 2. Determine a failured node, when new track is created
 3. implement gtracker_protocol:reconnect_to
+4. Use proplists instead of my own "wheel"

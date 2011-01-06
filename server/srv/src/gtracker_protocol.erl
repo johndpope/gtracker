@@ -8,9 +8,7 @@
 -include("common_defs.hrl").
 -include("common_recs.hrl").
 
--export([start/2, stop/1]).
-
--export([parsePacket/2, processMsg/3]).
+-export([start/2, stop/1, reconnect_to/2]).
 
 -import(gtracker_common, [unix_seconds_to_datetime/1, ints_to_float/2, send_pg/2, fill_binary/3]).
 
@@ -62,6 +60,13 @@ start(Socket, Opts) ->
 
 stop(Pid) ->
    Pid ! stop.
+
+reconnect_to(Socket, NodeInfo) ->
+   Host = mds_common:get_param(host, NodeInfo),
+   Port = mds_common:get_param(port, NodeInfo),
+   BinHost = fill_binary(erlang:list_to_binary(Host), ?HOST_LEN, <<0:8>>),
+   gen_tcp:send(Socket, <<?RECONNECT_TO, BinHost/binary, Port:32>>),
+   gen_tcp:close(Socket).
 
 %=======================================================================================================================
 % gtracker_protocol main loop

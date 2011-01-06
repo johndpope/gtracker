@@ -8,3 +8,4 @@
 -define(RENAME_TRACK,       $H).
 -define(TRACK_STATUS,       $I).
 -define(HEARTBEAT_RESPONSE, $J).
+-define(RECONNECT_TO,       $K).

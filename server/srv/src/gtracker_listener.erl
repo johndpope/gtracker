@@ -19,7 +19,7 @@
 -define(ADDRESS, "gtracker.ru").
 -define(MOD, {global, ?MODULE}).
 
--record(state, {lsocket, db, protocol, port, address, opts}).
+-record(state, {lsocket, db, protocol, port, host, opts}).
 
 start_in_shell() ->
    start([{root_dir, "/tmp/gtracker"}, {db, nodb}, {log_level, debug}]).
@@ -33,19 +33,19 @@ stop() ->
 on_start(Opts) ->
    SelfOpts = get_param('self', Opts),
    Port = get_param(port, SelfOpts, ?PORT),
-   Address = get_param(address, SelfOpts, ?ADDRESS),
+   Host = get_param(host, SelfOpts, ?ADDRESS),
    Db = get_param(db, SelfOpts),
    Proto = get_param(protocol, SelfOpts, gtracker_protocol),
    {ok, ListenSocket} = gen_tcp:listen(Port, [binary, {packet, 1}, {reuseaddr, true}, {active, once}]),
    log(info, "Started"),
-   {ok, #state{lsocket = ListenSocket, db = Db, protocol = Proto, port = Port, address = Address, opts = Opts}, ?TIMEOUT}.
+   {ok, #state{lsocket = ListenSocket, db = Db, protocol = Proto, port = Port, host = Host, opts = Opts}, ?TIMEOUT}.
 
 on_stop(Reason, _State) ->
    log(info, "Stopped <~p>.", [Reason]),
    ok.
 
 on_msg(get_info, _From, State) ->
-   {reply, [{port, State#state.port}, {address, State#state.address}], State};
+   {reply, [{host, State#state.host}, {port, State#state.port}], State};
 
 on_msg(stop, _From, State) ->
    {stop, normal, stopped, State};
@@ -77,7 +77,6 @@ on_info(_Msg, State) ->
          true ->
             NodeInfo = gen_server:call(Node, gtracker_listener, [get_info]),
             apply(State#state.protocol, reconnect_to, [PeerSocket, NodeInfo]),
-            gen_tcp:close(PeerSocket),
             {noreply, State, ?TIMEOUT}
          end;
       {error, timeout} ->

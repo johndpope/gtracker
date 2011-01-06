@@ -11,3 +11,4 @@
 
 -define(DEV_NAME_LEN, 12).
 -define(REF_SIZE, 128).
+-define(HOST_LEN, 128).
