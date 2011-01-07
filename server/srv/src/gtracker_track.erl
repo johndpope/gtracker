@@ -61,6 +61,8 @@ loop(State = #state{db = Db, track = Track, subs = S, ref = Ref, owner = Owner, 
          error_logger:info_msg("~p: owner ~p exited with reason '~p'. Closing...~n", [Track#track.id, Owner, Reason]),
          dets:close(Ref),
          gen_server:cast(Db, {closed, Track});
+      {updated, #track{name = NewName}} ->
+         loop(#state{track = Track#track{name = NewName}});
       Msg ->
          error_logger:error_msg("~p: Unknown message ~p was ignored~n", [Track#track.id, Msg]),
          loop(State)

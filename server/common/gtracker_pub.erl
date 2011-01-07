@@ -27,7 +27,7 @@
 -include("common_defs.hrl").
 
 
-% get_devices(Db, Timeout) -> [Device] | error
+% get_devices(Db, Timeout) -> [Device] | {error, term(), List}
 %  Db = registereg Db name
 %  Timeout - call timeout
 %  Device = #device, See device record in gtracker/server/include/common_defs.hrl for details
@@ -36,7 +36,7 @@ get_devices(Db, Timeout) ->
 get_devices() ->
    get_devices(?db_ref, ?MAX_CALL_TIMEOUT).
 
-% get_device(Db, DevName, Timeout) -> Device() | error
+% get_device(Db, DevName, Timeout) -> Device() | {error, term(), List}
 %  Db = registereg Db name
 %  Timeout - call timeout
 %  DevName = String()
@@ -45,7 +45,7 @@ get_device(Db, DevName, Timeout) ->
 get_device(DevName) ->
    get_device(?db_ref, DevName, ?MAX_CALL_TIMEOUT).
 
-% update(Db, Object(), Mask, Timeout) -> Object() | error
+% update(Db, Object(), Mask, Timeout) -> Object() | {error, term(), List}
 %  Db = registereg Db name
 %  Object = Device(), Track(), User()
 %  Timeout - call timeout
@@ -56,7 +56,7 @@ update(Db, Object, Mask, Timeout) ->
 update(Object, Mask) ->
    update(?db_ref, Object, Mask, ?MAX_CALL_TIMEOUT).
 
-% register(Db, Timeout) -> Device() | error
+% register(Db, Timeout) -> Device() | {error, term(), List}
 %  Db = registereg Db name
 %  Timeout - call timeout
 %  registers a new device
@@ -65,7 +65,7 @@ register(Db, Timeout) ->
 register() ->
    register(?db_ref, ?MAX_CALL_TIMEOUT).
 
-% reister(Db, DevName, Timeout) -> Device() | no_such_device | already_registered | error
+% reister(Db, DevName, Timeout) -> Device() | {error, term(), List}
 %  Db = registereg Db name
 %  Timeout - call timeout
 %  registers a existing device
@@ -74,7 +74,7 @@ register(Db, DevName, Timeout) ->
 register(DevName) ->
    register(?db_ref, DevName, ?MAX_CALL_TIMEOUT).
 
-% unregister(Db, DevName, Timeout) -> unregistered | no_such_device | error | wrong_owner
+% unregister(Db, DevName, Timeout) -> unregistered | {error, term(), List}
 %  Db = registereg Db name
 %  Timeout - call timeout
 unregister(Db, DevName, Timeout) ->
@@ -112,7 +112,7 @@ unsubscribe(Db, DevName, Timeout) ->
 unsubscribe(DevName) ->
    unsubscribe(?db_ref, DevName, ?MAX_CALL_TIMEOUT).
 
-% new_user(Db, UserName, Password, Timeout) -> User | already_exists | error
+% new_user(Db, UserName, Password, Timeout) -> User | {error, term(), List}
 %  Db = registereg Db name
 %  Timeout - call timeout
 %  UserName = String(), e.g. demo@demo.org
@@ -132,7 +132,7 @@ get_user(Db, UserName, Timeout) ->
 get_user(UserName) ->
    get_user(?db_ref, UserName, ?MAX_CALL_TIMEOUT).
 
-% authenticate(Db, UserName, Password, Timeout) -> User() | rejected | error
+% authenticate(Db, UserName, Password, Timeout) -> User() | {error, term(), List}
 %  Db = registereg Db name
 %  Timeout - call timeout
 %  UserName = String()
@@ -142,7 +142,7 @@ authenticate(Db, UserName, Password, Timeout) ->
 authenticate(UserName, Password) ->
    gen_server:call(?db_ref, {login, UserName, Password}, ?MAX_CALL_TIMEOUT).
 
-% get_tracks(Db, DevName, Timeout) -> Tracks | error
+% get_tracks(Db, DevName, Timeout) -> Tracks | {error, term(), List()}
 %  Db = registereg Db name
 %  Timeout - call timeout
 %  Tracks = [Track]
@@ -152,7 +152,7 @@ get_tracks(Db, DevName, Timeout) ->
 get_tracks(DevName) ->
    get_tracks(?db_ref, DevName, ?MAX_CALL_TIMEOUT).
 
-% get_triggers(Db, DevName, Timeout) -> Triggers | error
+% get_triggers(Db, DevName, Timeout) -> Triggers | {error, term(), List()}
 %  Db = registereg Db name
 %  Timeout - call timeout
 %  Triggers = [Trigger]

@@ -323,12 +323,15 @@ on_msg({update, NewTrack = #track{id = TrackId}, Mask}, _From, State) ->
          case mnesia:dirty_read(track, TrackId) of
             [] ->
                {error, no_such_track, [TrackId]};
-            [Track] ->
+            [Track = #track{pid = Pid}] ->
                MergedTrack = merge_tracks(Track, NewTrack, Mask),
                mnesia:dirty_write(MergedTrack),
-               [Device] = mnesia:dirty_read(device, Track#track.dev_name),
-               gtracker_common:send2subs(Device#device.subs, {updated, MergedTrack}),
-               MergedTrack
+               if is_pid(Pid) ->
+                  Pid ! {updated, MergedTrack},
+                  MergedTrack;
+               true ->
+                  MergedTrack
+               end
          end
    end,
    try F() of

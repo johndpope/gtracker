@@ -210,7 +210,7 @@ processMsg(?AUTH_MSG, <<1:?VER, BinDevName:?BIN_DEV_NAME>>,
    case gtracker_pub:register(State#state.db, DevName, ?MAX_CALL_TIMEOUT) of
       error ->
          {return_error(?ERROR_SERVER_UNAVAILABLE), State};
-      no_such_device -> % wrong device name, hacker?
+      {error, no_such_device, [DevName]} -> % wrong device name, hacker?
          log(State, warning, "Device name ~p not found. Error count ~p.", [DevName, ErrCnt + 1]),
          {return_error(?ERROR_WRONG_DEV_NAME), State#state{ecnt = ErrCnt + 1}};
       Device = #device{reference = Ref} ->
@@ -231,7 +231,7 @@ processMsg(?COORD_MSG, _Msg, State = #state{socket = S, ecnt = ErrCnt, dev = und
 
 processMsg(?COORD_MSG, Coord, State = #state{db = Db, calc_speed = CS, dev = #device{name = DevName, subs = Subs}, track = undef, ecnt = ErrCnt}) ->
    case gtracker_pub:new_track(Db, DevName, false, CS, ?MAX_CALL_TIMEOUT) of
-      no_such_device ->
+      {error, no_such_device, [DevName]} ->
          {return_error(?ERROR_WRONG_DEV_NAME), State#state{ecnt = ErrCnt + 1}};
       Track when is_record(Track, track) ->
          gtracker_track_pub:set_subscribers(Track, Subs),
@@ -282,26 +282,28 @@ processMsg(?RENAME_TRACK, <<_BinTrackName/bitstring>>, State) ->
 
 % <<<<< BEGIN NEW TRACK processing >>>>>
 
-%processMsg(?START_NEW_TRACK, <<_TrackName/bitstring>>, State = #state{socket = S, ecnt = ErrCnt, dev_name = undef}) ->
-%   log(State, error, "Device ~p wants to start new track, but not authenticated. Error count ~p",
-%      [inet:peername(S), ErrCnt + 1]),
-%   {return_error(?ERROR_NOT_AUTH), State#state{ecnt = ErrCnt + 1}};
+processMsg(?START_NEW_TRACK, <<_TrackName/bitstring>>, State = #state{socket = S, ecnt = ErrCnt, dev = undef}) ->
+  log(State, error, "Device ~p wants to start new track, but not authenticated. Error count ~p",
+     [inet:peername(S), ErrCnt + 1]),
+  {return_error(?ERROR_NOT_AUTH), State#state{ecnt = ErrCnt + 1}};
 
-%processMsg(?START_NEW_TRACK, <<BinTrackName/bitstring>>, State = #state{dev_name = DevName, ccnt = 0, ecnt = ErrCnt}) ->
-%   TrackName = erlang:bitstring_to_list(BinTrackName),
-%   log(State, info, "~p wants to start new track ~p, but there was no coordinates received.", [DevName, TrackName]),
-%   {return_error(?ERROR_TRACK_NOT_STARTED), State#state{ecnt = ErrCnt + 1}};
+processMsg(?START_NEW_TRACK, <<BinTrackName/bitstring>>, State = #state{dev = #device{name = DevName}, track = undef, ecnt = ErrCnt}) ->
+  TrackName = erlang:bitstring_to_list(BinTrackName),
+  log(State, info, "~p wants to start new track ~p, but there was no coordinates received.", [DevName, TrackName]),
+  {return_error(?ERROR_TRACK_NOT_STARTED), State#state{ecnt = ErrCnt + 1}};
 
-%processMsg(?START_NEW_TRACK, <<BinTrackName/bitstring>>, State = #state{dev_name = DevName})
-%when size(BinTrackName) =< 50 ->
-%   TrackName = erlang:bitstring_to_list(BinTrackName),
-%   log(State, info, "~p wants to start new track ~p", [DevName, TrackName]),
-%   case start_new_track(DevName, TrackName, State) of
-%      error ->
-%         {return_error(?ERROR_START_NEW_TRACK), State};
-%      ok ->
-%         {<<?TRACK_STATUS, BinTrackName/binary>>, State}
-%   end;
+processMsg(?START_NEW_TRACK, <<BinTrackName/bitstring>>, State = #state{db = Db, calc_speed = CS, dev = #device{name =
+         DevName, subs = Subs}, track = Track, ecnt = ErrCnt})
+when size(BinTrackName) =< 50 ->
+   TrackName = erlang:bitstring_to_list(BinTrackName),
+   log(State, info, "~p wants to start new track ~p", [DevName, TrackName]),
+   gtracker_track_pub:close(Track),
+   case gtracker_pub:new_track(Db, DevName, true, CS, ?MAX_CALL_TIMEOUT) of
+      {error, no_such_device, [DevName]} ->
+         {return_error(?ERROR_WRONG_DEV_NAME), State#state{ecnt = ErrCnt + 1}};
+      NewTrack when is_record(NewTrack, track) ->
+         gtracker_track_pub:set_subscribers(NewTrack, Subs)
+   end;
 
 processMsg(?START_NEW_TRACK, <<_BinTrackName/bitstring>>, State) ->
   {return_error(?ERROR_TRACK_NAME_TOO_LONG), State};
