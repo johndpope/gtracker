@@ -36,7 +36,7 @@ loop(State = #state{db = Db, track = Track, subs = S, ref = Ref, owner = Owner, 
          ok = dets:insert(Ref, Coord),
          NewS = gtracker_common:send2subs(S, Coord),
          NewTrack = update_track_stat(Track, Coord, CalcSpeed),
-         NewS2 = gtracker_common:send2subs(NewS, NewTrack),
+         NewS2 = gtracker_common:send2subs(NewS, {updated, NewTrack}),
          loop(State#state{subs = NewS2, track = NewTrack});
       {owner, NewOwner} ->
          error_logger:info_msg("The owner ~p has  been changed to ~p~n", [Owner, NewOwner]),

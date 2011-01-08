@@ -19,7 +19,7 @@
 -define(ADDRESS, "gtracker.ru").
 -define(MOD, {global, ?MODULE}).
 
--record(state, {lsocket, db, protocol, port, host, opts}).
+-record(state, {lsocket, db, protocol, port, host, listener_ns, opts}).
 
 start_in_shell() ->
    start([{root_dir, "/tmp/gtracker"}, {db, nodb}, {log_level, debug}]).
@@ -37,8 +37,16 @@ on_start(Opts) ->
    Db = get_param(db, SelfOpts),
    Proto = get_param(protocol, SelfOpts, gtracker_protocol),
    {ok, ListenSocket} = gen_tcp:listen(Port, [binary, {packet, 1}, {reuseaddr, true}, {active, once}]),
-   log(info, "Started"),
-   {ok, #state{lsocket = ListenSocket, db = Db, protocol = Proto, port = Port, host = Host, opts = Opts}, ?TIMEOUT}.
+   {ok, MP} = re:compile("^(.*)_.*@.*$"),
+   NS =
+   case re:run(atom_to_list(node()), MP, [{capture, [1], list}]) of
+      nomatch ->
+         undef;
+      {match, [ListenerNS]} ->
+         ListenerNS
+   end,
+   log(info, "Started at <~p> namespace", [NS]),
+   {ok, #state{listener_ns = NS, lsocket = ListenSocket, db = Db, protocol = Proto, port = Port, host = Host, opts = Opts}, ?TIMEOUT}.
 
 on_stop(Reason, _State) ->
    log(info, "Stopped <~p>.", [Reason]),
@@ -64,13 +72,13 @@ on_amsg({log, LogLevel, Format, Params}, State) ->
 on_amsg(_Msg, State) ->
    {norepy, State, 0}.
 
-on_info(_Msg, State) ->
+on_info(_Msg, State = #state{listener_ns = ListenerNS}) ->
    ListenSocket = State#state.lsocket,
    case gen_tcp:accept(ListenSocket, 0) of
       {ok, PeerSocket} ->
          {ok, Addr} = inet:peername(PeerSocket),
          log(info, "Device connected from ~p.", [Addr]),
-         Node = gtracker_common:get_best_node(true, []),
+         Node = gtracker_common:get_best_node(ListenerNS, true, []),
          if (node() == Node) ->
             apply(State#state.protocol, start, [PeerSocket, [{listener, ?MOD}, {opts, State#state.opts}]]),
             {noreply, State, ?TIMEOUT};

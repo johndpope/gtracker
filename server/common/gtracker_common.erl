@@ -18,7 +18,7 @@
       ,binary_to_hex/1
       ,fill_binary/3
       ,get_best_process/1
-      ,get_best_node/2
+      ,get_best_node/3
       ,send2subs/2
    ]).
 
@@ -110,15 +110,36 @@ get_best_process(ProcGroup) ->
          undef
    end.
 
-get_best_node(DiscoverSelf, FailuredNodes) ->
+get_best_node(Namespace, DiscoverSelf, IgnoredNodes) ->
    AllNodes = erlang:nodes(if DiscoverSelf == true -> [connected, this]; true -> connected end),
-   Nodes = lists:subtract(AllNodes, FailuredNodes),
+   Nodes = lists:subtract(AllNodes, IgnoredNodes),
+   NsNodes =
+   case Namespace of
+      undef ->
+         Nodes;
+      Namespace ->
+         lists:foldl(
+         fun(Node, Acc) ->
+               NodeName = atom_to_list(Node),
+               {ok, MP} = re:compile(Namespace ++ "_.*@.*"),
+               case re:run(NodeName, MP, [{capture, none}]) of
+                  match ->
+                     [Node|Acc];
+                  _ ->
+                     Acc
+               end
+         end, [], Nodes)
+   end,
    ProcNodes = lists:foldl(
       fun(Node, Acc) ->
          [{ rpc:call(Node, erlang, system_info, [process_count]), Node} | Acc]
-      end, [], Nodes),
-   [ {_, BestNode } | _ ] = lists:sort(fun({A, _}, {B, _}) -> A < B end, ProcNodes),
-   BestNode.
+      end, [], NsNodes),
+   case lists:sort(fun({A, _}, {B, _}) -> A < B end, ProcNodes) of
+      [] ->
+         throw({error, no_best_node, [Namespace, Nodes]});
+      [ {_, BestNode } | _ ] ->
+         BestNode
+   end.
 
 send2subs(Subs, Msg) ->
    lists:foldl(
@@ -167,7 +188,8 @@ fill_binary_aux(Bin, TailSize, Val) ->
 -include_lib("eunit/include/eunit.hrl").
 
 get_best_node_test() ->
-   ?assertEqual(node(), get_best_node(true, [])).
+   ?assertEqual(node(), get_best_node(undef, true, [])),
+   ?assertException(throw, {error, no_best_node, ["track", [nonode@nohost]]}, get_best_node("track", true, [])).
 
 list_to_urlencoded_test() ->
    SampleList="Hello World",

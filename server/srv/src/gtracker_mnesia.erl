@@ -5,15 +5,14 @@
 -export([start/1, stop/0, on_start/1, on_stop/2, on_msg/3, on_amsg/2, on_info/2]).
 
 -import(mds_utils, [get_param/2, get_param/3]).
--import(gtracker_common, [gen_dev_name/0, binary_to_hex/1, get_best_process/1, get_best_node/2]).
+-import(gtracker_common, [gen_dev_name/0, binary_to_hex/1, get_best_node/3]).
 
 -include("common_defs.hrl").
 -include("common_recs.hrl").
 
 -define(mod, {global, gtracker_db}).
--define(def_triggers, {global, gtracker_triggers}).
 -define(def_track_nodes, gt_tracks).
--record(state, {triggers = undef, track_path = undef, as_track_node = false}).
+-record(state, {track_ns, track_path = undef, as_track_node = false}).
 
 %=======================================================================================================================
 %  public exports
@@ -29,13 +28,13 @@ stop() ->
 %=======================================================================================================================
 on_start(Opts) ->
    SelfOpts = get_param(self, Opts),
-   Triggers = get_param(triggers, SelfOpts, ?def_triggers),
    AsTrackNode = get_param(as_track_node, SelfOpts, false),
+   TrackNS = get_param(track_ns, SelfOpts, undef),
    TrackPath = get_param(track_pach, SelfOpts, "/tmp"),
    mnesia_start(),
    process_flag(trap_exit, true),
    log(info, "Mnesia started."),
-   {ok, #state{triggers = Triggers, track_path = TrackPath, as_track_node = AsTrackNode}}.
+   {ok, #state{track_ns = TrackNS, track_path = TrackPath, as_track_node = AsTrackNode}}.
 
 on_stop(Reason, _State) ->
    log(info, "Mnesia stopped."),
@@ -64,13 +63,13 @@ on_msg(register, {Pid, _}, State) ->
    end,
    Fun(Fun);
 
-on_msg({register, DevName}, {Pid, _}, State = #state{triggers = Triggers}) ->
+on_msg({register, DevName}, {Pid, _}, State) ->
    log(debug, "register(~p). State: ~p", [DevName, dump_state(State)]),
    case mnesia:dirty_read(device, DevName) of
       [] ->
          {reply, {error, no_such_device, [DevName]}, State};
       [Device = #device{owner = undef, status = offline}] ->
-         NewDevice = activate_device(Device, Pid, Triggers),
+         NewDevice = activate_device(Device, Pid),
          mnesia:dirty_write(NewDevice),
          {reply, NewDevice, State};
       [Device = #device{owner = Owner}] when is_pid(Owner) andalso (Pid == Owner) ->
@@ -86,7 +85,7 @@ on_msg({register, DevName}, {Pid, _}, State = #state{triggers = Triggers}) ->
          end,
          log(info, "Trying to stop old owner with Pid = ~p", [Owner]),
          Owner ! stop,
-         NewDevice = activate_device(Device, Pid, Triggers),
+         NewDevice = activate_device(Device, Pid),
          mnesia:dirty_write(NewDevice),
          {reply, NewDevice, State}
    end;
@@ -251,11 +250,6 @@ on_msg({get_tracks, DevName}, _From, State) ->
    log(debug, "get_tracks(~p). State: ~p", [DevName, dump_state(State)]),
    Tracks = mnesia:dirty_index_read(track, DevName, #track.dev_name),
    {reply, Tracks, State};
-
-on_msg({get_triggers, DevName}, _From, State) ->
-   log(debug, "get_triggers(~p). State: ~p", [DevName, dump_state(State)]),
-   Triggers = mnesia:dirty_read(triggers, DevName),
-   {reply, Triggers, State};
 
 on_msg({get_news, UpToDate}, _From, State) ->
    log(debug, "get_news(~p). State: ~p", [UpToDate, dump_state(State)]),
@@ -426,7 +420,6 @@ mnesia_start() ->
    mnesia:create_schema([]),
    mnesia:start(),
    ?create_table(device),
-   ?create_table(trigger),
    ?create_table(user),
    ?create_table(track),
    ?create_table(news),
@@ -435,29 +428,21 @@ mnesia_start() ->
 dump_state(State) ->
    State.
 
-get_trigger_process(DevName, Triggers) ->
-   case mnesia:dirty_read(trigger, DevName) of
-      [] ->
-         undef;
-      _ ->
-         get_best_process(Triggers)
-   end.
-
-activate_device(Device = #device{name = DevName, subs = Subs}, Owner, Triggers) ->
+activate_device(Device = #device{name = DevName, subs = Subs}, Owner) ->
    erlang:link(Owner),
-   %Trigger = get_trigger_process(DevName, Triggers),
    NewSubs = gtracker_common:send2subs(Subs, {online, DevName}),
    Device#device
    {
       owner = Owner,
-      subs = NewSubs, %[Trigger],
+      subs = NewSubs,
       status = online,
       registered_at = now()
    }.
 
-create_track(#device{name = DevName}, _Force, FailuredNodes, #state{track_path = TrackPath, as_track_node = AsTrackNode}) ->
+create_track(#device{name = DevName}, _Force, FailuredNodes,
+   #state{track_ns = TrackNS, track_path = TrackPath, as_track_node = AsTrackNode}) ->
    F = fun(Suffix) ->
-         Node = get_best_node(AsTrackNode, FailuredNodes),
+         Node = get_best_node(TrackNS, AsTrackNode, FailuredNodes),
          TrackName = list_to_atom(lists:flatten(io_lib:format("~s_~p.track", [DevName, Suffix]))),
          NewTrack = #track{id = TrackName, dev_name = DevName, node = Node, path = filename:join(TrackPath, TrackName)},
          mnesia:dirty_write(NewTrack),

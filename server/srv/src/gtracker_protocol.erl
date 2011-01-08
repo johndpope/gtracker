@@ -184,11 +184,11 @@ parsePacket(Msg = <<>>, State = #state{ecnt = ErrCnt}) ->
 % processing of incoming messages
 %=======================================================================================================================
 % device requests new device name
-processMsg(?AUTH_MSG, <<1:?VER>>, State = #state{socket = S, dev = undef, ref_prefix = RefPrefix}) ->
+processMsg(?AUTH_MSG, <<1:?VER>>, State = #state{db = Db, socket = S, dev = undef, ref_prefix = RefPrefix}) ->
    {ok, PeerName} = inet:peername(S),
    log(State, info, "The device ~p requests a new device name.", [PeerName]),
-   case gtracker_pub:register(State#state.db, ?MAX_CALL_TIMEOUT) of
-      error ->
+   case gtracker_pub:register(Db, ?MAX_CALL_TIMEOUT) of
+      {error, _Reason, _} ->
          {return_error(?ERROR_SERVER_UNAVAILABLE), State};
       Device = #device{name = DevName, reference = Ref} ->
          NewState = create_logger(DevName, State),
@@ -208,11 +208,11 @@ processMsg(?AUTH_MSG, <<1:?VER, BinDevName:?BIN_DEV_NAME>>,
    State = #state{socket = S, ref_prefix =RefPrefix, ecnt = ErrCnt}) ->
    DevName = erlang:bitstring_to_list(BinDevName),
    case gtracker_pub:register(State#state.db, DevName, ?MAX_CALL_TIMEOUT) of
-      error ->
-         {return_error(?ERROR_SERVER_UNAVAILABLE), State};
       {error, no_such_device, [DevName]} -> % wrong device name, hacker?
          log(State, warning, "Device name ~p not found. Error count ~p.", [DevName, ErrCnt + 1]),
          {return_error(?ERROR_WRONG_DEV_NAME), State#state{ecnt = ErrCnt + 1}};
+      {error, _Reason, _} ->
+         {return_error(?ERROR_SERVER_UNAVAILABLE), State};
       Device = #device{reference = Ref} ->
          log(State, info, "Device ~p was registered at ~p.", [DevName, inet:peername(S)]),
          NewState = create_logger(DevName, State),
@@ -243,8 +243,13 @@ processMsg(?COORD_MSG, <<Lat:?LAT, LatExp:?LAT_EXP, Lon:?LON, LonExp:?LON_EXP, S
    #state{track = Track, last_coord = LastCoord}) ->
    {NewLat, NewLon, NewTimestamp} = {ints_to_float(Lat, LatExp), ints_to_float(Lon, LonExp), unix_seconds_to_datetime(TimeStamp)},
    log(State, debug, "Coordinate received {~p, ~p, ~p}.", [NewLat, NewLon, NewTimestamp]),
-   #coord{lat = LastLat, lon = LastLon} = LastCoord,
-   Distance = nmea_utils:calc_distance({LastLat, LastLon}, {NewLat, NewLon}),
+   Distance =
+   case LastCoord of
+      undef ->
+         0;
+      #coord{lat = LastLat, lon = LastLon} ->
+         nmea_utils:calc_distance({LastLat, LastLon}, {NewLat, NewLon})
+   end,
    Coord = #coord{lat = NewLat, lon = NewLon, speed = Speed, distance =  Distance, timestamp = NewTimestamp},
    gtracker_track_pub:store(Track, Coord),
    {noreply, State#state{last_coord = Coord}};

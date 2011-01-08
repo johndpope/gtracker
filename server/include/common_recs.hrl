@@ -3,7 +3,8 @@
 -record(device,
    {
       name, alias = undef, reference = undef, status = online, owner = undef, subs = [], timezone = "UTC",
-      registered_at = now(), color = undef, weight = 1, pixmap = undef, twitter_auth = undef, current_track = undef
+      registered_at = now(), color = undef, weight = 1, pixmap = undef, twitter_auth = undef, current_track = undef,
+      triggers = []
    }).
 -record(user, {name, password, online = false, map_type = 0, is_admin = false,  devices = []}).
 -record(track, {id, dev_name, name = undef, pid = undef, node = node(), status = opened, path = undef, start = undef,
