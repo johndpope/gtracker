@@ -2,3 +2,4 @@
 2. Determine a failured node, when new track is created
 3. implement gtracker_protocol:reconnect_to
 4. Use proplists instead of my own "wheel"
+5. Check for disk free space, if no space, server shall close open tracks and deny to create new ones

@@ -234,6 +234,7 @@ processMsg(?COORD_MSG, Coord, State = #state{db = Db, calc_speed = CS, dev = #de
       {error, no_such_device, [DevName]} ->
          {return_error(?ERROR_WRONG_DEV_NAME), State#state{ecnt = ErrCnt + 1}};
       Track when is_record(Track, track) ->
+         log(State, debug, "New track has been created: ~p", [Track]),
          gtracker_track_pub:set_subscribers(Track, Subs),
          processMsg(?COORD_MSG, Coord, State#state{track = Track})
    end;
