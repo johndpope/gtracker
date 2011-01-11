@@ -88,6 +88,8 @@ unregister(DevName) ->
 %  DevName = Sttring()
 subscribe(Db, DevName, Timeout) ->
    case  gen_server:call(Db, {subscribe, DevName, self()}, Timeout) of
+      Device = #device{owner = undef} ->
+         Device;
       Device = #device{owner = Owner} ->
          Owner ! {updated, Device},
          Device;

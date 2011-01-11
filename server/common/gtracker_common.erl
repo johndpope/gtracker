@@ -149,6 +149,8 @@ send2subs(Subs, Msg) ->
                S ! Msg,
                [S|Acc];
             false ->
+               Acc;
+            {badrpc, _} ->
                Acc
          end
       end,
