@@ -17,7 +17,7 @@ build_deps:
 
 release:
 	mkdir -p deps/gtracker_db
-	cp -r ebin deps/gtracker_db
+	cp -r ebin ../include deps/gtracker_db
 	${REBAR} generate
 
 clean:

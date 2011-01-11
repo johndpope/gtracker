@@ -30,7 +30,7 @@ on_start(Opts) ->
    SelfOpts = get_param(self, Opts),
    AsTrackNode = get_param(as_track_node, SelfOpts, false),
    TrackNS = get_param(track_ns, SelfOpts, undef),
-   TrackPath = get_param(track_pach, SelfOpts, "/tmp"),
+   TrackPath = get_param(track_path, SelfOpts, "/tmp"),
    mnesia_start(),
    process_flag(trap_exit, true),
    log(info, "Mnesia started."),
