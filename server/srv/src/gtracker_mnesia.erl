@@ -303,7 +303,7 @@ on_msg({new_track, DevName, Force, FailuredNodes}, _From, State) ->
                      {reply, NewTrack, State};
                   true when (Force == false) ->
                      {reply, Track, State};
-                  false ->
+                  _False ->
                      NewTrack = create_track(Device, Force, FailuredNodes, State), % create new track here
                      mnesia:dirty_write(Device#device{current_track = NewTrack#track.id}),
                      {reply, NewTrack, State}
@@ -443,7 +443,7 @@ create_track(#device{name = DevName}, _Force, FailuredNodes,
    #state{track_ns = TrackNS, track_path = TrackPath, as_track_node = AsTrackNode}) ->
    F = fun(Suffix) ->
          Node = get_best_node(TrackNS, AsTrackNode, FailuredNodes),
-         TrackName = list_to_atom(lists:flatten(io_lib:format("~s_~p.track", [DevName, Suffix]))),
+         TrackName = list_to_atom(lists:flatten(io_lib:format("~s_~p", [DevName, Suffix]))),
          NewTrack = #track{id = TrackName, dev_name = DevName, node = Node, path = filename:join(TrackPath, TrackName)},
          mnesia:dirty_write(NewTrack),
          NewTrack
