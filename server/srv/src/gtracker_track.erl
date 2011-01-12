@@ -17,11 +17,10 @@ open(Db, Track, Owner, CalcSpeed) ->
          receive
             Err = {error, _, _} ->
                Err;
-            NewTrack ->
-               NewTrack
-         end,
-         register(Track#track.id, Pid),
-         Pid;
+            {ok, NewTrack} ->
+               register(NewTrack#track.id, Pid),
+               {ok, NewTrack}
+         end;
       Pid ->
          Track#track{pid = Pid}
    end.
@@ -35,7 +34,7 @@ init(Creator, Db, Track = #track{id = Id, path = Path}, Owner, CalcSpeed) ->
       {ok, NewTrack2} = gtracker_pub:update(Db, NewTrack#track{pid = self()}, ?MAX_CALL_TIMEOUT),
       gen_server:cast(Db, {updated, NewTrack2}),
       erlang:start_timer(60000, self(), update_db),
-      Creator ! NewTrack2,
+      Creator ! {ok, NewTrack2},
       loop(#state{db = Db, track = NewTrack, ref = Ref, owner = Owner, calc_speed = CalcSpeed})
    end,
    try F()

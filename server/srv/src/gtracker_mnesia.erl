@@ -56,7 +56,7 @@ on_msg(register, {Pid, _}, State) ->
             Device = #device{name = DevName, alias = DevName, reference = Ref, status = online, owner = Pid},
             erlang:link(Pid),
             mnesia:dirty_write(Device),
-            {reply, Device, State};
+            {reply, {ok, Device}, State};
          [#device{name = DevName}] ->
             Fun(Fun)
       end
@@ -71,9 +71,9 @@ on_msg({register, DevName}, {Pid, _}, State) ->
       [Device = #device{owner = undef, status = offline}] ->
          NewDevice = activate_device(Device, Pid),
          mnesia:dirty_write(NewDevice),
-         {reply, NewDevice, State};
+         {reply, {ok, NewDevice}, State};
       [Device = #device{owner = Owner}] when is_pid(Owner) andalso (Pid == Owner) ->
-         {reply, Device, State};
+         {reply, {ok, Device}, State};
       [Device = #device{owner = Owner, current_track = TrackId}] ->
          log(info, "Device ~p", [Device]),
          case mnesia:dirty_read(track, TrackId) of
@@ -87,7 +87,7 @@ on_msg({register, DevName}, {Pid, _}, State) ->
          Owner ! stop,
          NewDevice = activate_device(Device, Pid),
          mnesia:dirty_write(NewDevice),
-         {reply, NewDevice, State}
+         {reply, {ok, NewDevice}, State}
    end;
 
 on_msg({unregister, DevName}, {Pid, _}, State) ->
@@ -97,17 +97,14 @@ on_msg({unregister, DevName}, {Pid, _}, State) ->
          {reply, {error, no_such_device, [DevName]}, State};
       [Device = #device{owner = undef, status = offline, subs = Subs}] ->
          NewSubs = gtracker_common:send2subs(Subs, {offline, DevName}),
-         if (NewSubs =/= Subs) ->
-            mnesia:dirty_write(Device#device{subs = NewSubs}),
-            {reply, Device, State};
-         true ->
-            {reply, Device, State}
-         end;
+         NewDevice = Device#device{subs = NewSubs},
+         mnesia:dirty_write(NewDevice),
+         {reply, {ok, NewDevice}, State};
       [Device = #device{owner = Owner, subs = Subs}] when is_pid(Owner) andalso (Pid == Owner) ->
          NewSubs = gtracker_common:send2subs(Subs, {offline, DevName}),
          NewDevice = Device#device{owner = undef, status = offline, subs = NewSubs},
          mnesia:dirty_write(NewDevice),
-         {reply, NewDevice, State};
+         {reply, {ok, NewDevice}, State};
       [Device = #device{owner = Owner, subs = Subs}] ->
          case rpc:call(node(Owner), erlang, is_process_alive, [Owner]) of
             true ->
@@ -117,7 +114,7 @@ on_msg({unregister, DevName}, {Pid, _}, State) ->
                NewSubs = gtracker_common:send2subs(Subs, {offline, DevName}),
                NewDevice = Device#device{owner = undef, status = offline, subs = NewSubs},
                mnesia:dirty_write(NewDevice),
-               {reply, NewDevice, State}
+               {reply, {ok, NewDevice}, State}
          end
    end;
 
@@ -127,7 +124,7 @@ on_msg({new_user, UserName, Password}, _From, State) ->
       [] ->
          User = #user{name = UserName, password = erlang:md5(Password)},
          mnesia:dirty_write(User),
-         {reply, User, State};
+         {reply, {ok, User}, State};
       _User ->
          {reply, {error, already_exists, [UserName]}, State}
    end;
@@ -138,7 +135,7 @@ on_msg({get_user, UserName}, _From, State) ->
       [] ->
          {reply, {error, not_found, [UserName]}, State};
       [User] ->
-         {reply, User, State}
+         {reply, {ok, User}, State}
    end;
 
 on_msg({update, NewUser = #user{name = UserName}, Mask}, _From, State) ->
@@ -150,7 +147,7 @@ on_msg({update, NewUser = #user{name = UserName}, Mask}, _From, State) ->
          [User] ->
             MergedUser = merge_users(User, NewUser, Mask),
             mnesia:dirty_write(MergedUser),
-            MergedUser
+            {ok, MergedUser}
       end
    end,
    try F() of
@@ -171,7 +168,7 @@ on_msg({login, UserName, Password}, _From, State) ->
             true ->
                OnlineUser = User#user{online = true},
                mnesia:dirty_write(OnlineUser),
-               {reply, OnlineUser, State};
+               {reply, {ok, OnlineUser}, State};
             false ->
                {reply, {error, rejected, [UserName, Password]}, State}
          end
@@ -190,7 +187,7 @@ on_msg({logout, UserName}, _From, State) ->
 on_msg(get_all_devices, _From, State) ->
    log(debug, "get_all_devices. State: ~p", [dump_state(State)]),
    Devices = mnesia:dirty_select(device, [{'_', [], ['$_']}]),
-   {reply, Devices, State};
+   {reply, {ok, Devices}, State};
 
 on_msg({get_device, DevName}, _From, State) ->
    log(debug, "get_device(~p). State: ~p", [DevName, dump_state(State)]),
@@ -198,7 +195,7 @@ on_msg({get_device, DevName}, _From, State) ->
       [] ->
          {reply, {error, no_such_device, [DevName]}, State};
       [Device] ->
-         {reply, Device, State}
+         {reply, {ok, Device}, State}
    end;
 
 on_msg({update, NewDevice = #device{name = DevName}, Mask}, _From, State) ->
@@ -212,7 +209,7 @@ on_msg({update, NewDevice = #device{name = DevName}, Mask}, _From, State) ->
             NewSubs = gtracker_comon:send2subs(Subs, {updated, MergedDevice}),
             MergedDevice2 = MergedDevice#device{subs = NewSubs},
             mnesia:dirty_write(MergedDevice2),
-            MergedDevice2
+            {ok, MergedDevice2}
       end
    end,
    try F() of
@@ -232,7 +229,7 @@ on_msg({subscribe, DevName, Pid}, _From, State) ->
          NewDevice = Device#device{subs = lists:usort([Pid|Subs])},
          Pid ! {Status, Device#device.name},
          mnesia:dirty_write(NewDevice),
-         {reply, NewDevice, State}
+         {reply, {ok, NewDevice}, State}
    end;
 
 on_msg({unsubscribe, DevName, Pid}, _From, State) ->
@@ -243,7 +240,7 @@ on_msg({unsubscribe, DevName, Pid}, _From, State) ->
       [Device = #device{subs = Subs}] ->
          NewDevice = Device#device{subs = lists:delete(Pid, Subs)},
          mnesia:dirty_write(NewDevice),
-         {reply, NewDevice, State}
+         {reply, {ok, NewDevice}, State}
    end;
 
 on_msg({get_tracks, DevName}, _From, State) ->
@@ -257,7 +254,7 @@ on_msg({get_news, UpToDate}, _From, State) ->
    case calendar:valid_date(Date) of
       true ->
          Result = mnesia:dirty_select(news, [{#news{date = '$1', _='_'}, [{'=<', '$1', {Date}}], ['$_']}]),
-         {reply, Result, State};
+         {reply, {ok, Result}, State};
       false ->
          {reply, {error, invalid_date, [UpToDate]}, State}
    end;
@@ -268,7 +265,7 @@ on_msg({insert_news, Date, Text}, _From, State) ->
       true ->
          Ref = erlang:make_ref(),
          mnesia:dirty_write(#news{id = Ref, date = Date, text = Text}),
-         {reply, Ref, State};
+         {reply, {ok, Ref}, State};
       false ->
          {reply, {error, invalid_date, [Date]}, State}
    end;
@@ -288,25 +285,21 @@ on_msg({new_track, DevName, Force, FailuredNodes}, _From, State) ->
       [Device = #device{current_track = undef}] ->
          NewTrack = create_track(Device, Force, FailuredNodes, State), % create new track here
          mnesia:dirty_write(Device#device{current_track = NewTrack#track.id}),
-         {reply, NewTrack, State};
+         {reply, {ok, NewTrack}, State};
       [Device = #device{current_track = TrackId}] ->
          case mnesia:dirty_read(track, TrackId) of
             [] ->
                NewTrack = create_track(Device, Force, FailuredNodes, State), % create new track here
                mnesia:dirty_write(Device#device{current_track = NewTrack#track.id}),
-               {reply, NewTrack, State};
+               {reply, {ok, NewTrack}, State};
             [Track = #track{pid = Pid}] ->
                case (Pid =/= undef) andalso rpc:call(node(Pid), erlang, is_process_alive, [Pid]) of
-                  true when (Force == true) ->
-                     NewTrack = create_track(Device, Force, FailuredNodes, State), % create new track here
-                     mnesia:dirty_write(Device#device{current_track = NewTrack#track.id}),
-                     {reply, NewTrack, State};
                   true when (Force == false) ->
-                     {reply, Track, State};
-                  _False ->
+                     {reply, {ok, Track}, State};
+                  Res when (Res == false) orelse ((Res == true) andalso (Force == true)) ->
                      NewTrack = create_track(Device, Force, FailuredNodes, State), % create new track here
                      mnesia:dirty_write(Device#device{current_track = NewTrack#track.id}),
-                     {reply, NewTrack, State}
+                     {reply, {ok, NewTrack}, State}
                end
          end
    end;
@@ -322,9 +315,9 @@ on_msg({update, NewTrack = #track{id = TrackId}, Mask}, _From, State) ->
                mnesia:dirty_write(MergedTrack),
                if is_pid(Pid) ->
                   Pid ! {updated, MergedTrack},
-                  MergedTrack;
+                  {ok, MergedTrack};
                true ->
-                  MergedTrack
+                  {ok, MergedTrack}
                end
          end
    end,

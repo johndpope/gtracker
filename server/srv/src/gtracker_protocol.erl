@@ -70,7 +70,7 @@ reconnect_to(Socket, NodeInfo) ->
 %=======================================================================================================================
 % gtracker_protocol main loop
 %=======================================================================================================================
-loop(State = #state{db = Db, dev = Device, track = Track, socket = Socket}) ->
+loop(State = #state{dev = Device, track = Track, socket = Socket}) ->
    receive
       {tcp, Socket, Data} ->
          {ok, PeerName} = inet:peername(Socket),
@@ -90,7 +90,6 @@ loop(State = #state{db = Db, dev = Device, track = Track, socket = Socket}) ->
          log(State, info, "Device ~p with ID = ~p was closed by peer.", [self(), Device#device.name]);
       {'EXIT', Pid, _} when State#state.track#track.pid =:= Pid ->
          log(State, info, "Track ~p has been crashed.", [Track#track.id]),
-         gtracker_pub:update(Db, Track#track{pid = undef}, [pid], ?MAX_CALL_TIMEOUT),
          loop(State#state{track = undef});
       {'EXIT', _, _} ->
          unregister(State),
@@ -192,7 +191,7 @@ processMsg(?AUTH_MSG, <<1:?VER>>, State = #state{db = Db, socket = S, dev = unde
       Err = {error, _Reason, _} ->
          log(State, error, "Register error: ~p", [Err]),
          {return_error(?ERROR_SERVER_UNAVAILABLE), State};
-      Device = #device{name = DevName, reference = Ref} ->
+      {ok, Device = #device{name = DevName, reference = Ref}} ->
          NewState = create_logger(DevName, State),
          log(State, info, "The device ~p got a device name ~p.", [PeerName, DevName]),
          BinDevName = erlang:list_to_bitstring(DevName),
@@ -213,9 +212,10 @@ processMsg(?AUTH_MSG, <<1:?VER, BinDevName:?BIN_DEV_NAME>>,
       {error, no_such_device, [DevName]} -> % wrong device name, hacker?
          log(State, warning, "Device name ~p not found. Error count ~p.", [DevName, ErrCnt + 1]),
          {return_error(?ERROR_WRONG_DEV_NAME), State#state{ecnt = ErrCnt + 1}};
-      {error, _Reason, _} ->
+      Err = {error, _Reason, _} ->
+         log(state, error, "Register error ~p", [Err]),
          {return_error(?ERROR_SERVER_UNAVAILABLE), State};
-      Device = #device{reference = Ref} ->
+      {ok, Device = #device{reference = Ref}} ->
          log(State, info, "Device ~p was registered at ~p.", [DevName, inet:peername(S)]),
          NewState = create_logger(DevName, State),
          BinRef = fill_binary(erlang:list_to_binary(RefPrefix ++ Ref), ?REF_SIZE, <<0:8>>),
@@ -235,9 +235,10 @@ processMsg(?COORD_MSG, Coord, State = #state{db = Db, calc_speed = CS, dev = #de
    case gtracker_pub:new_track(Db, DevName, false, CS, ?MAX_CALL_TIMEOUT) of
       {error, no_such_device, [DevName]} ->
          {return_error(?ERROR_WRONG_DEV_NAME), State#state{ecnt = ErrCnt + 1}};
-      {error, Reason, Args} ->
+      Err = {error, _, _} ->
+         log(State, error, "New track error ~p", [Err]),
          {return_error(?ERROR_SERVER_UNAVAILABLE), State#state{ecnt = ErrCnt + 1}};
-      Track when is_record(Track, track) ->
+      {ok, Track} ->
          log(State, debug, "New track has been created: ~p", [Track]),
          gtracker_track_pub:set_subscribers(Track, Subs),
          processMsg(?COORD_MSG, Coord, State#state{track = Track})
@@ -279,9 +280,10 @@ when size(BinTrackName) =< 50 ->
   TrackName = erlang:bitstring_to_list(BinTrackName),
   log(State, info, "~p wants to rename current track to ~p", [DevName, TrackName]),
   case gtracker_pub:update(Db, Track#track{name = TrackName}, [name], ?MAX_CALL_TIMEOUT) of
-     {error, _, _} ->
+     Err = {error, _, _} ->
+        log(State, error, "Unable to rename track ~p", [Err]),
         {return_error(?ERROR_TRACK_RENAME), State};
-     ok ->
+     {ok, _Device} ->
         {<<?TRACK_STATUS, BinTrackName/binary>>, State}
   end;
 
@@ -311,10 +313,10 @@ when size(BinTrackName) =< 50 ->
    case gtracker_pub:new_track(Db, DevName, true, CS, ?MAX_CALL_TIMEOUT) of
       {error, no_such_device, [DevName]} ->
          {return_error(?ERROR_WRONG_DEV_NAME), State#state{ecnt = ErrCnt + 1}};
-      Err = {error, Reason, Args} ->
+      Err = {error, _, _} ->
          log(State, error, "Start new track error: ~p", [Err]),
          {return_error(?ERROR_SERVER_UNAVAILABLE), State#state{ecnt = ErrCnt + 1}};
-      NewTrack when is_record(NewTrack, track) ->
+      {ok, NewTrack} ->
          gtracker_track_pub:set_subscribers(NewTrack, Subs)
    end;
 

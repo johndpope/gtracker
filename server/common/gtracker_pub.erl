@@ -88,13 +88,13 @@ unregister(DevName) ->
 %  DevName = Sttring()
 subscribe(Db, DevName, Timeout) ->
    case  gen_server:call(Db, {subscribe, DevName, self()}, Timeout) of
-      Device = #device{owner = undef} ->
-         Device;
-      Device = #device{owner = Owner} ->
+      {ok, Device = #device{owner = undef}} ->
+         {ok, Device};
+      {ok, Device = #device{owner = Owner}} ->
          Owner ! {updated, Device},
-         Device;
-      Msg ->
-         Msg
+         {ok, Device};
+      Err ->
+         Err
    end.
 subscribe(DevName) ->
    subscribe(?db_ref, DevName, ?MAX_CALL_TIMEOUT).
@@ -105,11 +105,13 @@ subscribe(DevName) ->
 %  DevName = String()
 unsubscribe(Db, DevName, Timeout) ->
    case  gen_server:call(Db, {unsubscribe, DevName, self()}, Timeout) of
-      Device = #device{owner = Owner} ->
+      {ok, Device = #device{owner = undef}} ->
+         {ok, Device};
+      {ok, Device = #device{owner = Owner}} ->
          Owner ! {updated, Device},
-         Device;
-      Msg ->
-         Msg
+         {ok, Device};
+      Err ->
+         Err
    end.
 unsubscribe(DevName) ->
    unsubscribe(?db_ref, DevName, ?MAX_CALL_TIMEOUT).
