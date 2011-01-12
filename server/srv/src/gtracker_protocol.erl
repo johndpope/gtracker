@@ -189,7 +189,8 @@ processMsg(?AUTH_MSG, <<1:?VER>>, State = #state{db = Db, socket = S, dev = unde
    {ok, PeerName} = inet:peername(S),
    log(State, info, "The device ~p requests a new device name.", [PeerName]),
    case gtracker_pub:register(Db, ?MAX_CALL_TIMEOUT) of
-      {error, _Reason, _} ->
+      Err = {error, _Reason, _} ->
+         log(State, error, "Register error: ~p", [Err]),
          {return_error(?ERROR_SERVER_UNAVAILABLE), State};
       Device = #device{name = DevName, reference = Ref} ->
          NewState = create_logger(DevName, State),
@@ -234,6 +235,8 @@ processMsg(?COORD_MSG, Coord, State = #state{db = Db, calc_speed = CS, dev = #de
    case gtracker_pub:new_track(Db, DevName, false, CS, ?MAX_CALL_TIMEOUT) of
       {error, no_such_device, [DevName]} ->
          {return_error(?ERROR_WRONG_DEV_NAME), State#state{ecnt = ErrCnt + 1}};
+      {error, Reason, Args} ->
+         {return_error(?ERROR_SERVER_UNAVAILABLE), State#state{ecnt = ErrCnt + 1}};
       Track when is_record(Track, track) ->
          log(State, debug, "New track has been created: ~p", [Track]),
          gtracker_track_pub:set_subscribers(Track, Subs),
@@ -308,6 +311,9 @@ when size(BinTrackName) =< 50 ->
    case gtracker_pub:new_track(Db, DevName, true, CS, ?MAX_CALL_TIMEOUT) of
       {error, no_such_device, [DevName]} ->
          {return_error(?ERROR_WRONG_DEV_NAME), State#state{ecnt = ErrCnt + 1}};
+      Err = {error, Reason, Args} ->
+         log(State, error, "Start new track error: ~p", [Err]),
+         {return_error(?ERROR_SERVER_UNAVAILABLE), State#state{ecnt = ErrCnt + 1}};
       NewTrack when is_record(NewTrack, track) ->
          gtracker_track_pub:set_subscribers(NewTrack, Subs)
    end;

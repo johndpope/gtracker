@@ -5,27 +5,44 @@
 
 -include_lib("eunit/include/eunit.hrl").
 
--export([open/4, init/4, loop/1]).
+-export([open/4, init/5, loop/1]).
 
 -record(state, {db, track, subs = [], ref, owner, calc_speed = false}).
 
 open(Db, Track, Owner, CalcSpeed) ->
    case erlang:whereis(Track#track.id) of
       undefined ->
-         Pid = spawn_link(fun() -> init(Db, Track, Owner, CalcSpeed) end),
+         Self = self(),
+         Pid = spawn_link(fun() -> init(Self, Db, Track, Owner, CalcSpeed) end),
+         receive
+            Err = {error, _, _} ->
+               Err;
+            NewTrack ->
+               NewTrack
+         end,
          register(Track#track.id, Pid),
          Pid;
       Pid ->
-         Pid
+         Track#track{pid = Pid}
    end.
 
-init(Db, Track = #track{id = Id, path = Path}, Owner, CalcSpeed) ->
-   process_flag(trap_exit, true),
-   {ok, Ref} = dets:open_file(Id, ?track_open_args),
-   NewTrack = load_track_stat(Ref, Track, CalcSpeed),
-   gen_server:cast(Db, {updated, NewTrack}),
-   erlang:start_timer(60000, self(), update_db),
-   loop(#state{db = Db, track = NewTrack, ref = Ref, owner = Owner, calc_speed = CalcSpeed}).
+init(Creator, Db, Track = #track{id = Id, path = Path}, Owner, CalcSpeed) ->
+   F = fun() ->
+      process_flag(trap_exit, true),
+      {ok, Ref} = dets:open_file(Id, ?track_open_args),
+      NewTrack = load_track_stat(Ref, Track, CalcSpeed),
+      NewTrack2 = NewTrack#track{pid = self()},
+      {ok, NewTrack2} = gtracker_pub:update(Db, NewTrack#track{pid = self()}, ?MAX_CALL_TIMEOUT),
+      gen_server:cast(Db, {updated, NewTrack2}),
+      erlang:start_timer(60000, self(), update_db),
+      Creator ! NewTrack2,
+      loop(#state{db = Db, track = NewTrack, ref = Ref, owner = Owner, calc_speed = CalcSpeed})
+   end,
+   try F()
+   catch
+      _:Err ->
+         Creator ! {error, Err, [Db, Track, Owner, CalcSpeed]}
+   end.
 
 loop(State = #state{db = Db, track = Track, subs = S, ref = Ref, owner = Owner, calc_speed = CalcSpeed}) ->
    receive
