@@ -35,7 +35,7 @@ emul_loop([], #state{socket = Socket}) ->
    io:format("Finished~n");
 
 emul_loop([{connect, Host, Port}|Rest], State) ->
-   {ok, Socket} = gen_tcp:connect(Host, Port, [binary, {packet, 1}]),
+   {ok, Socket} = gen_tcp:connect(Host, Port, [binary, {packet, 1}, {send_timeout, 30000}]),
    receive
       {tcp_closed, _Socket} ->
          io:format("connection closed by server~n"),

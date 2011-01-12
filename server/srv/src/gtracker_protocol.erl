@@ -91,10 +91,9 @@ loop(State = #state{dev = Device, track = Track, socket = Socket}) ->
       {'EXIT', Pid, _} when State#state.track#track.pid =:= Pid ->
          log(State, info, "Track ~p has been crashed.", [Track#track.id]),
          loop(State#state{track = undef});
-      {'EXIT', _, _} ->
-         unregister(State),
-         gen_tcp:close(State#state.socket),
-         log(State, info, "Device was forced to stop.");
+      {'EXIT', Pid, Reason} ->
+         log(State, warning, "Linked process ~p has been stopped by reason ~p", [Pid, Reason]),
+         loop(State);
       {updated, D = #device{name = DevName}} when DevName =/= Device#device.name ->
          log(State, error, "updated(~p) received from alien device.", [D]),
          loop(State);
@@ -102,7 +101,8 @@ loop(State = #state{dev = Device, track = Track, socket = Socket}) ->
          gtracker_track_pub:set_subscribers(Track, NewDevice#device.subs),
          loop(State#state{dev = NewDevice});
       Msg ->
-         log(State, error, "Unknown message '~p' received.", [Msg])
+         log(State, error, "Unknown message '~p' received.", [Msg]),
+         loop(State)
    after ?RECEIVE_TIMEOUT ->
          log(State, error, "No data received in ~p interval.", [?RECEIVE_TIMEOUT]),
          self() ! stop,
@@ -237,7 +237,7 @@ processMsg(?COORD_MSG, Coord, State = #state{db = Db, calc_speed = CS, dev = #de
          {return_error(?ERROR_WRONG_DEV_NAME), State#state{ecnt = ErrCnt + 1}};
       Err = {error, _, _} ->
          log(State, error, "New track error ~p", [Err]),
-         {return_error(?ERROR_SERVER_UNAVAILABLE), State#state{ecnt = ErrCnt + 1}};
+         {noreply, State#state{ecnt = ErrCnt + 1}};
       {ok, Track} ->
          log(State, debug, "New track has been created: ~p", [Track]),
          gtracker_track_pub:set_subscribers(Track, Subs),
