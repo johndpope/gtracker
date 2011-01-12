@@ -296,7 +296,7 @@ on_msg({new_track, DevName, Force, FailuredNodes}, _From, State) ->
                mnesia:dirty_write(Device#device{current_track = NewTrack#track.id}),
                {reply, NewTrack, State};
             [Track = #track{pid = Pid}] ->
-               case rpc:call(node(Pid), erlang, is_process_alive, [Pid]) of
+               case (Pid =/= undef) andalso rpc:call(node(Pid), erlang, is_process_alive, [Pid]) of
                   true when (Force == true) ->
                      NewTrack = create_track(Device, Force, FailuredNodes, State), % create new track here
                      mnesia:dirty_write(Device#device{current_track = NewTrack#track.id}),

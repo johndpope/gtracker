@@ -70,7 +70,7 @@ reconnect_to(Socket, NodeInfo) ->
 %=======================================================================================================================
 % gtracker_protocol main loop
 %=======================================================================================================================
-loop(State = #state{dev = Device, track = Track, socket = Socket}) ->
+loop(State = #state{db = Db, dev = Device, track = Track, socket = Socket}) ->
    receive
       {tcp, Socket, Data} ->
          {ok, PeerName} = inet:peername(Socket),
@@ -90,6 +90,7 @@ loop(State = #state{dev = Device, track = Track, socket = Socket}) ->
          log(State, info, "Device ~p with ID = ~p was closed by peer.", [self(), Device#device.name]);
       {'EXIT', Pid, _} when State#state.track#track.pid =:= Pid ->
          log(State, info, "Track ~p has been crashed.", [Track#track.id]),
+         gtracker_pub:update(Db, Track#track{pid = undef}, [pid], ?MAX_CALL_TIMEOUT),
          loop(State#state{track = undef});
       {'EXIT', _, _} ->
          unregister(State),
@@ -274,7 +275,7 @@ processMsg(?RENAME_TRACK, <<BinTrackName/bitstring>>, State = #state{dev = #devi
 when size(BinTrackName) =< 50 ->
   TrackName = erlang:bitstring_to_list(BinTrackName),
   log(State, info, "~p wants to rename current track to ~p", [DevName, TrackName]),
-  case gtracker_pub:update(Db, Track#track{name = TrackName}, ?MAX_CALL_TIMEOUT) of
+  case gtracker_pub:update(Db, Track#track{name = TrackName}, [name], ?MAX_CALL_TIMEOUT) of
      {error, _, _} ->
         {return_error(?ERROR_TRACK_RENAME), State};
      ok ->
