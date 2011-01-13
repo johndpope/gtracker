@@ -12,7 +12,7 @@
 
 -define(mod, {global, gtracker_db}).
 -define(def_track_nodes, gt_tracks).
--record(state, {track_ns, track_path = undef, as_track_node = false}).
+-record(state, {track_ns, track_path = undef, as_track_node = false, failed_nodes = []}).
 
 %=======================================================================================================================
 %  public exports
@@ -275,7 +275,7 @@ on_msg({delete_news, NewsRef}, _From, State) ->
    mnesia:dirty_delete(news, NewsRef),
    {reply, ok, State};
 
-on_msg({new_track, DevName, Force, FailuredNodes}, _From, State) ->
+on_msg({new_track, DevName, Force}, _From, State) ->
    log(debug, "new_track(~p, ~p). State: ~p", [Force, DevName, dump_state(State)]),
    case mnesia:dirty_read(device, DevName) of
       [] ->
@@ -283,13 +283,13 @@ on_msg({new_track, DevName, Force, FailuredNodes}, _From, State) ->
       [#device{owner = undef}] ->
          {reply, {error, device_not_registered, [DevName]}, State};
       [Device = #device{current_track = undef}] ->
-         NewTrack = create_track(Device, Force, FailuredNodes, State), % create new track here
+         NewTrack = create_track(Device, Force, State), % create new track here
          mnesia:dirty_write(Device#device{current_track = NewTrack#track.id}),
          {reply, {ok, NewTrack}, State};
       [Device = #device{current_track = TrackId}] ->
          case mnesia:dirty_read(track, TrackId) of
             [] ->
-               NewTrack = create_track(Device, Force, FailuredNodes, State), % create new track here
+               NewTrack = create_track(Device, Force, State), % create new track here
                mnesia:dirty_write(Device#device{current_track = NewTrack#track.id}),
                {reply, {ok, NewTrack}, State};
             [Track = #track{pid = Pid}] ->
@@ -297,7 +297,7 @@ on_msg({new_track, DevName, Force, FailuredNodes}, _From, State) ->
                   true when (Force == false) ->
                      {reply, {ok, Track}, State};
                   Res when (Res == false) orelse ((Res == true) andalso (Force == true)) ->
-                     NewTrack = create_track(Device, Force, FailuredNodes, State), % create new track here
+                     NewTrack = create_track(Device, Force, State), % create new track here
                      mnesia:dirty_write(Device#device{current_track = NewTrack#track.id}),
                      {reply, {ok, NewTrack}, State}
                end
@@ -329,6 +329,12 @@ on_msg({update, NewTrack = #track{id = TrackId}, Mask}, _From, State) ->
          {reply, Err, State}
    end;
 
+on_msg({failed_node, Node}, _From, State = #state{failed_nodes = FNs}) ->
+   log(debug, "failed_node(~p). State: ~p", [Node, dump_state(State)]),
+   NewFNs = lists:usort([Node | FNs]),
+   log(info, "Failured nodes list is ~p", [NewFNs]),
+   {reply, ok, State#state{failed_nodes = NewFNs}};
+
 on_msg(Msg, _From, State) ->
    log(error, "Unknown sync message ~p.", [Msg]),
    {noreply, State}.
@@ -353,7 +359,7 @@ on_amsg({closed, NewTrack = #track{id = TrackId}}, State) ->
    mnesia:transaction(F),
    {noreply, State};
 
-on_amsg({updated, NewTrack = #track{id = TrackId}}, State) ->
+on_amsg({updated, NewTrack = #track{node = Node, id = TrackId}}, State = #state{failed_nodes = FNs}) ->
    log(debug, "{updated, ~p}", [NewTrack]),
    case mnesia:dirty_read(track, TrackId) of
       [] ->
@@ -362,7 +368,13 @@ on_amsg({updated, NewTrack = #track{id = TrackId}}, State) ->
          MergedTrack = merge_tracks(Track, NewTrack, [length, avg_speed, start, stop, coord_count]),
          mnesia:dirty_write(MergedTrack)
    end,
-   {noreply, State};
+   NewFNs = lists:delete(Node, FNs),
+   if (NewFNs =/= FNs) ->
+      log(info, "Node ~p has been removed from failed nodes list. Failed nodes list is ~p.", [Node, NewFNs]);
+   true ->
+      ok
+   end,
+   {noreply, State#state{failed_nodes = NewFNs}};
 
 on_amsg(Msg, State) ->
    log(error, "Unknown async message ~p.", [Msg]),
@@ -432,10 +444,9 @@ activate_device(Device = #device{name = DevName, subs = Subs}, Owner) ->
       registered_at = now()
    }.
 
-create_track(#device{name = DevName}, _Force, FailuredNodes,
-   #state{track_ns = TrackNS, track_path = TrackPath, as_track_node = AsTrackNode}) ->
+create_track(#device{name = DevName}, _Force, #state{failed_nodes = FNs, track_ns = TrackNS, track_path = TrackPath, as_track_node = AsTrackNode}) ->
    F = fun(Suffix) ->
-         Node = get_best_node(TrackNS, AsTrackNode, FailuredNodes),
+         Node = get_best_node(TrackNS, AsTrackNode, FNs),
          TrackName = list_to_atom(lists:flatten(io_lib:format("~s_~p", [DevName, Suffix]))),
          NewTrack = #track{id = TrackName, dev_name = DevName, node = Node, path = filename:join(TrackPath, TrackName)},
          mnesia:dirty_write(NewTrack),
@@ -444,15 +455,27 @@ create_track(#device{name = DevName}, _Force, FailuredNodes,
    case get_last_track(DevName) of
       [] ->
          F(1);
-      T = #track{stop = undef} ->
-         T;
-      T = #track{id = Id, stop = Timestamp} ->
+      T = #track{node = Node, stop = undef} ->
+         case lists:member(Node, FNs) of
+            true ->
+               UpTrack = T#track{node = get_best_node(TrackNS, AsTrackNode, FNs)},
+               mnesia:dirty_write(UpTrack),
+               UpTrack;
+            false ->
+               T
+         end;
+      T = #track{id = Id, stop = Timestamp, node = Node} ->
          Diff = calendar:datetime_to_gregorian_seconds(calendar:universal_time()) -
             calendar:datetime_to_gregorian_seconds(Timestamp),
          if (Diff > 600) -> % start new track
             F(get_track_suffix(Id));
          true -> % use old one
-            T
+            case lists:member(Node, FNs) of
+               true ->
+                  F(get_track_suffix(Id));
+               false  ->
+                  T
+            end
          end
    end.
 

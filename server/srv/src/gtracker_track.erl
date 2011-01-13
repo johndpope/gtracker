@@ -41,6 +41,7 @@ init(Creator, Db, Track = #track{id = Id, path = Path}, Owner, CalcSpeed) ->
    try F()
    catch
       _:Err ->
+         gen_server:call(Db, {failed_node, node()}, ?MAX_CALL_TIMEOUT),
          Creator ! {error, Err, [Db, Track, Owner, CalcSpeed]}
    end.
 

@@ -111,7 +111,7 @@ get_best_process(ProcGroup) ->
    end.
 
 get_best_node(Namespace, DiscoverSelf, IgnoredNodes) ->
-   AllNodes = erlang:nodes(if DiscoverSelf == true -> [connected, this]; true -> connected end),
+   AllNodes = erlang:nodes(connected),
    Nodes = lists:subtract(AllNodes, IgnoredNodes),
    NsNodes =
    case Namespace of
@@ -133,7 +133,7 @@ get_best_node(Namespace, DiscoverSelf, IgnoredNodes) ->
    ProcNodes = lists:foldl(
       fun(Node, Acc) ->
          [{ rpc:call(Node, erlang, system_info, [process_count]), Node} | Acc]
-      end, [], NsNodes),
+   end, [], if (DiscoverSelf == true) -> [node()|NsNodes]; true -> NsNodes end),
    case lists:sort(fun({A, _}, {B, _}) -> A < B end, ProcNodes) of
       [] ->
          throw({error, no_best_node, [Namespace, Nodes]});
