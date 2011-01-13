@@ -276,32 +276,40 @@ on_msg({delete_news, NewsRef}, _From, State) ->
    {reply, ok, State};
 
 on_msg({new_track, DevName, Force}, _From, State) ->
-   log(debug, "new_track(~p, ~p). State: ~p", [Force, DevName, dump_state(State)]),
-   case mnesia:dirty_read(device, DevName) of
-      [] ->
-         {reply, {error, no_such_device, {DevName}}, State};
-      [#device{owner = undef}] ->
-         {reply, {error, device_not_registered, [DevName]}, State};
-      [Device = #device{current_track = undef}] ->
-         NewTrack = create_track(Device, Force, State), % create new track here
-         mnesia:dirty_write(Device#device{current_track = NewTrack#track.id}),
-         {reply, {ok, NewTrack}, State};
-      [Device = #device{current_track = TrackId}] ->
-         case mnesia:dirty_read(track, TrackId) of
-            [] ->
-               NewTrack = create_track(Device, Force, State), % create new track here
-               mnesia:dirty_write(Device#device{current_track = NewTrack#track.id}),
-               {reply, {ok, NewTrack}, State};
-            [Track = #track{pid = Pid}] ->
-               case (Pid =/= undef) andalso rpc:call(node(Pid), erlang, is_process_alive, [Pid]) of
-                  true when (Force == false) ->
-                     {reply, {ok, Track}, State};
-                  Res when (Res == false) orelse ((Res == true) andalso (Force == true)) ->
-                     NewTrack = create_track(Device, Force, State), % create new track here
-                     mnesia:dirty_write(Device#device{current_track = NewTrack#track.id}),
-                     {reply, {ok, NewTrack}, State}
-               end
-         end
+   F = fun() ->
+      log(debug, "new_track(~p, ~p). State: ~p", [Force, DevName, dump_state(State)]),
+      case mnesia:dirty_read(device, DevName) of
+         [] ->
+            {reply, {error, no_such_device, {DevName}}, State};
+         [#device{owner = undef}] ->
+            {reply, {error, device_not_registered, [DevName]}, State};
+         [Device = #device{current_track = undef}] ->
+            NewTrack = create_track(Device, Force, State), % create new track here
+            mnesia:dirty_write(Device#device{current_track = NewTrack#track.id}),
+            {reply, {ok, NewTrack}, State};
+         [Device = #device{current_track = TrackId}] ->
+            case mnesia:dirty_read(track, TrackId) of
+               [] ->
+                  NewTrack = create_track(Device, Force, State), % create new track here
+                  mnesia:dirty_write(Device#device{current_track = NewTrack#track.id}),
+                  {reply, {ok, NewTrack}, State};
+               [Track = #track{pid = Pid}] ->
+                  case (Pid =/= undef) andalso rpc:call(node(Pid), erlang, is_process_alive, [Pid]) of
+                     true when (Force == false) ->
+                        {reply, {ok, Track}, State};
+                     Res when (Res == false) orelse ((Res == true) andalso (Force == true)) ->
+                        NewTrack = create_track(Device, Force, State), % create new track here
+                        mnesia:dirty_write(Device#device{current_track = NewTrack#track.id}),
+                        {reply, {ok, NewTrack}, State}
+                  end
+            end
+      end
+   end,
+   try F()
+   catch
+      _:Err ->
+         log(error, "Unable to create new track. Error = ~p", [Err]),
+         {reply, {error, internal_error, [Err]}}
    end;
 
 on_msg({update, NewTrack = #track{id = TrackId}, Mask}, _From, State) ->
