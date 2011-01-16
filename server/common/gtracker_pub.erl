@@ -189,7 +189,7 @@ delete_news(NewsRef) ->
 new_track(Db, DevName, Force, CalcSpeed, Timeout) ->
    case gen_server:call(Db, {new_track, DevName, Force}, Timeout) of
       {ok, Track} ->
-         gtracker_track_pub:open(Db, Track, CalcSpeed);
+         Track;
       Err ->
          Err
    end.

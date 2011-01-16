@@ -1,6 +1,7 @@
 -module(gtracker_common).
 
 -include("fields.hrl").
+-include("common_defs.hrl").
 
 -export([
       gen_dev_name/0
@@ -17,8 +18,7 @@
       ,urlencoded_to_bin/1
       ,binary_to_hex/1
       ,fill_binary/3
-      ,get_best_process/1
-      ,get_best_node/3
+      ,get_best_node/2
       ,send2subs/2
    ]).
 
@@ -98,25 +98,12 @@ fill_binary(Bin, Size, _Val) when size(Bin) >= Size ->
 fill_binary(Bin, Size, Val) ->
    fill_binary_aux(Bin, Size - size(Bin), Val).
 
-get_best_process(ProcGroup) ->
-   case pg2:get_members(ProcGroup) of
-      {error, _} ->
-         undef;
-      Pids when is_list(Pids) ->
-         {Pid, _} = hd(lists:sort(fun({_Pid1, Size1}, {_Pid2, Size2}) -> Size1 < Size2 end,
-               [ (fun(P) -> [{_, Size}] = process_info(P, [message_queue_len]), {P, Size} end)(Pid) || Pid <- Pids ])),
-         Pid;
-      _ ->
-         undef
-   end.
-
-get_best_node(Namespace, DiscoverSelf, IgnoredNodes) ->
+get_best_node(Namespace, DiscoverSelf) ->
    AllNodes = erlang:nodes(connected),
-   Nodes = lists:subtract(AllNodes, IgnoredNodes),
    NsNodes =
    case Namespace of
       undef ->
-         Nodes;
+         AllNodes;
       Namespace ->
          lists:foldl(
          fun(Node, Acc) ->
@@ -128,18 +115,11 @@ get_best_node(Namespace, DiscoverSelf, IgnoredNodes) ->
                   _ ->
                      Acc
                end
-         end, [], Nodes)
+         end, [], AllNodes)
    end,
-   ProcNodes = lists:foldl(
-      fun(Node, Acc) ->
-         [{ rpc:call(Node, erlang, system_info, [process_count]), Node} | Acc]
-   end, [], if (DiscoverSelf == true) -> [node()|NsNodes]; true -> NsNodes end),
-   case lists:sort(fun({A, _}, {B, _}) -> A < B end, ProcNodes) of
-      [] ->
-         throw({error, no_best_node, [Namespace, Nodes]});
-      [ {_, BestNode } | _ ] ->
-         BestNode
-   end.
+   {Res, _} = gen_server:multi_call(if (DiscoverSelf == true) -> [node()|NsNodes]; true -> NsNodes end, ?track_ref, process_info),
+   [{Node, _}|_] = lists:sort(fun({_, Q1}, {_,Q2}) -> Q1 =< Q2 end, Res),
+   Node.
 
 send2subs(Subs, Msg) ->
    lists:foldl(
@@ -189,10 +169,6 @@ fill_binary_aux(Bin, TailSize, Val) ->
 -ifdef(TEST).
 -include_lib("eunit/include/eunit.hrl").
 
-get_best_node_test() ->
-   ?assertEqual(node(), get_best_node(undef, true, [])),
-   ?assertException(throw, {error, no_best_node, ["track", [nonode@nohost]]}, get_best_node("track", true, [])).
-
 list_to_urlencoded_test() ->
    SampleList="Hello World",
    UrlEncodedSample = "%48%65%6c%6c%6f%20%57%6f%72%6c%64",
@@ -207,31 +183,5 @@ fill_binary_test() ->
 
 datetime_to_string_test() ->
    ?assertEqual("13.07.2010 14:14:00", datetime_to_string({{2010, 7, 13},{14,14,00}})).
-
-get_best_process_test() ->
-   F =
-   fun() ->
-      receive
-         exit ->
-            ok
-      end
-   end,
-   pg2:create(test_group),
-   FirstPid = spawn(F),
-   pg2:join(test_group, FirstPid),
-   SecondPid = spawn(F),
-   pg2:join(test_group, SecondPid),
-   ThirdPid = spawn(F),
-   pg2:join(test_group, ThirdPid),
-   FirstPid ! msg,
-   FirstPid ! msg,
-   FirstPid ! msg,
-   SecondPid ! msg,
-   SecondPid ! msg,
-   ThirdPid ! msg,
-   ?assertEqual(ThirdPid, get_best_process(test_group)),
-   FirstPid ! exit,
-   SecondPid ! exit,
-   ThirdPid ! exit.
 
 -endif.

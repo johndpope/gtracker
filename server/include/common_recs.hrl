@@ -7,8 +7,8 @@
       triggers = []
    }).
 -record(user, {name, password, online = false, map_type = 0, is_admin = false,  devices = []}).
--record(track, {id, dev_name, name = undef, pid = undef, node = node(), status = opened, path = undef, start = undef,
-      stop = undef, length = 0, avg_speed = 0, coord_count = 0}).
+-record(track, {dev_name, id, name = undef, node = node()}).
+-record(track_stat, {track_id, subs = [], status = opened, start = undef, stop = undef, length = 0, avg_speed = 0, coord_count = 0}).
 -record(trigger, {dev_name, enabled, name, type, email, sms, twitter, text, config, ready = true, executed_at = undef, schedule = allways}).
--record(coord, {lat, lon, speed = 0, distance = 0, timestamp}).
+-record(coord, {track_id, lat, lon, speed = 0, distance = 0, timestamp}).
 -record(news, {id, date, text}).

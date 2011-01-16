@@ -6,6 +6,8 @@
 
 
 -define(db_ref, {global, gtracker_db}).
+-define(track_ref, {local, gtracker_track}).
+
 -define(MAX_CALL_TIMEOUT, 30000).
 -define(track_open_args, [{auto_save, 1000}, {file, Path}, {keypos, ?FieldId(coord, timestamp)}]).
 
