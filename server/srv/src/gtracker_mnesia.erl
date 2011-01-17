@@ -5,14 +5,14 @@
 -export([start/1, stop/0, on_start/1, on_stop/2, on_msg/3, on_amsg/2, on_info/2]).
 
 -import(mds_utils, [get_param/2, get_param/3]).
--import(gtracker_common, [gen_dev_name/0, binary_to_hex/1, get_best_node/2]).
+-import(gtracker_common, [gen_dev_name/0, binary_to_hex/1, get_best_process/1, join_pg/2, leave_pg/2]).
 
 -include("common_defs.hrl").
 -include("common_recs.hrl").
 
 -define(mod, {global, gtracker_db}).
 -define(def_track_nodes, gt_tracks).
--record(state, {track_ns, as_track_node = false}).
+-record(state, {track_group}).
 
 %=======================================================================================================================
 %  public exports
@@ -28,15 +28,17 @@ stop() ->
 %=======================================================================================================================
 on_start(Opts) ->
    SelfOpts = get_param(self, Opts),
-   AsTrackNode = get_param(as_track_node, SelfOpts, false),
-   TrackNS = get_param(track_ns, SelfOpts, undef),
+   UseAsTrack = get_param(use_as_track, SelfOpts),
+   TrackGroup = get_param(track_group, SelfOpts, track),
    mnesia_start(),
    process_flag(trap_exit, true),
    log(info, "Mnesia started."),
-   {ok, #state{track_ns = TrackNS, as_track_node = AsTrackNode}}.
+   if (UseAsTrack == true) -> join_pg(TrackGroup, self()); true -> ok end,
+   {ok, #state{track_group = TrackGroup}}.
 
-on_stop(Reason, _State) ->
+on_stop(Reason, State) ->
    log(info, "Mnesia stopped."),
+   leave_pg(State#state.track_group, self()),
    log(info, "Stopped <~p>.", [Reason]),
    ok.
 
@@ -422,11 +424,11 @@ activate_device(Device = #device{name = DevName, subs = Subs}, Owner) ->
       registered_at = now()
    }.
 
-create_track(Device = #device{name = DevName}, #state{track_ns = TrackNS, as_track_node = AsTrackNode}) ->
+create_track(Device = #device{name = DevName}, #state{track_group = TrackGroup}) ->
    F = fun(Suffix) ->
-         Node = get_best_node(TrackNS, AsTrackNode),
+         TrackSrv = get_best_process(TrackGroup),
          TrackName = list_to_atom(lists:flatten(io_lib:format("~s_~p", [DevName, Suffix]))),
-         NewTrack = #track{id = TrackName, dev_name = DevName, node = Node},
+         NewTrack = #track{id = TrackName, dev_name = DevName, track_server = TrackSrv},
          mnesia:write(NewTrack),
          log(debug, "New track ~p has been created.", [NewTrack]),
          NewTrack

@@ -11,15 +11,14 @@
       ,datetime_to_string/1
       ,join_pg/2
       ,leave_pg/2
-      ,send_pg/2
       ,list_to_urlencoded/1
       ,bin_to_urlencoded/1
       ,urlencoded_to_list/1
       ,urlencoded_to_bin/1
       ,binary_to_hex/1
       ,fill_binary/3
-      ,get_best_node/2
       ,send2subs/2
+      ,get_best_process/1
    ]).
 
 -define(SWAMP, "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789").
@@ -66,9 +65,6 @@ leave_pg(Name, Pid) ->
          ok
    end.
 
-send_pg(Name, Msg) ->
-   lists:map(fun(Pid) -> Pid ! {pg_message, self(), Name, Msg} end, pg2:get_members(Name)).
-
 list_to_urlencoded([]) ->
     [];
 list_to_urlencoded([H|T]) ->
@@ -98,28 +94,24 @@ fill_binary(Bin, Size, _Val) when size(Bin) >= Size ->
 fill_binary(Bin, Size, Val) ->
    fill_binary_aux(Bin, Size - size(Bin), Val).
 
-get_best_node(Namespace, DiscoverSelf) ->
-   AllNodes = erlang:nodes(connected),
-   NsNodes =
-   case Namespace of
-      undef ->
-         AllNodes;
-      Namespace ->
-         lists:foldl(
-         fun(Node, Acc) ->
-               NodeName = atom_to_list(Node),
-               {ok, MP} = re:compile(Namespace ++ "_.*@.*"),
-               case re:run(NodeName, MP, [{capture, none}]) of
-                  match ->
-                     [Node|Acc];
-                  _ ->
-                     Acc
-               end
-         end, [], AllNodes)
-   end,
-   {Res, _} = gen_server:multi_call(if (DiscoverSelf == true) -> [node()|NsNodes]; true -> NsNodes end, ?track_ref, process_info),
-   [{Node, _}|_] = lists:sort(fun({_, Q1}, {_,Q2}) -> Q1 =< Q2 end, Res),
-   Node.
+get_best_process(GroupName) ->
+   Values =
+   list:foldl(
+      fun(Pid, Acc) ->
+         case rpc:pinfo(Pid, message_queue_len) of
+            {message_queue_len, Val} ->
+               [{Val, Pid}|Acc];
+            _ ->
+               Acc
+         end
+      end, pg2:get_members(GroupName)),
+   case lists:sort(fun({Val1, _}, {Val2, _}) -> Val1 =< Val2 end, Values) of
+      [{_, {Pid}}|_] ->
+         {ok, Name} = gen_server:call(Pid, name),
+         Name;
+      [] ->
+         undef
+   end.
 
 send2subs(Subs, Msg) ->
    lists:foldl(

@@ -5,18 +5,21 @@
 -export([start/1, stop/0, on_start/1, on_stop/2, on_msg/3, on_amsg/2, on_info/2]).
 
 -import(mds_utils, [get_param/2, get_param/3]).
+-import(gtracer_common, [join_pg/2, leave_pg/2]).
 
 -include("common_defs.hrl").
 -include("common_recs.hrl").
 
--record(state, {calc_speed}).
+-record(state, {name, calc_speed, pg}).
 -record(owner, {pid, track_id}).
 
 %=======================================================================================================================
 %  public exports
 %=======================================================================================================================
 start(Opts) ->
-   mds_gen_server:start(?track_ref, ?MODULE, Opts).
+   SelfOpts = get_param(self, Opts),
+   ServName = {global, _} = get_param(name, SelfOpts), % should have {global, Atom()} format
+   mds_gen_server:start(ServName, ?MODULE, Opts).
 
 stop() ->
    mds_gen_server:stop(?track_ref).
@@ -27,17 +30,25 @@ stop() ->
 on_start(Opts) ->
    SelfOpts = get_param(self, Opts),
    CalcSpeed = get_param(calc_speed, SelfOpts, false),
+   ServName = get_param(name, SelfOpts),
+   ProcGroup = get_param(group, SelfOpts, track),
    mnesia_start(),
    process_flag(trap_exit, true),
+   join_pg(ProcGroup, self()),
    log(info, "Track started."),
-   {ok, #state{calc_speed = CalcSpeed}}.
+   {ok, #state{name = ServName, pg = ProcGroup, calc_speed = CalcSpeed}}.
 
-on_stop(Reason, _State) ->
+on_stop(Reason, State) ->
+   leave_pg(State#state.pg, self()),
    log(info, "Stopped <~p>.", [Reason]),
    ok.
 
 on_msg(stop, _From, State) ->
    {stop, normal, stopped, State};
+
+on_msg(Msg = name, _, State) ->
+   log(debug, "~p", [Msg]),
+   {reply, {ok, State#state.name}, State};
 
 on_msg(Msg = process_info, _, State) ->
    log(debug, "~p", [Msg]),
