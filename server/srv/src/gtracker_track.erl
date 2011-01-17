@@ -1,96 +1,180 @@
 -module(gtracker_track).
 
--include("common_recs.hrl").
+-behaviour(mds_gen_server).
+
+-export([start/1, stop/0, on_start/1, on_stop/2, on_msg/3, on_amsg/2, on_info/2]).
+
+-import(mds_utils, [get_param/2, get_param/3]).
+
 -include("common_defs.hrl").
+-include("common_recs.hrl").
 
--include_lib("eunit/include/eunit.hrl").
+-record(state, {calc_speed}).
+-record(owner, {pid, track_id}).
 
--export([open/4, init/5, loop/1]).
+%=======================================================================================================================
+%  public exports
+%=======================================================================================================================
+start(Opts) ->
+   mds_gen_server:start(?track_ref, ?MODULE, Opts).
 
--record(state, {db, track, subs = [], ref, owner, calc_speed = false}).
+stop() ->
+   mds_gen_server:stop(?track_ref).
 
-open(Db, Track, Owner, CalcSpeed) ->
-   case erlang:whereis(Track#track.id) of
-      undefined ->
-         Self = self(),
-         Pid = spawn_link(fun() -> init(Self, Db, Track, Owner, CalcSpeed) end),
-         receive
-            Err = {error, _, _} ->
-               Err;
-            {ok, NewTrack} ->
-               register(NewTrack#track.id, Pid),
-               {ok, NewTrack}
-         end;
-      Pid ->
-         Track#track{pid = Pid}
-   end.
+%=======================================================================================================================
+%  callbacks
+%=======================================================================================================================
+on_start(Opts) ->
+   SelfOpts = get_param(self, Opts),
+   CalcSpeed = get_param(calc_speed, SelfOpts, false),
+   mnesia_start(),
+   process_flag(trap_exit, true),
+   log(info, "Track started."),
+   {ok, #state{calc_speed = CalcSpeed}}.
 
-init(Creator, Db, Track = #track{id = Id, path = Path}, Owner, CalcSpeed) ->
-   F = fun() ->
-      process_flag(trap_exit, true),
-      {ok, Ref} = dets:open_file(Id, ?track_open_args),
-      NewTrack = load_track_stat(Ref, Track, CalcSpeed),
-      NewTrack2 = NewTrack#track{pid = self()},
-      {ok, NewTrack2} = gtracker_pub:update(Db, NewTrack#track{pid = self()}, [avg_speed, length, coord_count, start,
-            stop, pid], ?MAX_CALL_TIMEOUT),
-      gen_server:cast(Db, {updated, NewTrack2}),
-      erlang:start_timer(60000, self(), update_db),
-      Creator ! {ok, NewTrack2},
-      loop(#state{db = Db, track = NewTrack, ref = Ref, owner = Owner, calc_speed = CalcSpeed})
+on_stop(Reason, _State) ->
+   log(info, "Stopped <~p>.", [Reason]),
+   ok.
+
+on_msg(stop, _From, State) ->
+   {stop, normal, stopped, State};
+
+on_msg(Msg = process_info, _, State) ->
+   log(debug, "~p", [Msg]),
+   [{_, Size}] = process_info(self(), [message_queue_len]),
+   {reply, Size, State};
+
+on_msg(Msg = {close, TrackId}, _, State) ->
+   log(debug, "~p", [Msg]),
+   case mnesia:dirty_read(track_stat, TrackId) of
+      [] ->
+         {reply, {errror, no_such_track, [TrackId]}, State};
+      [TrackStat] ->
+         UpTrackStat = TrackStat#track_stat{subs = [], status = closed},
+         gtracker_common:send2subs(TrackStat#track_stat.subs, UpTrackStat),
+         mnesia:dirty_write(UpTrackStat),
+         {reply, ok, State}
+   end;
+
+on_msg(Msg = {subscribers, TrackId, Subs}, _, State) ->
+   log(debug, "~p", [Msg]),
+   case mnesia:dirty_read(track_stat, TrackId) of
+      [] ->
+         {reply, {errror, no_such_track, [TrackId]}, State};
+      [TrackStat] ->
+         mnesia:dirty_write(TrackStat#track_stat{subs = Subs}),
+         {reply, ok, State}
+   end;
+
+on_msg(Msg = {owner, Pid, TrackId}, _, State) ->
+   log(debug, "~p", [Msg]),
+   case mnesia:dirty_index_read(owner, TrackId, #owner.track_id) of
+      [] ->
+         log(info, "No owner for track ~p found.", [TrackId]);
+      [Owner] ->
+         log(info, "Owner ~p found for track ~p. Will be deleted and unlink.", [Owner, TrackId]),
+         mnesia:dirty_delete(owner, Owner#owner.pid),
+         unlink(Owner#owner.pid)
    end,
-   try F()
-   catch
-      _:Err ->
-         gen_server:call(Db, {failed_node, node()}, ?MAX_CALL_TIMEOUT),
-         Creator ! {error, Err, [Db, Track, Owner, CalcSpeed]}
-   end.
+   mnesia:dirty_write(#owner{pid = Pid, track_id = TrackId}),
+   link(Pid),
+   {reply, ok, State};
 
-loop(State = #state{db = Db, track = Track, subs = S, ref = Ref, owner = Owner, calc_speed = CalcSpeed}) ->
-   receive
-      {timeout, _, update_db} ->
-         gen_server:cast(Db, {updated, Track}),
-         loop(State);
-      Coord when is_record(Coord, coord) ->
-         ok = dets:insert(Ref, Coord),
-         NewS = gtracker_common:send2subs(S, Coord),
-         NewTrack = update_track_stat(Track, Coord, CalcSpeed),
-         NewS2 = gtracker_common:send2subs(NewS, {updated, NewTrack}),
-         loop(State#state{subs = NewS2, track = NewTrack});
-      {owner, NewOwner} ->
-         error_logger:info_msg("The owner ~p has  been changed to ~p~n", [Owner, NewOwner]),
-         link(NewOwner),
-         loop(State#state{owner = NewOwner});
-      {subscribers, NewSubs} ->
-         loop(State#state{subs = NewSubs});
-      clear ->
-         dets:delete_all_objects(Ref),
-         loop(State);
-      {close, Peer} when Peer == Owner ->
-         error_logger:info_msg("~p: owner ~p want me to close. Closing...~n", [Track#track.id, Owner]),
-         dets:close(Ref),
-         gen_server:cast(Db, {closed, Track});
-      {close, _} ->
-         loop(State);
-      {'EXIT', Pid, Reason} when Pid =/= Owner ->
-         error_logger:info_msg("~p: looks like old owner ~p exited with reason '~p'. Ignored.~n",
-            [Track#track.id, Pid, Reason]),
-         loop(State);
-      {'EXIT', Owner, Reason} ->
-         error_logger:info_msg("~p: owner ~p exited with reason '~p'. Closing...~n", [Track#track.id, Owner, Reason]),
-         dets:close(Ref),
-         gen_server:cast(Db, {closed, Track});
-      {updated, #track{name = NewName}} ->
-         loop(#state{track = Track#track{name = NewName}});
-      Msg ->
-         error_logger:error_msg("~p: Unknown message ~p was ignored~n", [Track#track.id, Msg]),
-         loop(State)
-   end.
+on_msg(Msg = {get_track, TrackId}, _, State) ->
+   log(debug, "~p", [Msg]),
+   case mnesia:dirty_read(track_stat, TrackId) of
+      [] ->
+         {reply, {error, no_such_track, [TrackId]}, State};
+      _TrackStat ->
+         Res = mnesia:dirty_read(coord, TrackId),
+         {reply, Res, State}
+   end;
 
--include_lib("eunit/include/eunit.hrl").
+on_msg(Msg = {get_track_stat, TrackId}, _, State) ->
+   log(debug, "~p", [Msg]),
+   case mnesia:dirty_read(track_stat, TrackId) of
+      [] ->
+         {reply, {error, no_such_track, [TrackId]}, State};
+      TrackStat ->
+         {reply, TrackStat, State}
+   end;
 
-update_track_stat(Track = #track{start = undef}, C = #coord{timestamp = TS}, CalcSpeed) ->
-   update_track_stat(Track#track{start = TS}, C, CalcSpeed);
-update_track_stat(Track = #track{avg_speed = AvgSpeed, length = TrackLength, coord_count = Cnt, start = StartTS},
+on_msg(Msg, _From, State) ->
+   log(error, "Unknown sync message ~p.", [Msg]),
+   {noreply, State}.
+
+on_amsg(Coord = #coord{track_id = TrackId}, State = #state{calc_speed = CalcSpeed}) ->
+   F = fun() ->
+      TrackStat =
+      case mnesia:read(track_stat, TrackId) of
+         [TS] ->
+            TS;
+         [] ->
+            mnesia:dirty_write(#track_stat{track_id = TrackId})
+      end,
+      UpSubs = gtracker_common:send2subs(TrackStat#track_stat.subs, Coord),
+      UpTrackStat = update_track_stat(TrackStat, Coord, CalcSpeed),
+      gtracker_common:send2subs(UpSubs, UpTrackStat),
+      mnesia:write(UpTrackStat),
+      mnesia:write(Coord),
+      UpSubs = gtracker_common:send2subs(TrackStat#track_stat.subs, Coord),
+      gtracker_common:send2subs(UpSubs, UpTrackStat)
+   end,
+   mnesia:transaction(F()),
+   {noreply, State};
+
+on_amsg(Msg, State) ->
+   log(error, "Unknown async message ~p.", [Msg]),
+   {noreply, State}.
+
+on_info({'EXIT', Pid, _}, State) ->
+   log(info, "Process ~p exited. Trying to find its track.", [Pid]),
+   case mnesia:dirty_read(owner, Pid) of
+      [TrackId] ->
+         log(info, "Track ~p found. Will be closed.", [TrackId]),
+         {reply, _, NewState} = on_msg({close, TrackId}, {Pid, undef}, State),
+         {noreply, NewState};
+      _ ->
+         log(info, "Track not foud for pid ~p.", [Pid]),
+         {noreply, State}
+   end;
+
+on_info(Msg, State) ->
+   log(error, "Unknown info message ~p.", [Msg]),
+   {noreply, State}.
+
+%=======================================================================================================================
+%  log helpers
+%=======================================================================================================================
+log(LogLevel, Format, Data) ->
+   mds_gen_server:log(?MODULE, LogLevel, Format, Data).
+
+log(LogLevel, Text) ->
+   mds_gen_server:log(?MODULE, LogLevel, Text).
+
+%=======================================================================================================================
+%  tools
+%=======================================================================================================================
+-define(create_table(Table, Type),
+   case (catch mnesia:table_info(Table, version)) of
+      {'EXIT', {aborted, {no_exists, Table, _}}} ->
+         mnesia:create_table(
+            Table, [{disc_copies, [node()]}, {type, Type}, {attributes, record_info(fields, Table)}]);
+      _ ->
+         ok
+   end).
+
+mnesia_start() ->
+   mnesia:create_schema([]),
+   mnesia:start(),
+   ?create_table(track_stat, ordered_set),
+   ?create_table(coord, bag),
+   ?create_table(owner, ordered_set),
+   mnesia:add_table_index(owner, track_id).
+
+update_track_stat(TrackStat = #track_stat{start = undef}, C = #coord{timestamp = TS}, CalcSpeed) ->
+   update_track_stat(TrackStat#track_stat{start = TS}, C, CalcSpeed);
+update_track_stat(TrackStat = #track_stat{avg_speed = AvgSpeed, length = TrackLength, coord_count = Cnt, start = StartTS},
    #coord{speed = Speed, distance = D, timestamp = TS}, CalcSpeed) ->
    NewAvgSpeed =
    if (CalcSpeed == true) ->
@@ -103,36 +187,7 @@ update_track_stat(Track = #track{avg_speed = AvgSpeed, length = TrackLength, coo
    true ->
       (AvgSpeed * Cnt + Speed) / (Cnt + 1) * 3.6
    end,
-   Track#track{avg_speed = NewAvgSpeed, coord_count = Cnt + 1, length = TrackLength + D, stop = TS}.
-
-load_track_stat(Ref) ->
-   UnsortedCoords = dets:select(Ref, [{'_', [], ['$_']}]),
-   Coords = lists:keysort(?FieldId(coord, timestamp), UnsortedCoords),
-   {CumSpeed, Length, Cnt, Start, Stop} =
-      lists:foldl(fun(#coord{speed = S, distance = D, timestamp = TS}, {AccS, AccD, AccCnt, undef, undef}) ->
-                        {AccS + S, AccD + D, AccCnt + 1, TS, TS};
-                     (#coord{speed = S, distance = D, timestamp = TS}, {AccS, AccD, AccCnt, Start, _}) ->
-                        {AccS + S, AccD + D, AccCnt + 1, Start, TS}
-                  end, {0, 0, 0, undef, undef}, Coords),
-   case Cnt == 0 of
-      true ->
-         {0, Length, Cnt, Start, Stop};
-      false ->
-         {CumSpeed / Cnt * 3.6, Length, Cnt, Start, Stop}
-      end.
-
-load_track_stat(Ref, Track, CalcSpeed) ->
-   {AvgSpeed, Length, Cnt, Start, Stop} = load_track_stat(Ref),
-   if (CalcSpeed == true) ->
-      TsDiff = datetime_diff(Stop, Start),
-      if (TsDiff == 0) ->
-         Track#track{start = Start, stop = Stop, length = Length, coord_count = Cnt, avg_speed = 0};
-      true ->
-         Track#track{start = Start, stop = Stop, length = Length, coord_count = Cnt, avg_speed = Length / TsDiff * 3.6}
-      end;
-   true ->
-      Track#track{start = Start, stop = Stop, length = Length, coord_count = Cnt, avg_speed = AvgSpeed}
-   end.
+   TrackStat#track_stat{avg_speed = NewAvgSpeed, coord_count = Cnt + 1, length = TrackLength + D, stop = TS}.
 
 datetime_diff(T2, T1) when (T2 == undef) orelse (T1 == undef) ->
    0;
@@ -144,38 +199,5 @@ datetime_diff(T2, T1) ->
 %=======================================================================================================================
 -ifdef(TEST).
 -include_lib("eunit/include/eunit.hrl").
-
-load_track_stat_test() ->
-  Path = "/tmp/track_1",
-  {ok, Ref} = dets:open_file(track_1, ?track_open_args),
-  dets:delete_all_objects(Ref),
-  ?assertEqual({0, 0, 0, undef, undef}, load_track_stat(Ref)),
-  Timestamp = calendar:local_time(),
-  dets:insert(Ref, #coord{lat = 1, lon = 2, speed = 10, distance = 100, timestamp = Timestamp}),
-  ?assertEqual({36.0, 100, 1, Timestamp, Timestamp}, load_track_stat(Ref)),
-  Timestamp2 = setelement(2, Timestamp, calendar:seconds_to_time(calendar:time_to_seconds(element(2, Timestamp)) + 1)),
-  dets:insert(Ref, #coord{lat = 1, lon = 2, speed = 20, distance = 200, timestamp = Timestamp2}),
-  ?assertEqual({54.0, 300, 2, Timestamp, Timestamp2}, load_track_stat(Ref)).
-
-load_track_stat2_test() ->
-  Path = "/tmp/track_2",
-  {ok, Ref} = dets:open_file(track_2, ?track_open_args),
-  dets:delete_all_objects(Ref),
-  ?assertEqual({0, 0, 0, undef, undef}, load_track_stat(Ref)),
-  Timestamp = calendar:local_time(),
-  dets:insert(Ref, #coord{lat = 1, lon = 2, speed = 10, distance = 100, timestamp = Timestamp}),
-  ?assertEqual({36.0, 100, 1, Timestamp, Timestamp}, load_track_stat(Ref)),
-  Timestamp2 = setelement(2, Timestamp, calendar:seconds_to_time(calendar:time_to_seconds(element(2, Timestamp)) + 1)),
-  dets:insert(Ref, #coord{lat = 1, lon = 2, speed = 20, distance = 200, timestamp = Timestamp2}),
-  ?assertEqual({54.0, 300, 2, Timestamp, Timestamp2}, load_track_stat(Ref)).
-
-update_track_stat_test() ->
-   Track = #track{id = 'track', dev_name = "SX6UAGDDCTUC",name = undef, pid = undef,
-       node = 'node@node', status = opened, path = "/tmp/track", start = {{2010,6,7},{11,14,57}},
-       stop = {{2010,6,7},{11,25,19}}, length = 6515.416756752921, avg_speed = 0.0, coord_count = 266},
-   Coord = #coord{lat = 55.658434, lon = 37.787873, speed = 0, distance = 23.531633205356556, timestamp = {{2010,6,7},{11,25,20}}},
-   NewTrack = update_track_stat(Track, Coord, true),
-   ?assertEqual(37.78525554390016, NewTrack#track.avg_speed).
-
 
 -endif.
