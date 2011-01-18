@@ -186,10 +186,10 @@ delete_news(Db, NewsRef, Timeout) ->
 delete_news(NewsRef) ->
    delete_news(?db_ref, NewsRef, ?MAX_CALL_TIMEOUT).
 
-new_track(Db, DevName, Force, CalcSpeed, Timeout) ->
+new_track(Db, DevName, Force, _CalcSpeed, Timeout) ->
    case gen_server:call(Db, {new_track, DevName, Force}, Timeout) of
       {ok, Track} ->
-         Track;
+         {ok, Track};
       Err ->
          Err
    end.

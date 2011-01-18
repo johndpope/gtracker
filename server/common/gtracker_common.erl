@@ -96,7 +96,7 @@ fill_binary(Bin, Size, Val) ->
 
 get_best_process(GroupName) ->
    Values =
-   list:foldl(
+   lists:foldl(
       fun(Pid, Acc) ->
          case rpc:pinfo(Pid, message_queue_len) of
             {message_queue_len, Val} ->
@@ -104,11 +104,10 @@ get_best_process(GroupName) ->
             _ ->
                Acc
          end
-      end, pg2:get_members(GroupName)),
+      end, [], pg2:get_members(GroupName)),
    case lists:sort(fun({Val1, _}, {Val2, _}) -> Val1 =< Val2 end, Values) of
-      [{_, {Pid}}|_] ->
-         {ok, Name} = gen_server:call(Pid, name),
-         Name;
+      [{_, Pid}|_] ->
+         {ok, Pid};
       [] ->
          undef
    end.

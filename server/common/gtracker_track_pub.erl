@@ -9,7 +9,7 @@ close(#track{id = TrackId, track_server = TrackServer}) ->
    gen_server:call(TrackServer, {close, TrackId}).
 
 store(#track{id = TrackId, track_server = TrackServer}, Coord) ->
-   gen_server:call(TrackServer, Coord#coord{track_id = TrackId}).
+   gen_server:cast(TrackServer, Coord#coord{track_id = TrackId}).
 
 clear(#track{id = TrackId, track_server = TrackServer}) ->
    gen_server:call(TrackServer, {clear, TrackId}).

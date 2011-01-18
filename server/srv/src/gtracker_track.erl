@@ -2,15 +2,15 @@
 
 -behaviour(mds_gen_server).
 
--export([start/1, stop/0, on_start/1, on_stop/2, on_msg/3, on_amsg/2, on_info/2]).
+-export([start/1, stop/1, on_start/1, on_stop/2, on_msg/3, on_amsg/2, on_info/2]).
 
 -import(mds_utils, [get_param/2, get_param/3]).
--import(gtracer_common, [join_pg/2, leave_pg/2]).
+-import(gtracker_common, [join_pg/2, leave_pg/2]).
 
 -include("common_defs.hrl").
 -include("common_recs.hrl").
 
--record(state, {name, calc_speed, pg}).
+-record(state, {name, pg}).
 -record(owner, {pid, track_id}).
 
 %=======================================================================================================================
@@ -21,22 +21,21 @@ start(Opts) ->
    ServName = {global, _} = get_param(name, SelfOpts), % should have {global, Atom()} format
    mds_gen_server:start(ServName, ?MODULE, Opts).
 
-stop() ->
-   mds_gen_server:stop(?track_ref).
+stop(State) ->
+   mds_gen_server:stop(State#state.name).
 
 %=======================================================================================================================
 %  callbacks
 %=======================================================================================================================
 on_start(Opts) ->
    SelfOpts = get_param(self, Opts),
-   CalcSpeed = get_param(calc_speed, SelfOpts, false),
    ServName = get_param(name, SelfOpts),
    ProcGroup = get_param(group, SelfOpts, track),
    mnesia_start(),
    process_flag(trap_exit, true),
    join_pg(ProcGroup, self()),
    log(info, "Track started."),
-   {ok, #state{name = ServName, pg = ProcGroup, calc_speed = CalcSpeed}}.
+   {ok, #state{name = ServName, pg = ProcGroup}}.
 
 on_stop(Reason, State) ->
    leave_pg(State#state.pg, self()),
@@ -114,22 +113,22 @@ on_msg(Msg, _From, State) ->
    log(error, "Unknown sync message ~p.", [Msg]),
    {noreply, State}.
 
-on_amsg(Coord = #coord{track_id = TrackId}, State = #state{calc_speed = CalcSpeed}) ->
+on_amsg(Coord = #coord{track_id = TrackId}, State) ->
    F = fun() ->
       TrackStat =
-      case mnesia:read(track_stat, TrackId) of
+      case mnesia:dirty_read(track_stat, TrackId) of
          [TS] ->
             TS;
          [] ->
-            mnesia:dirty_write(#track_stat{track_id = TrackId})
+            NewTrackStat = #track_stat{track_id = TrackId},
+            mnesia:dirty_write(NewTrackStat),
+            NewTrackStat
       end,
       UpSubs = gtracker_common:send2subs(TrackStat#track_stat.subs, Coord),
-      UpTrackStat = update_track_stat(TrackStat, Coord, CalcSpeed),
+      UpTrackStat = update_track_stat(TrackStat, Coord, false), % TODO: pass CalcSpeed by new_track command
       gtracker_common:send2subs(UpSubs, UpTrackStat),
-      mnesia:write(UpTrackStat),
-      mnesia:write(Coord),
-      UpSubs = gtracker_common:send2subs(TrackStat#track_stat.subs, Coord),
-      gtracker_common:send2subs(UpSubs, UpTrackStat)
+      mnesia:dirty_write(UpTrackStat),
+      mnesia:dirty_write(Coord)
    end,
    mnesia:transaction(F()),
    {noreply, State};

@@ -7,48 +7,40 @@
 -include_lib("stdlib/include/qlc.hrl").
 -include("common_defs.hrl").
 
--export([start/1, stop/0, on_start/1, on_stop/2, on_msg/3, on_amsg/2, on_info/2]).
-
--export([start_in_shell/0]).
+-export([start/1, stop/1, on_start/1, on_stop/2, on_msg/3, on_amsg/2, on_info/2]).
 
 -import(mds_utils, [get_param/2, get_param/3]).
+-import(gtracker_common, [get_best_process/1, join_pg/2, leave_pg/2]).
 
 
 -define(TIMEOUT, 100).
 -define(PORT, 7777).
 -define(ADDRESS, "gtracker.ru").
--define(MOD, {global, ?MODULE}).
 
--record(state, {lsocket, db, protocol, port, host, listener_ns, opts}).
-
-start_in_shell() ->
-   start([{root_dir, "/tmp/gtracker"}, {db, nodb}, {log_level, debug}]).
+-record(state, {name, group, lsocket, db, protocol, port, host, opts}).
 
 start(Opts) ->
-   mds_gen_server:start(?MOD, Opts).
+   SelfOpts = get_param(self, Opts),
+   ServName = {global, _} = get_param(name, SelfOpts), % should have {global, Atom()} format
+   mds_gen_server:start(ServName, ?MODULE, Opts).
 
-stop() ->
-   mds_gen_server:stop(?MOD).
+stop(State) ->
+   mds_gen_server:stop(State#state.name).
 
 on_start(Opts) ->
    SelfOpts = get_param('self', Opts),
    Port = get_param(port, SelfOpts, ?PORT),
    Host = get_param(host, SelfOpts, ?ADDRESS),
+   ServName = get_param(name, SelfOpts),
    Db = get_param(db, SelfOpts),
    Proto = get_param(protocol, SelfOpts, gtracker_protocol),
+   Group = get_param(group, SelfOpts, listener),
+   join_pg(Group, self()),
    {ok, ListenSocket} = gen_tcp:listen(Port, [binary, {packet, 1}, {reuseaddr, true}, {active, once}]),
-   {ok, MP} = re:compile("^(.*)_.*@.*$"),
-   NS =
-   case re:run(atom_to_list(node()), MP, [{capture, [1], list}]) of
-      nomatch ->
-         undef;
-      {match, [ListenerNS]} ->
-         ListenerNS
-   end,
-   log(info, "Started at <~p> namespace", [NS]),
-   {ok, #state{listener_ns = NS, lsocket = ListenSocket, db = Db, protocol = Proto, port = Port, host = Host, opts = Opts}, ?TIMEOUT}.
+   {ok, #state{name = ServName, group = Group, lsocket = ListenSocket, db = Db, protocol = Proto, port = Port, host = Host, opts = Opts}, ?TIMEOUT}.
 
-on_stop(Reason, _State) ->
+on_stop(Reason, State) ->
+   leave_pg(State#state.group, self()),
    log(info, "Stopped <~p>.", [Reason]),
    ok.
 
@@ -72,19 +64,19 @@ on_amsg({log, LogLevel, Format, Params}, State) ->
 on_amsg(_Msg, State) ->
    {norepy, State, 0}.
 
-on_info(_Msg, State = #state{listener_ns = ListenerNS}) ->
+on_info(_Msg, State = #state{name = Name, group = Group}) ->
    ListenSocket = State#state.lsocket,
    case gen_tcp:accept(ListenSocket, 0) of
       {ok, PeerSocket} ->
          {ok, Addr} = inet:peername(PeerSocket),
          log(info, "Device connected from ~p.", [Addr]),
-         Node = gtracker_common:get_best_node(ListenerNS, true, []),
-         if (node() == Node) ->
-            apply(State#state.protocol, start, [PeerSocket, [{listener, ?MOD}, {opts, State#state.opts}]]),
+         {ok, BestProcess} = gtracker_common:get_best_process(Group),
+         if (BestProcess ==  self()) ->
+            apply(State#state.protocol, start, [PeerSocket, [{listener, Name}, {opts, State#state.opts}]]),
             {noreply, State, ?TIMEOUT};
          true ->
-            NodeInfo = gen_server:call(Node, gtracker_listener, [get_info]),
-            apply(State#state.protocol, reconnect_to, [PeerSocket, NodeInfo]),
+            ConnectionInfo = gen_server:call(BestProcess, get_info),
+            apply(State#state.protocol, reconnect_to, [PeerSocket, ConnectionInfo]),
             {noreply, State, ?TIMEOUT}
          end;
       {error, timeout} ->

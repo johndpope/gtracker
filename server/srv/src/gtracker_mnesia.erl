@@ -284,7 +284,7 @@ on_msg({new_track, DevName, Force}, _From, State) ->
          [#device{owner = undef}] ->
             {reply, {error, device_not_registered, [DevName]}, State};
          [Device = #device{current_track = TrackId}] ->
-            case mnesia:dirty_read(track, TrackId) of
+            case mnesia:dirty_index_read(track, TrackId, #track.id) of
                [] ->
                   {atomic, NewTrack} = mnesia:transaction(fun() -> create_track(Device, State) end), % create new track here
                   {reply, {ok, NewTrack}, State};
@@ -306,7 +306,7 @@ on_msg({new_track, DevName, Force}, _From, State) ->
    catch
       _:Err ->
          log(error, "Unable to create new track. Error = ~p", [Err]),
-         {reply, {error, internal_error, [Err]}}
+         {reply, {error, internal_error, [Err]}, State}
    end;
 
 on_msg({update, NewTrack = #track{id = TrackId}, Mask}, _From, State) ->
@@ -408,7 +408,7 @@ mnesia_start() ->
    ?create_table(user, ordered_set),
    ?create_table(track, bag),
    ?create_table(news, ordered_set),
-   mnesia:add_table_index(track).
+   mnesia:add_table_index(track, id).
 
 dump_state(State) ->
    State.
@@ -426,8 +426,9 @@ activate_device(Device = #device{name = DevName, subs = Subs}, Owner) ->
 
 create_track(Device = #device{name = DevName}, #state{track_group = TrackGroup}) ->
    F = fun(Suffix) ->
-         TrackSrv = get_best_process(TrackGroup),
+         {ok, TrackPid} = get_best_process(TrackGroup),
          TrackName = list_to_atom(lists:flatten(io_lib:format("~s_~p", [DevName, Suffix]))),
+         TrackSrv = get_process_name(TrackPid),
          NewTrack = #track{id = TrackName, dev_name = DevName, track_server = TrackSrv},
          mnesia:write(NewTrack),
          log(debug, "New track ~p has been created.", [NewTrack]),
@@ -471,7 +472,7 @@ get_track_suffix(Id) ->
    list_to_integer(LSuffix).
 
 get_last_track(DevName) ->
-   Tracks = mnesia:dirty_select(track, DevName),
+   Tracks = mnesia:dirty_read(track, DevName),
    case lists:sort(fun(#track{id = A}, #track{id = B}) -> A >= B end, Tracks) of
       [] ->
          [];
@@ -542,6 +543,14 @@ check_mask(Mask, AlowedFields, Fun) ->
          throw({error, invalid_mask_elements, InvalidMask});
       false ->
          Fun(ValidatedMask)
+   end.
+
+get_process_name(Pid) ->
+   if (Pid == self()) ->
+      ?mod;
+   true ->
+      {ok, Name} = gen_server:call(Pid, name),
+      Name
    end.
 
 %=======================================================================================================================
