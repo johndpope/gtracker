@@ -32,7 +32,7 @@
 %  Timeout - call timeout
 %  Device = #device, See device record in gtracker/server/include/common_defs.hrl for details
 get_devices(Db, Timeout) ->
-   gen_server:call(Db, get_all_devices, Timeout).
+   call(Db, get_all_devices, Timeout).
 get_devices() ->
    get_devices(?db_ref, ?MAX_CALL_TIMEOUT).
 
@@ -41,7 +41,7 @@ get_devices() ->
 %  Timeout - call timeout
 %  DevName = String()
 get_device(Db, DevName, Timeout) ->
-   gen_server:call(Db, {get_device, DevName}, Timeout).
+   call(Db, {get_device, DevName}, Timeout).
 get_device(DevName) ->
    get_device(?db_ref, DevName, ?MAX_CALL_TIMEOUT).
 
@@ -52,7 +52,7 @@ get_device(DevName) ->
 %  Mask = [FieldName]
 %  FieldName = atom()
 update(Db, Object, Mask, Timeout) ->
-   gen_server:call(Db, {update, Object, Mask}, Timeout).
+   call(Db, {update, Object, Mask}, Timeout).
 update(Object, Mask) ->
    update(?db_ref, Object, Mask, ?MAX_CALL_TIMEOUT).
 
@@ -61,7 +61,7 @@ update(Object, Mask) ->
 %  Timeout - call timeout
 %  registers a new device
 register(Db, Timeout) ->
-   gen_server:call(Db, register, Timeout).
+   call(Db, register, Timeout).
 register() ->
    register(?db_ref, ?MAX_CALL_TIMEOUT).
 
@@ -70,7 +70,7 @@ register() ->
 %  Timeout - call timeout
 %  registers a existing device
 register(Db, DevName, Timeout) ->
-   gen_server:call(Db, {register, DevName}, Timeout).
+   call(Db, {register, DevName}, Timeout).
 register(DevName) ->
    register(?db_ref, DevName, ?MAX_CALL_TIMEOUT).
 
@@ -78,7 +78,7 @@ register(DevName) ->
 %  Db = registereg Db name
 %  Timeout - call timeout
 unregister(Db, DevName, Timeout) ->
-   gen_server:call(Db, {unregister, DevName}, Timeout).
+   call(Db, {unregister, DevName}, Timeout).
 unregister(DevName) ->
    unregister(?db_ref, DevName, ?MAX_CALL_TIMEOUT).
 
@@ -87,7 +87,7 @@ unregister(DevName) ->
 %  Timeout - call timeout
 %  DevName = Sttring()
 subscribe(Db, DevName, Timeout) ->
-   case  gen_server:call(Db, {subscribe, DevName, self()}, Timeout) of
+   case  call(Db, {subscribe, DevName, self()}, Timeout) of
       {ok, Device = #device{owner = undef}} ->
          {ok, Device};
       {ok, Device = #device{owner = Owner}} ->
@@ -104,7 +104,7 @@ subscribe(DevName) ->
 %  Timeout - call timeout
 %  DevName = String()
 unsubscribe(Db, DevName, Timeout) ->
-   case  gen_server:call(Db, {unsubscribe, DevName, self()}, Timeout) of
+   case  call(Db, {unsubscribe, DevName, self()}, Timeout) of
       {ok, Device = #device{owner = undef}} ->
          {ok, Device};
       {ok, Device = #device{owner = Owner}} ->
@@ -123,7 +123,7 @@ unsubscribe(DevName) ->
 %  Password = String()
 %  User = #user, see common_defs.hrl for details
 new_user(Db, UserName, Password, Timeout) ->
-   gen_server:call(Db, {new_user, UserName, Password}, Timeout).
+   call(Db, {new_user, UserName, Password}, Timeout).
 new_user(UserName, Password) ->
    new_user(?db_ref, UserName, Password, ?MAX_CALL_TIMEOUT).
 
@@ -132,7 +132,7 @@ new_user(UserName, Password) ->
 %  Timeout - call timeout
 %  UserName = String()
 get_user(Db, UserName, Timeout) ->
-   gen_server:call(Db, {get_user, UserName}, Timeout).
+   call(Db, {get_user, UserName}, Timeout).
 get_user(UserName) ->
    get_user(?db_ref, UserName, ?MAX_CALL_TIMEOUT).
 
@@ -142,9 +142,9 @@ get_user(UserName) ->
 %  UserName = String()
 %  Password = String()
 authenticate(Db, UserName, Password, Timeout) ->
-   gen_server:call(Db, {login, UserName, Password}, Timeout).
+   call(Db, {login, UserName, Password}, Timeout).
 authenticate(UserName, Password) ->
-   gen_server:call(?db_ref, {login, UserName, Password}, ?MAX_CALL_TIMEOUT).
+   authenticate(?db_ref, UserName, Password, ?MAX_CALL_TIMEOUT).
 
 % get_tracks(Db, DevName, Timeout) -> Tracks | {error, term(), List()}
 %  Db = registereg Db name
@@ -152,7 +152,7 @@ authenticate(UserName, Password) ->
 %  Tracks = [Track]
 %  Track = #track. See common_defs.hrl for details
 get_tracks(Db, DevName, Timeout) ->
-   gen_server:call(Db, {get_tracks, DevName}, Timeout).
+   call(Db, {get_tracks, DevName}, Timeout).
 get_tracks(DevName) ->
    get_tracks(?db_ref, DevName, ?MAX_CALL_TIMEOUT).
 
@@ -162,36 +162,49 @@ get_tracks(DevName) ->
 %  Triggers = [Trigger]
 %  Trigger = #trigger. See common_defs.hrl for details
 get_triggers(Db, DevName, Timeout) ->
-   gen_server:call(Db, {get_triggers, DevName}, Timeout).
+   call(Db, {get_triggers, DevName}, Timeout).
 get_triggers(DevName) ->
    get_triggers(?db_ref, DevName, ?MAX_CALL_TIMEOUT).
 
 get_news(Db, Timeout) ->
-   gen_server:call(Db, {get_news, undef}, Timeout).
+   call(Db, {get_news, undef}, Timeout).
 get_news() ->
    get_news(?db_ref, ?MAX_CALL_TIMEOUT).
 
 get_news(Db, UpToDate, Timeout) ->
-   gen_server:call(Db, {get_news, UpToDate}, Timeout).
+   call(Db, {get_news, UpToDate}, Timeout).
 get_news(UpToDate) ->
    get_news(?db_ref, UpToDate, ?MAX_CALL_TIMEOUT).
 
 insert_news(Db, Date, Text, Timeout) ->
-   gen_server:call(Db, {insert_news, Date, Text}, Timeout).
+   call(Db, {insert_news, Date, Text}, Timeout).
 insert_news(Date, Text) ->
    insert_news(?db_ref, Date, Text, ?MAX_CALL_TIMEOUT).
 
 delete_news(Db, NewsRef, Timeout) ->
-   gen_server:call(Db, {delete_news, NewsRef}, Timeout).
+   call(Db, {delete_news, NewsRef}, Timeout).
 delete_news(NewsRef) ->
    delete_news(?db_ref, NewsRef, ?MAX_CALL_TIMEOUT).
 
-new_track(Db, DevName, Force, _CalcSpeed, Timeout) ->
-   case gen_server:call(Db, {new_track, DevName, Force}, Timeout) of
+new_track(Db, DevName, Force, CalcSpeed, Timeout) ->
+   case call(Db, {new_track, DevName, Force}, Timeout) of
       {ok, Track} ->
-         {ok, Track};
+         case call(Track#track.track_server, {new_track, Track#track.id, CalcSpeed}, Timeout) of
+            {ok, _} ->
+               {ok, Track};
+            Err ->
+               Err
+         end;
       Err ->
          Err
    end.
 new_track(Device, Force, CalcSpeed) ->
    new_track(?db_ref, Device, Force, CalcSpeed, ?MAX_CALL_TIMEOUT).
+
+call(ServerRef, Request, Timeout) ->
+   case (catch gen_server:call(ServerRef, Request, Timeout)) of
+      {'EXIT', {Err, Req}} ->
+         {error, Err, [Req]};
+      Other ->
+         Other
+   end.

@@ -76,6 +76,12 @@ on_msg(Msg = {subscribers, TrackId, Subs}, _, State) ->
          {reply, ok, State}
    end;
 
+on_msg(Msg = {new_track, TrackId, CalcSpeed}, _, State) ->
+   log(debug, "~p", [Msg]),
+   NewTrackStat = #track_stat{track_id = TrackId, calc_speed = CalcSpeed},
+   ok = mnesia:dirty_write(NewTrackStat),
+   {reply, {ok, NewTrackStat}, State};
+
 on_msg(Msg = {owner, Pid, TrackId}, _, State) ->
    log(debug, "~p", [Msg]),
    case mnesia:dirty_index_read(owner, TrackId, #owner.track_id) of
@@ -115,22 +121,14 @@ on_msg(Msg, _From, State) ->
 
 on_amsg(Coord = #coord{track_id = TrackId}, State) ->
    F = fun() ->
-      TrackStat =
-      case mnesia:dirty_read(track_stat, TrackId) of
-         [TS] ->
-            TS;
-         [] ->
-            NewTrackStat = #track_stat{track_id = TrackId},
-            mnesia:dirty_write(NewTrackStat),
-            NewTrackStat
-      end,
+      [TrackStat] = mnesia:read(track_stat, TrackId),
       UpSubs = gtracker_common:send2subs(TrackStat#track_stat.subs, Coord),
-      UpTrackStat = update_track_stat(TrackStat, Coord, false), % TODO: pass CalcSpeed by new_track command
+      UpTrackStat = update_track_stat(TrackStat, Coord),
       gtracker_common:send2subs(UpSubs, UpTrackStat),
-      mnesia:dirty_write(UpTrackStat),
-      mnesia:dirty_write(Coord)
+      mnesia:write(UpTrackStat),
+      mnesia:write(Coord)
    end,
-   mnesia:transaction(F()),
+   {atomic, _} = mnesia:transaction(F),
    {noreply, State};
 
 on_amsg(Msg, State) ->
@@ -182,10 +180,10 @@ mnesia_start() ->
    ?create_table(owner, ordered_set),
    mnesia:add_table_index(owner, track_id).
 
-update_track_stat(TrackStat = #track_stat{start = undef}, C = #coord{timestamp = TS}, CalcSpeed) ->
-   update_track_stat(TrackStat#track_stat{start = TS}, C, CalcSpeed);
-update_track_stat(TrackStat = #track_stat{avg_speed = AvgSpeed, length = TrackLength, coord_count = Cnt, start = StartTS},
-   #coord{speed = Speed, distance = D, timestamp = TS}, CalcSpeed) ->
+update_track_stat(TrackStat = #track_stat{start = undef}, C = #coord{timestamp = TS}) ->
+   update_track_stat(TrackStat#track_stat{start = TS}, C);
+update_track_stat(TrackStat = #track_stat{calc_speed = CalcSpeed, avg_speed = AvgSpeed, length = TrackLength, coord_count = Cnt, start = StartTS},
+   #coord{speed = Speed, distance = D, timestamp = TS}) ->
    NewAvgSpeed =
    if (CalcSpeed == true) ->
       TsDiff = datetime_diff(TS, StartTS),

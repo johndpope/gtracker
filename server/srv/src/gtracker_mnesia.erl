@@ -28,12 +28,10 @@ stop() ->
 %=======================================================================================================================
 on_start(Opts) ->
    SelfOpts = get_param(self, Opts),
-   UseAsTrack = get_param(use_as_track, SelfOpts),
    TrackGroup = get_param(track_group, SelfOpts, track),
    mnesia_start(),
    process_flag(trap_exit, true),
    log(info, "Mnesia started."),
-   if (UseAsTrack == true) -> join_pg(TrackGroup, self()); true -> ok end,
    {ok, #state{track_group = TrackGroup}}.
 
 on_stop(Reason, State) ->
@@ -245,7 +243,7 @@ on_msg({unsubscribe, DevName, Pid}, _From, State) ->
 
 on_msg({get_tracks, DevName}, _From, State) ->
    log(debug, "get_tracks(~p). State: ~p", [DevName, dump_state(State)]),
-   Tracks = mnesia:dirty_index_read(track, DevName, #track.dev_name),
+   Tracks = mnesia:dirty_read(track, DevName),
    {reply, Tracks, State};
 
 on_msg({get_news, UpToDate}, _From, State) ->
@@ -359,10 +357,6 @@ on_amsg({closed, NewTrack = #track{id = TrackId}}, State) ->
 on_amsg(Msg, State) ->
    log(error, "Unknown async message ~p.", [Msg]),
    {noreply, State}.
-
-on_info({track_stat, _Stat}, State) ->
-   log(error, "Statistic for track has been received"),
-   {noreply, State};
 
 on_info({'EXIT', Pid, _}, State) ->
    log(info, "Process ~p exited. Trying to update device", [Pid]),
