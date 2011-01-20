@@ -8,7 +8,7 @@
 -include("common_defs.hrl").
 -include("common_recs.hrl").
 
--export([start/2, stop/1, reconnect_to/2]).
+-export([start_link/2, stop/1, reconnect_to/2]).
 
 -import(gtracker_common, [unix_seconds_to_datetime/1, ints_to_float/2, send_pg/2, fill_binary/3]).
 
@@ -33,7 +33,7 @@
 %=======================================================================================================================
 % gtracker_protocol exports
 %=======================================================================================================================
-start(Socket, Opts) ->
+start_link(Socket, Opts) ->
    Listener = get_param(listener, Opts),
    AllOpts = get_param(opts, Opts),
    ListenerOpts = get_param(self, AllOpts),
@@ -238,6 +238,7 @@ processMsg(?COORD_MSG, Coord, State = #state{db = Db, calc_speed = CS, dev = #de
       {ok, Track} ->
          log(State, debug, "New track has been created: ~p", [Track]),
          gtracker_track_pub:set_subscribers(Track, Subs),
+         gtracker_track_pub:set_owner(Track, self()),
          processMsg(?COORD_MSG, Coord, State#state{track = Track})
    end;
 

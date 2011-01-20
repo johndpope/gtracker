@@ -72,7 +72,7 @@ on_info(_Msg, State = #state{name = Name, group = Group}) ->
          log(info, "Device connected from ~p.", [Addr]),
          {ok, BestProcess} = gtracker_common:get_best_process(Group),
          if (BestProcess ==  self()) ->
-            apply(State#state.protocol, start, [PeerSocket, [{listener, Name}, {opts, State#state.opts}]]),
+            apply(State#state.protocol, start_link, [PeerSocket, [{listener, Name}, {opts, State#state.opts}]]),
             {noreply, State, ?TIMEOUT};
          true ->
             ConnectionInfo = gen_server:call(BestProcess, get_info),
@@ -81,7 +81,12 @@ on_info(_Msg, State = #state{name = Name, group = Group}) ->
          end;
       {error, timeout} ->
          {noreply, State, ?TIMEOUT}
-   end.
+   end;
+
+on_info({'EXIT', Pid, Reason}, State = #state{db = Db}) ->
+   log(info, "Process ~p exited with status ~p. Db will be notified.", [Pid, Reason]),
+   gen_server:cast(Db, {exited, Pid}),
+   {noreply, State}.
 
 log(LogLevel, Format, Data) ->
    mds_gen_server:log(?MODULE, LogLevel, Format, Data).

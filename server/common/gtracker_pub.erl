@@ -21,6 +21,7 @@
       ,get_tracks/1, get_tracks/3
       ,new_track/3, new_track/5
       ,get_triggers/1, get_triggers/3
+      ,get_current_track/1, get_current_track/3
    ]).
 
 -include("common_recs.hrl").
@@ -200,6 +201,11 @@ new_track(Db, DevName, Force, CalcSpeed, Timeout) ->
    end.
 new_track(Device, Force, CalcSpeed) ->
    new_track(?db_ref, Device, Force, CalcSpeed, ?MAX_CALL_TIMEOUT).
+
+get_current_track(Db, DevName, Timeout) ->
+   call(Db, {get_current_track, DevName}, Timeout).
+get_current_track(DevName) ->
+   get_current_track(?db_ref, DevName, ?MAX_CALL_TIMEOUT).
 
 call(ServerRef, Request, Timeout) ->
    case (catch gen_server:call(ServerRef, Request, Timeout)) of

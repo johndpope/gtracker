@@ -53,7 +53,6 @@ on_msg(register, {Pid, _}, State) ->
             log(debug, "Store device ~p", [DevName]),
             Ref = binary_to_hex(erlang:md5(erlang:list_to_binary(DevName))),
             Device = #device{name = DevName, alias = DevName, reference = Ref, status = online, owner = Pid},
-            erlang:link(Pid),
             mnesia:dirty_write(Device),
             {reply, {ok, Device}, State};
          [#device{name = DevName}] ->
@@ -67,13 +66,14 @@ on_msg({register, DevName}, {Pid, _}, State) ->
    case mnesia:dirty_read(device, DevName) of
       [] ->
          {reply, {error, no_such_device, [DevName]}, State};
-      [Device = #device{owner = undef, status = offline}] ->
-         NewDevice = activate_device(Device, Pid),
+      [Device = #device{owner = undef, subs = Subs, status = offline}] ->
+         NewSubs = gtracker_common:send2subs(Subs, {online, DevName}),
+         NewDevice = Device#device{owner = Pid, subs = NewSubs, status = online},
          mnesia:dirty_write(NewDevice),
          {reply, {ok, NewDevice}, State};
       [Device = #device{owner = Owner}] when is_pid(Owner) andalso (Pid == Owner) ->
          {reply, {ok, Device}, State};
-      [Device = #device{owner = Owner, current_track = TrackId}] ->
+      [Device = #device{owner = Owner, subs = Subs, current_track = TrackId}] ->
          log(info, "Device ~p found", [Device]),
          case mnesia:dirty_read(track, TrackId) of
             [] ->
@@ -84,7 +84,8 @@ on_msg({register, DevName}, {Pid, _}, State) ->
          end,
          log(info, "Trying to stop old owner with Pid = ~p", [Owner]),
          Owner ! stop,
-         NewDevice = activate_device(Device, Pid),
+         NewSubs = gtracker_common:send2subs(Subs, {online, DevName}),
+         NewDevice = Device#device{owner = Pid, subs = NewSubs, status = online},
          mnesia:dirty_write(NewDevice),
          {reply, {ok, NewDevice}, State}
    end;
@@ -241,6 +242,16 @@ on_msg({unsubscribe, DevName, Pid}, _From, State) ->
          {reply, {ok, NewDevice}, State}
    end;
 
+on_msg(Msg = {get_current_track, DevName}, _From, State) ->
+   log(debug, "~p. State ~p", [Msg, State, dump_state(State)]),
+   case mnesia:dirty_read(device, DevName) of
+      [] ->
+         {reply, {error, no_such_device, [DevName]}, State};
+      [#device{current_track = CT}] ->
+         Res = mnesia:dirty_index_read(track, CT, #track.id),
+         {reply, Res, State}
+   end;
+
 on_msg({get_tracks, DevName}, _From, State) ->
    log(debug, "get_tracks(~p). State: ~p", [DevName, dump_state(State)]),
    Tracks = mnesia:dirty_read(track, DevName),
@@ -334,15 +345,16 @@ on_msg(Msg, _From, State) ->
    log(error, "Unknown sync message ~p.", [Msg]),
    {noreply, State}.
 
-on_amsg({closed, NewTrack = #track{id = TrackId}}, State) ->
-   log(debug, "{closed, ~p}", [NewTrack]),
+on_amsg(Msg = {closed, #track_stat{track_id = TrackId, start = Start, stop = Stop, status = Status}}, State) ->
+   log(info, "~p", [Msg]),
    F = fun() ->
-         case mnesia:read(track, TrackId) of
+         case mnesia:index_read(track, TrackId, #track.id) of
             [] ->
                log(warning, "track_closed event has been received, but track ~p not exists in DB.", [TrackId]);
             [Track = #track{dev_name = DevName}] ->
-               MergedTrack = merge_tracks(Track, NewTrack, [length, avg_speed, start, stop, coord_count]),
-               mnesia:write(MergedTrack),
+               NewTrack = Track#track{start = Start, stop = Stop, status = Status},
+               mnesia:delete_object(Track),
+               mnesia:write(NewTrack),
                [Device] = mnesia:read(device, DevName),
                if Device#device.current_track == TrackId ->
                   mnesia:write(Device#device{current_track = undef});
@@ -354,21 +366,22 @@ on_amsg({closed, NewTrack = #track{id = TrackId}}, State) ->
    mnesia:transaction(F),
    {noreply, State};
 
+on_amsg(Msg = {exited, Owner}, State) ->
+   log(info, "~p", [Msg]),
+   case mnesia:dirty_index_read(device, Owner, #device.owner) of
+      [Device] ->
+         log(info, "Device ~p found. Will be unregistered.", [Device#device.name]),
+         {reply, _, NewState} = on_msg({unregister, Device#device.name}, {Owner, undef}, State),
+         {noreply, NewState};
+      _ ->
+         log(info, "Device owned by ~p not found.", [Owner]),
+         {noreply, State}
+   end;
+
 on_amsg(Msg, State) ->
    log(error, "Unknown async message ~p.", [Msg]),
    {noreply, State}.
 
-on_info({'EXIT', Pid, _}, State) ->
-   log(info, "Process ~p exited. Trying to update device", [Pid]),
-   case mnesia:dirty_select(device, [{#device{owner = '$1', _='_'}, [{'==', '$1', Pid}], ['$_']}]) of
-      [Device] ->
-         log(info, "Device ~p found. Will be unregistered.", [Device#device.name]),
-         {reply, _, NewState} = on_msg({unregister, Device#device.name}, {Pid, undef}, State),
-         {noreply, NewState};
-      _ ->
-         log(info, "Device owned by ~p not found.", [Pid]),
-         {noreply, State}
-   end;
 
 on_info(Msg, State) ->
    log(error, "Unknown info message ~p.", [Msg]),
@@ -402,21 +415,11 @@ mnesia_start() ->
    ?create_table(user, ordered_set),
    ?create_table(track, bag),
    ?create_table(news, ordered_set),
-   mnesia:add_table_index(track, id).
+   mnesia:add_table_index(track, id),
+   mnesia:add_table_index(device, owner).
 
 dump_state(State) ->
    State.
-
-activate_device(Device = #device{name = DevName, subs = Subs}, Owner) ->
-   erlang:link(Owner),
-   NewSubs = gtracker_common:send2subs(Subs, {online, DevName}),
-   Device#device
-   {
-      owner = Owner,
-      subs = NewSubs,
-      status = online,
-      registered_at = now()
-   }.
 
 create_track(Device = #device{name = DevName}, #state{track_group = TrackGroup}) ->
    F = fun(Suffix) ->
@@ -452,7 +455,7 @@ create_track(Device = #device{name = DevName}, #state{track_group = TrackGroup})
    NewTrack.
 
 set_subscribers(TrackId, Subs) ->
-   case mnesia:dirty_read(track, TrackId) of
+   case mnesia:dirty_index_read(track, TrackId, #track.id) of
       [] ->
          ok;
       [Track] ->

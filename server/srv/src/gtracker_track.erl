@@ -10,7 +10,7 @@
 -include("common_defs.hrl").
 -include("common_recs.hrl").
 
--record(state, {name, pg}).
+-record(state, {name, pg, db}).
 -record(owner, {pid, track_id}).
 
 %=======================================================================================================================
@@ -31,11 +31,12 @@ on_start(Opts) ->
    SelfOpts = get_param(self, Opts),
    ServName = get_param(name, SelfOpts),
    ProcGroup = get_param(group, SelfOpts, track),
+   Db = get_param(db, SelfOpts),
    mnesia_start(),
    process_flag(trap_exit, true),
    join_pg(ProcGroup, self()),
    log(info, "Track started."),
-   {ok, #state{name = ServName, pg = ProcGroup}}.
+   {ok, #state{name = ServName, pg = ProcGroup, db = Db}}.
 
 on_stop(Reason, State) ->
    leave_pg(State#state.pg, self()),
@@ -54,7 +55,7 @@ on_msg(Msg = process_info, _, State) ->
    [{_, Size}] = process_info(self(), [message_queue_len]),
    {reply, Size, State};
 
-on_msg(Msg = {close, TrackId}, _, State) ->
+on_msg(Msg = {close, TrackId}, _, State = #state{db = Db}) ->
    log(debug, "~p", [Msg]),
    case mnesia:dirty_read(track_stat, TrackId) of
       [] ->
@@ -63,6 +64,7 @@ on_msg(Msg = {close, TrackId}, _, State) ->
          UpTrackStat = TrackStat#track_stat{subs = [], status = closed},
          gtracker_common:send2subs(TrackStat#track_stat.subs, UpTrackStat),
          mnesia:dirty_write(UpTrackStat),
+         gen_server:cast(Db, {closed, UpTrackStat}),
          {reply, ok, State}
    end;
 
@@ -138,12 +140,13 @@ on_amsg(Msg, State) ->
 on_info({'EXIT', Pid, _}, State) ->
    log(info, "Process ~p exited. Trying to find its track.", [Pid]),
    case mnesia:dirty_read(owner, Pid) of
-      [TrackId] ->
+      [#owner{pid = Owner, track_id = TrackId}] ->
          log(info, "Track ~p found. Will be closed.", [TrackId]),
          {reply, _, NewState} = on_msg({close, TrackId}, {Pid, undef}, State),
+         mnesia:dirty_delete(owner, Owner),
          {noreply, NewState};
       _ ->
-         log(info, "Track not foud for pid ~p.", [Pid]),
+         log(info, "Track not found for pid ~p.", [Pid]),
          {noreply, State}
    end;
 
