@@ -10,7 +10,7 @@
 -include("common_defs.hrl").
 -include("common_recs.hrl").
 
--record(state, {name, pg, db}).
+-record(state, {name, pg, db, saver = undef}).
 -record(owner, {pid, track_id}).
 
 %=======================================================================================================================
@@ -35,8 +35,9 @@ on_start(Opts) ->
    mnesia_start(),
    process_flag(trap_exit, true),
    join_pg(ProcGroup, self()),
+   SaverPid = spawn_link(fun() -> saver_loop() end),
    log(info, "Track started."),
-   {ok, #state{name = ServName, pg = ProcGroup, db = Db}}.
+   {ok, #state{name = ServName, pg = ProcGroup, db = Db, saver = SaverPid}}.
 
 on_stop(Reason, State) ->
    leave_pg(State#state.pg, self()),
@@ -121,21 +122,18 @@ on_msg(Msg, _From, State) ->
    log(error, "Unknown sync message ~p.", [Msg]),
    {noreply, State}.
 
-on_amsg(Coord = #coord{track_id = TrackId}, State) ->
-   F = fun() ->
-      [TrackStat] = mnesia:read(track_stat, TrackId),
-      UpSubs = gtracker_common:send2subs(TrackStat#track_stat.subs, Coord),
-      UpTrackStat = update_track_stat(TrackStat, Coord),
-      gtracker_common:send2subs(UpSubs, UpTrackStat),
-      mnesia:write(UpTrackStat),
-      mnesia:write(Coord)
-   end,
-   {atomic, _} = mnesia:transaction(F),
+on_amsg(Coord, State = #state{saver = Saver}) when is_record(Coord, coord) ->
+   Saver ! Coord,
    {noreply, State};
 
 on_amsg(Msg, State) ->
    log(error, "Unknown async message ~p.", [Msg]),
    {noreply, State}.
+
+on_info({'EXIT', Pid, _}, State = #state{saver = Pid}) ->
+   log(error, "Saver was die. Recreating..."),
+   SaverPid = spawn_link(fun() -> saver_loop() end),
+   {noreply, State#state{saver = SaverPid}};
 
 on_info({'EXIT', Pid, _}, State) ->
    log(info, "Process ~p exited. Trying to find its track.", [Pid]),
@@ -153,6 +151,22 @@ on_info({'EXIT', Pid, _}, State) ->
 on_info(Msg, State) ->
    log(error, "Unknown info message ~p.", [Msg]),
    {noreply, State}.
+
+saver_loop() ->
+   F = fun(Coord = #coord{track_id = TrackId}) ->
+      [TrackStat] = mnesia:read(track_stat, TrackId),
+      UpSubs = gtracker_common:send2subs(TrackStat#track_stat.subs, Coord),
+      UpTrackStat = update_track_stat(TrackStat, Coord),
+      gtracker_common:send2subs(UpSubs, UpTrackStat),
+      mnesia:write(UpTrackStat),
+      mnesia:write(Coord)
+   end,
+   receive
+      Coord ->
+         {atomic, _} = mnesia:transaction(fun() -> F(Coord) end),
+         saver_loop()
+   end.
+
 
 %=======================================================================================================================
 %  log helpers
