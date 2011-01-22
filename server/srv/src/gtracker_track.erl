@@ -36,28 +36,29 @@ on_start(Opts) ->
    process_flag(trap_exit, true),
    join_pg(ProcGroup, self()),
    SaverPid = spawn_link(fun() -> saver_loop() end),
-   log(info, "Track started."),
-   {ok, #state{name = ServName, pg = ProcGroup, db = Db, saver = SaverPid}}.
+   State = #state{name = ServName, pg = ProcGroup, db = Db, saver = SaverPid},
+   log(State, info, "Track started."),
+   {ok, State}.
 
 on_stop(Reason, State) ->
    leave_pg(State#state.pg, self()),
-   log(info, "Stopped <~p>.", [Reason]),
+   log(State, info, "Stopped <~p>.", [Reason]),
    ok.
 
 on_msg(stop, _From, State) ->
    {stop, normal, stopped, State};
 
 on_msg(Msg = name, _, State) ->
-   log(debug, "~p", [Msg]),
+   log(State, debug, "~p", [Msg]),
    {reply, {ok, State#state.name}, State};
 
 on_msg(Msg = process_info, _, State) ->
-   log(debug, "~p", [Msg]),
+   log(State, debug, "~p", [Msg]),
    [{_, Size}] = process_info(self(), [message_queue_len]),
    {reply, Size, State};
 
 on_msg(Msg = {close, TrackId}, _, State = #state{db = Db}) ->
-   log(debug, "~p", [Msg]),
+   log(State, debug, "~p", [Msg]),
    case mnesia:dirty_read(track_stat, TrackId) of
       [] ->
          {reply, {errror, no_such_track, [TrackId]}, State};
@@ -70,7 +71,7 @@ on_msg(Msg = {close, TrackId}, _, State = #state{db = Db}) ->
    end;
 
 on_msg(Msg = {subscribers, TrackId, Subs}, _, State) ->
-   log(debug, "~p", [Msg]),
+   log(State, debug, "~p", [Msg]),
    case mnesia:dirty_read(track_stat, TrackId) of
       [] ->
          {reply, {errror, no_such_track, [TrackId]}, State};
@@ -80,18 +81,18 @@ on_msg(Msg = {subscribers, TrackId, Subs}, _, State) ->
    end;
 
 on_msg(Msg = {new_track, TrackId, CalcSpeed}, _, State) ->
-   log(debug, "~p", [Msg]),
+   log(State, debug, "~p", [Msg]),
    NewTrackStat = #track_stat{track_id = TrackId, calc_speed = CalcSpeed},
    ok = mnesia:dirty_write(NewTrackStat),
    {reply, {ok, NewTrackStat}, State};
 
 on_msg(Msg = {owner, Pid, TrackId}, _, State) ->
-   log(debug, "~p", [Msg]),
+   log(State, debug, "~p", [Msg]),
    case mnesia:dirty_index_read(owner, TrackId, #owner.track_id) of
       [] ->
-         log(info, "No owner for track ~p found.", [TrackId]);
+         log(State, info, "No owner for track ~p found.", [TrackId]);
       [Owner] ->
-         log(info, "Owner ~p found for track ~p. Will be deleted and unlink.", [Owner, TrackId]),
+         log(State, info, "Owner ~p found for track ~p. Will be deleted and unlink.", [Owner, TrackId]),
          mnesia:dirty_delete(owner, Owner#owner.pid),
          unlink(Owner#owner.pid)
    end,
@@ -100,7 +101,7 @@ on_msg(Msg = {owner, Pid, TrackId}, _, State) ->
    {reply, ok, State};
 
 on_msg(Msg = {get_track, TrackId}, _, State) ->
-   log(debug, "~p", [Msg]),
+   log(State, debug, "~p", [Msg]),
    case mnesia:dirty_read(track_stat, TrackId) of
       [] ->
          {reply, {error, no_such_track, [TrackId]}, State};
@@ -110,7 +111,7 @@ on_msg(Msg = {get_track, TrackId}, _, State) ->
    end;
 
 on_msg(Msg = {get_track_stat, TrackId}, _, State) ->
-   log(debug, "~p", [Msg]),
+   log(State, debug, "~p", [Msg]),
    case mnesia:dirty_read(track_stat, TrackId) of
       [] ->
          {reply, {error, no_such_track, [TrackId]}, State};
@@ -119,7 +120,7 @@ on_msg(Msg = {get_track_stat, TrackId}, _, State) ->
    end;
 
 on_msg(Msg, _From, State) ->
-   log(error, "Unknown sync message ~p.", [Msg]),
+   log(State, error, "Unknown sync message ~p.", [Msg]),
    {noreply, State}.
 
 on_amsg(Coord, State = #state{saver = Saver}) when is_record(Coord, coord) ->
@@ -127,29 +128,29 @@ on_amsg(Coord, State = #state{saver = Saver}) when is_record(Coord, coord) ->
    {noreply, State};
 
 on_amsg(Msg, State) ->
-   log(error, "Unknown async message ~p.", [Msg]),
+   log(State, error, "Unknown async message ~p.", [Msg]),
    {noreply, State}.
 
 on_info({'EXIT', Pid, _}, State = #state{saver = Pid}) ->
-   log(error, "Saver was die. Recreating..."),
+   log(State, error, "Saver was die. Recreating..."),
    SaverPid = spawn_link(fun() -> saver_loop() end),
    {noreply, State#state{saver = SaverPid}};
 
 on_info({'EXIT', Pid, _}, State) ->
-   log(info, "Process ~p exited. Trying to find its track.", [Pid]),
+   log(State, info, "Process ~p exited. Trying to find its track.", [Pid]),
    case mnesia:dirty_read(owner, Pid) of
       [#owner{pid = Owner, track_id = TrackId}] ->
-         log(info, "Track ~p found. Will be closed.", [TrackId]),
+         log(State, info, "Track ~p found. Will be closed.", [TrackId]),
          {reply, _, NewState} = on_msg({close, TrackId}, {Pid, undef}, State),
          mnesia:dirty_delete(owner, Owner),
          {noreply, NewState};
       _ ->
-         log(info, "Track not found for pid ~p.", [Pid]),
+         log(State, info, "Track not found for pid ~p.", [Pid]),
          {noreply, State}
    end;
 
 on_info(Msg, State) ->
-   log(error, "Unknown info message ~p.", [Msg]),
+   log(State, error, "Unknown info message ~p.", [Msg]),
    {noreply, State}.
 
 saver_loop() ->
@@ -171,11 +172,11 @@ saver_loop() ->
 %=======================================================================================================================
 %  log helpers
 %=======================================================================================================================
-log(LogLevel, Format, Data) ->
-   mds_gen_server:log(?MODULE, LogLevel, Format, Data).
+log(#state{name = N}, LogLevel, Format, Data) ->
+   mds_gen_server:log(N, LogLevel, Format, Data).
 
-log(LogLevel, Text) ->
-   mds_gen_server:log(?MODULE, LogLevel, Text).
+log(#state{name = N}, LogLevel, Text) ->
+   mds_gen_server:log(N, LogLevel, Text).
 
 %=======================================================================================================================
 %  tools

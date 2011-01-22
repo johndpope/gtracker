@@ -37,11 +37,14 @@ on_start(Opts) ->
    Group = get_param(group, SelfOpts, listener),
    join_pg(Group, self()),
    {ok, ListenSocket} = gen_tcp:listen(Port, [binary, {packet, 1}, {reuseaddr, true}, {active, once}]),
-   {ok, #state{name = ServName, group = Group, lsocket = ListenSocket, db = Db, protocol = Proto, port = Port, host = Host, opts = Opts}, ?TIMEOUT}.
+   State = #state{name = ServName, group = Group, lsocket = ListenSocket, db = Db, protocol = Proto, port = Port, host =
+      Host, opts = Opts},
+   log(State, "Started ~p", [self()]),
+   {ok, State, ?TIMEOUT}.
 
 on_stop(Reason, State) ->
    leave_pg(State#state.group, self()),
-   log(info, "Stopped <~p>.", [Reason]),
+   log(State, info, "Stopped <~p>.", [Reason]),
    ok.
 
 on_msg(get_info, _From, State) ->
@@ -54,11 +57,11 @@ on_msg(_Msg, _Who, State) ->
    {norepy, State, 0}.
 
 on_amsg({log, LogLevel, Text}, State) ->
-   log(LogLevel, Text),
+   log(State, LogLevel, Text),
    {noreply, State, 0};
 
 on_amsg({log, LogLevel, Format, Params}, State) ->
-   log(LogLevel, Format, Params),
+   log(State, LogLevel, Format, Params),
    {noreply, State, 0};
 
 on_amsg(_Msg, State) ->
@@ -69,7 +72,7 @@ on_info(_Msg, State = #state{name = Name, group = Group}) ->
    case gen_tcp:accept(ListenSocket, 0) of
       {ok, PeerSocket} ->
          {ok, Addr} = inet:peername(PeerSocket),
-         log(info, "Device connected from ~p.", [Addr]),
+         log(State, info, "Device connected from ~p.", [Addr]),
          {ok, BestProcess} = gtracker_common:get_best_process(Group),
          if (BestProcess ==  self()) ->
             apply(State#state.protocol, start_link, [PeerSocket, [{listener, Name}, {opts, State#state.opts}]]),
@@ -84,12 +87,12 @@ on_info(_Msg, State = #state{name = Name, group = Group}) ->
    end;
 
 on_info({'EXIT', Pid, Reason}, State = #state{db = Db}) ->
-   log(info, "Process ~p exited with status ~p. Db will be notified.", [Pid, Reason]),
+   log(State, info, "Process ~p exited with status ~p. Db will be notified.", [Pid, Reason]),
    gen_server:cast(Db, {exited, Pid}),
    {noreply, State}.
 
-log(LogLevel, Format, Data) ->
-   mds_gen_server:log(?MODULE, LogLevel, Format, Data).
+log(#state{name = N}, LogLevel, Format, Data) ->
+   mds_gen_server:log(N, LogLevel, Format, Data).
 
-log(LogLevel, Text) ->
-   mds_gen_server:log(?MODULE, LogLevel, Text).
+log(#state{name = N}, LogLevel, Text) ->
+   mds_gen_server:log(N, LogLevel, Text).

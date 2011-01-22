@@ -10,7 +10,7 @@
 -include("common_defs.hrl").
 -include("common_recs.hrl").
 
--define(mod, {global, gtracker_db}).
+-define(name, {global, gtracker_db}).
 -define(def_track_nodes, gt_tracks).
 -record(state, {track_group}).
 
@@ -18,10 +18,10 @@
 %  public exports
 %=======================================================================================================================
 start(Opts) ->
-   mds_gen_server:start(?mod, ?MODULE, Opts).
+   mds_gen_server:start(?name, ?MODULE, Opts).
 
 stop() ->
-   mds_gen_server:stop(?mod).
+   mds_gen_server:stop(?name).
 
 %=======================================================================================================================
 %  callbacks
@@ -391,10 +391,10 @@ on_info(Msg, State) ->
 %  log helpers
 %=======================================================================================================================
 log(LogLevel, Format, Data) ->
-   mds_gen_server:log(?MODULE, LogLevel, Format, Data).
+   mds_gen_server:log(?name, LogLevel, Format, Data).
 
 log(LogLevel, Text) ->
-   mds_gen_server:log(?MODULE, LogLevel, Text).
+   mds_gen_server:log(?name, LogLevel, Text).
 
 %=======================================================================================================================
 %  tools
@@ -544,7 +544,7 @@ check_mask(Mask, AlowedFields, Fun) ->
 
 get_process_name(Pid) ->
    if (Pid == self()) ->
-      ?mod;
+      ?name;
    true ->
       {ok, Name} = gen_server:call(Pid, name),
       Name

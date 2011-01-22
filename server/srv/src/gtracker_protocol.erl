@@ -17,7 +17,6 @@
                 socket,         % device socket
                 listener,       % registered name of gtracker_listener process
                 db,             % registered name for database process
-                logger = undef, % logger of this process
                 ecnt = 0,       % count of errors
                 last_coord = undef, % last received coordinate
                 calc_speed = false,
@@ -109,29 +108,16 @@ loop(State = #state{dev = Device, track = Track, socket = Socket}) ->
 %=======================================================================================================================
 % logger for listener
 %=======================================================================================================================
-log2listener(Listener, LogLevel, Text) ->
-   mds_gen_server:cast(Listener, {log, LogLevel, Text}).
+log(#state{dev = undef, listener = L}, LogLevel, Text) ->
+   mds_gen_server:log(L, LogLevel, Text);
+log(#state{dev = #device{name = Name}, listener = L}, LogLevel, Text) ->
+   FmtText = lists:flatten(io_lib:format("~p: ~p", [Name, Text])),
+   mds_gen_server:log(L, LogLevel, FmtText).
 
-log2listener(Listener, LogLevel, Format, Params) ->
-   mds_gen_server:cast(Listener, {log, LogLevel, Format, Params}).
-
-%=======================================================================================================================
-% create new logger for device
-%=======================================================================================================================
-create_logger(DevName, State = #state{logger = undef, logger_opts = LOpts}) ->
-   Name = mds_utils:list_to_atom(DevName),
-   process_flag(trap_exit, true),
-   ClntLoggerOpts = dict:to_list(dict:store(working_dir, DevName, LOpts)),
-   {ok, Pid} = mds_logger:start_link(Name, ClntLoggerOpts),
-   State#state{logger = Pid};
-
-create_logger(DevName, State = #state{dev = #device.name = DevName}) ->
-   State;
-
-create_logger(DevName, State) ->
-   unlink(State#state.logger),
-   mds_logger:stop(State#state.logger),
-   create_logger(DevName, State#state{logger = undef}).
+log(#state{dev = undef, listener = L}, LogLevel, Format, Params) ->
+   mds_gen_server:log(L, LogLevel, Format, Params);
+log(#state{dev = #device{name = Name}, listener = L}, LogLevel, Format, Params) ->
+   mds_gen_server:log(L, LogLevel, "~p: " ++ Format, [Name|Params]).
 
 %=======================================================================================================================
 % reply message to device
@@ -189,11 +175,10 @@ processMsg(?AUTH_MSG, <<1:?VER>>, State = #state{db = Db, socket = S, dev = unde
          log(State, error, "Register error: ~p", [Err]),
          {return_error(?ERROR_SERVER_UNAVAILABLE), State};
       {ok, Device = #device{name = DevName, reference = Ref}} ->
-         NewState = create_logger(DevName, State),
-         log(State, info, "The device ~p got a device name ~p.", [PeerName, DevName]),
+         log(State, info, "The device ~p(~p) got a device name ~p.", [PeerName, self(), DevName]),
          BinDevName = erlang:list_to_bitstring(DevName),
          BinRef = fill_binary(erlang:list_to_binary(RefPrefix ++ Ref), ?REF_SIZE, <<0:8>>),
-         { <<?AUTH_ACK_MSG, BinDevName:?BIN_DEV_NAME, BinRef/binary>>, NewState#state{dev = Device} }
+         { <<?AUTH_ACK_MSG, BinDevName:?BIN_DEV_NAME, BinRef/binary>>, State#state{dev = Device} }
    end;
 
 processMsg(?AUTH_MSG, <<1:?VER>>, State) -> % the device already has a name
@@ -213,10 +198,9 @@ processMsg(?AUTH_MSG, <<1:?VER, BinDevName:?BIN_DEV_NAME>>,
          log(state, error, "Register error ~p", [Err]),
          {return_error(?ERROR_SERVER_UNAVAILABLE), State};
       {ok, Device = #device{reference = Ref}} ->
-         log(State, info, "Device ~p was registered at ~p.", [DevName, inet:peername(S)]),
-         NewState = create_logger(DevName, State),
+         log(State, info, "Device ~p(~p) was registered at ~p.", [inet:peername(S), self(), DevName]),
          BinRef = fill_binary(erlang:list_to_binary(RefPrefix ++ Ref), ?REF_SIZE, <<0:8>>),
-         {<<?AUTH_ACK_MSG, BinDevName:?BIN_DEV_NAME, BinRef/binary>>, NewState#state{dev = Device}};
+         {<<?AUTH_ACK_MSG, BinDevName:?BIN_DEV_NAME, BinRef/binary>>, State#state{dev = Device}};
       Msg ->
          log(State, error, "Unrecognized msg ~p during auth processing.", [Msg]),
          {return_error(?ERROR_SERVER_UNAVAILABLE), State}
@@ -340,18 +324,3 @@ processMsg(?HEARTBEAT_MSG, <<>>, State) ->
 processMsg(Type, Msg, State = #state{ecnt = ErrCnt}) ->
    log(State, error, "Wrong message ~p. Error count ~p.", [<<Type, Msg/binary>>, ErrCnt + 1]),
    {return_error(?ERROR_WRONG_MSG), State#state{ecnt = ErrCnt + 1}}.
-
-%=======================================================================================================================
-% log helpers
-%=======================================================================================================================
-log(State = #state{logger = undef}, LogLevel, Text) ->
-   log2listener(State#state.listener, LogLevel, Text);
-
-log(State, LogLevel, Text) ->
-   mds_logger:log(State#state.logger, LogLevel, Text).
-
-log(State = #state{logger = undef}, LogLevel, Format, Params) ->
-   log2listener(State#state.listener, LogLevel, Format, Params);
-
-log(State, LogLevel, Format, Params) ->
-   mds_logger:log(State#state.logger, LogLevel, Format, Params).
