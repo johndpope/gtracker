@@ -19,6 +19,7 @@
       ,fill_binary/3
       ,send2subs/2
       ,get_best_process/1
+      ,send_metric/2
    ]).
 
 -define(SWAMP, "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789").
@@ -126,6 +127,15 @@ send2subs(Subs, Msg) ->
          end
       end,
    [], Subs).
+
+send_metric(Collector, Metrics) ->
+   case global:whereis_name(Collector) of
+      undefined ->
+         ok;
+      Pid ->
+         lists:map(fun(M) -> Pid ! M end, Metrics)
+   end.
+
 %=======================================================================================================================
 %  pivate
 %=======================================================================================================================

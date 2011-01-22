@@ -5,14 +5,14 @@
 -export([start/1, stop/0, on_start/1, on_stop/2, on_msg/3, on_amsg/2, on_info/2]).
 
 -import(mds_utils, [get_param/2, get_param/3]).
--import(gtracker_common, [gen_dev_name/0, binary_to_hex/1, get_best_process/1, join_pg/2, leave_pg/2]).
+-import(gtracker_common, [gen_dev_name/0, binary_to_hex/1, get_best_process/1, join_pg/2, leave_pg/2, send_metric/2]).
 
 -include("common_defs.hrl").
 -include("common_recs.hrl").
 
 -define(name, {global, gtracker_db}).
 -define(def_track_nodes, gt_tracks).
--record(state, {track_group}).
+-record(state, {track_group, timer_ref, online_devices = 0}).
 
 %=======================================================================================================================
 %  public exports
@@ -29,12 +29,15 @@ stop() ->
 on_start(Opts) ->
    SelfOpts = get_param(self, Opts),
    TrackGroup = get_param(track_group, SelfOpts, track),
+   MetricSendPeriod = get_param(metric_send_period, SelfOpts, ?def_metric_send_period),
    mnesia_start(),
-   process_flag(trap_exit, true),
    log(info, "Mnesia started."),
-   {ok, #state{track_group = TrackGroup}}.
+   process_flag(trap_exit, true),
+   {ok, TimerRef} = timer:send_interval(MetricSendPeriod, self(), send_metric),
+   {ok, #state{track_group = TrackGroup, timer_ref = TimerRef}}.
 
 on_stop(Reason, State) ->
+   timer:cancel(State#state.timer_ref),
    log(info, "Mnesia stopped."),
    leave_pg(State#state.track_group, self()),
    log(info, "Stopped <~p>.", [Reason]),
@@ -43,7 +46,7 @@ on_stop(Reason, State) ->
 on_msg(stop, _From, State) ->
    {stop, normal, stopped, State};
 
-on_msg(register, {Pid, _}, State) ->
+on_msg(register, {Pid, _}, State = #state{online_devices = OD}) ->
    log(debug, "register. State: ~p", [dump_state(State)]),
    Fun = fun(Fun) ->
       DevName = gen_dev_name(),
@@ -54,14 +57,14 @@ on_msg(register, {Pid, _}, State) ->
             Ref = binary_to_hex(erlang:md5(erlang:list_to_binary(DevName))),
             Device = #device{name = DevName, alias = DevName, reference = Ref, status = online, owner = Pid},
             mnesia:dirty_write(Device),
-            {reply, {ok, Device}, State};
+            {reply, {ok, Device}, State#state{online_devices = OD + 1}};
          [#device{name = DevName}] ->
             Fun(Fun)
       end
    end,
    Fun(Fun);
 
-on_msg({register, DevName}, {Pid, _}, State) ->
+on_msg({register, DevName}, {Pid, _}, State = #state{online_devices = OD}) ->
    log(debug, "register(~p). State: ~p", [DevName, dump_state(State)]),
    case mnesia:dirty_read(device, DevName) of
       [] ->
@@ -70,7 +73,7 @@ on_msg({register, DevName}, {Pid, _}, State) ->
          NewSubs = gtracker_common:send2subs(Subs, {online, DevName}),
          NewDevice = Device#device{owner = Pid, subs = NewSubs, status = online},
          mnesia:dirty_write(NewDevice),
-         {reply, {ok, NewDevice}, State};
+         {reply, {ok, NewDevice}, State#state{online_devices = OD + 1}};
       [Device = #device{owner = Owner}] when is_pid(Owner) andalso (Pid == Owner) ->
          {reply, {ok, Device}, State};
       [Device = #device{owner = Owner, subs = Subs, current_track = TrackId}] ->
@@ -87,10 +90,10 @@ on_msg({register, DevName}, {Pid, _}, State) ->
          NewSubs = gtracker_common:send2subs(Subs, {online, DevName}),
          NewDevice = Device#device{owner = Pid, subs = NewSubs, status = online},
          mnesia:dirty_write(NewDevice),
-         {reply, {ok, NewDevice}, State}
+         {reply, {ok, NewDevice}, State#state{online_devices = OD + 1}}
    end;
 
-on_msg({unregister, DevName}, {Pid, _}, State) ->
+on_msg({unregister, DevName}, {Pid, _}, State = #state{online_devices = OD}) ->
    log(debug, "unregister(~p). State: ~p", [DevName, dump_state(State)]),
    F = fun(Device = #device{subs = Subs}) ->
       NewSubs = gtracker_common:send2subs(Subs, {offline, DevName}),
@@ -103,7 +106,7 @@ on_msg({unregister, DevName}, {Pid, _}, State) ->
          {reply, {error, no_such_device, [DevName]}, State};
       [Device = #device{owner = Owner}] when is_pid(Owner) andalso (Pid == Owner) ->
          NewDevice = F(Device),
-         {reply, {ok, NewDevice}, State};
+         {reply, {ok, NewDevice}, State#state{online_devices = OD - 1}};
       [Device = #device{owner = Owner}] ->
          case rpc:call(node(Owner), erlang, is_process_alive, [Owner]) of
             true ->
@@ -111,7 +114,7 @@ on_msg({unregister, DevName}, {Pid, _}, State) ->
             False ->
                log(debug, "is_process_alive(~p): ~p", [Owner, False]),
                NewDevice = F(Device),
-               {reply, {ok, NewDevice}, State}
+               {reply, {ok, NewDevice}, State#state{online_devices = OD - 1}}
          end
    end;
 
@@ -382,6 +385,18 @@ on_amsg(Msg, State) ->
    log(error, "Unknown async message ~p.", [Msg]),
    {noreply, State}.
 
+on_info(send_metric, State = #state{online_devices = OD}) ->
+   CpuUtil = cpu_sup:util(),
+   [{message_queue_len, MQL}, {memory, M}] = process_info(self(), [message_queue_len, memory]),
+   Now = now(),
+   send_metric(?metric_collector,
+      [
+         {?name, Now, ?message_queue_len, MQL},
+         {?name, Now, ?memory, M},
+         {net_adm:localhost(), Now, ?cpu, CpuUtil},
+         {?name, Now, ?online_devices, OD}
+      ]),
+   {noreply, State};
 
 on_info(Msg, State) ->
    log(error, "Unknown info message ~p.", [Msg]),

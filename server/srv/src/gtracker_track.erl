@@ -5,12 +5,21 @@
 -export([start/1, stop/1, on_start/1, on_stop/2, on_msg/3, on_amsg/2, on_info/2]).
 
 -import(mds_utils, [get_param/2, get_param/3]).
--import(gtracker_common, [join_pg/2, leave_pg/2]).
+-import(gtracker_common, [join_pg/2, leave_pg/2, send_metric/2]).
 
 -include("common_defs.hrl").
 -include("common_recs.hrl").
 
--record(state, {name, pg, db, saver = undef}).
+-record(state, {
+      name,
+      pg,
+      db,
+      saver = undef,
+      timer_ref = undef,
+      metric_send_period = 0,
+      coord_received = 0,
+      active_tracks = 0
+   }).
 -record(owner, {pid, track_id}).
 
 %=======================================================================================================================
@@ -31,16 +40,25 @@ on_start(Opts) ->
    SelfOpts = get_param(self, Opts),
    ServName = get_param(name, SelfOpts),
    ProcGroup = get_param(group, SelfOpts, track),
+   MetricSendPeriod = get_param(metric_send_period, SelfOpts, ?def_metric_send_period),
    Db = get_param(db, SelfOpts),
    mnesia_start(),
    process_flag(trap_exit, true),
    join_pg(ProcGroup, self()),
-   SaverPid = spawn_link(fun() -> saver_loop() end),
-   State = #state{name = ServName, pg = ProcGroup, db = Db, saver = SaverPid},
+   SaverPid = spawn_link(fun() -> saver_loop(saver_name(ServName), MetricSendPeriod, now(), 0) end),
+   {ok, TimerRef} = timer:send_interval(MetricSendPeriod, self(), send_metric),
+   State = #state{
+      name = ServName,
+      pg = ProcGroup,
+      db = Db,
+      saver = SaverPid,
+      metric_send_period = MetricSendPeriod,
+      timer_ref = TimerRef},
    log(State, info, "Track started."),
    {ok, State}.
 
 on_stop(Reason, State) ->
+   timer:cancel(State#state.timer_ref),
    leave_pg(State#state.pg, self()),
    log(State, info, "Stopped <~p>.", [Reason]),
    ok.
@@ -57,7 +75,7 @@ on_msg(Msg = process_info, _, State) ->
    [{_, Size}] = process_info(self(), [message_queue_len]),
    {reply, Size, State};
 
-on_msg(Msg = {close, TrackId}, _, State = #state{db = Db}) ->
+on_msg(Msg = {close, TrackId}, _, State = #state{db = Db, active_tracks = AT}) ->
    log(State, debug, "~p", [Msg]),
    case mnesia:dirty_read(track_stat, TrackId) of
       [] ->
@@ -67,7 +85,7 @@ on_msg(Msg = {close, TrackId}, _, State = #state{db = Db}) ->
          gtracker_common:send2subs(TrackStat#track_stat.subs, UpTrackStat),
          mnesia:dirty_write(UpTrackStat),
          gen_server:cast(Db, {closed, UpTrackStat}),
-         {reply, ok, State}
+         {reply, ok, State#state{active_tracks = AT - 1}}
    end;
 
 on_msg(Msg = {subscribers, TrackId, Subs}, _, State) ->
@@ -80,11 +98,11 @@ on_msg(Msg = {subscribers, TrackId, Subs}, _, State) ->
          {reply, ok, State}
    end;
 
-on_msg(Msg = {new_track, TrackId, CalcSpeed}, _, State) ->
+on_msg(Msg = {new_track, TrackId, CalcSpeed}, _, State = #state{active_tracks = AT}) ->
    log(State, debug, "~p", [Msg]),
    NewTrackStat = #track_stat{track_id = TrackId, calc_speed = CalcSpeed},
    ok = mnesia:dirty_write(NewTrackStat),
-   {reply, {ok, NewTrackStat}, State};
+   {reply, {ok, NewTrackStat}, State#state{active_tracks = AT + 1}};
 
 on_msg(Msg = {owner, Pid, TrackId}, _, State) ->
    log(State, debug, "~p", [Msg]),
@@ -123,17 +141,17 @@ on_msg(Msg, _From, State) ->
    log(State, error, "Unknown sync message ~p.", [Msg]),
    {noreply, State}.
 
-on_amsg(Coord, State = #state{saver = Saver}) when is_record(Coord, coord) ->
+on_amsg(Coord, State = #state{saver = Saver, coord_received = CR}) when is_record(Coord, coord) ->
    Saver ! Coord,
-   {noreply, State};
+   {noreply, State#state{coord_received = CR + 1}};
 
 on_amsg(Msg, State) ->
    log(State, error, "Unknown async message ~p.", [Msg]),
    {noreply, State}.
 
-on_info({'EXIT', Pid, _}, State = #state{saver = Pid}) ->
+on_info({'EXIT', Pid, _}, State = #state{name = Name, metric_send_period = MetricSendPeriod, saver = Pid}) ->
    log(State, error, "Saver was die. Recreating..."),
-   SaverPid = spawn_link(fun() -> saver_loop() end),
+   SaverPid = spawn_link(fun() -> saver_loop(saver_name(Name), MetricSendPeriod, now(), 0) end),
    {noreply, State#state{saver = SaverPid}};
 
 on_info({'EXIT', Pid, _}, State) ->
@@ -149,11 +167,25 @@ on_info({'EXIT', Pid, _}, State) ->
          {noreply, State}
    end;
 
+on_info(send_metric, State = #state{name = Name, metric_send_period = MSP, coord_received = CR, active_tracks = AT}) ->
+   [{message_queue_len, MQL}, {memory, M}] = process_info(self(), [message_queue_len, memory]),
+   CpuUtil = cpu_sup:util(),
+   Now = now(),
+   send_metric(?metric_collector,
+      [
+         {Name, Now, ?coord_rate, CR / MSP * 1000},
+         {Name, Now, ?message_queue_len, MQL},
+         {Name, Now, ?memory, M},
+         {net_adm:localhost(), Now, ?cpu, CpuUtil},
+         {Name, Now, ?active_tracks, AT}
+      ]),
+   {noreply, State#state{coord_received = 0}};
+
 on_info(Msg, State) ->
    log(State, error, "Unknown info message ~p.", [Msg]),
    {noreply, State}.
 
-saver_loop() ->
+saver_loop(Name, MetricSendPeriod, Timestamp, CoordCount) ->
    F = fun(Coord = #coord{track_id = TrackId}) ->
       [TrackStat] = mnesia:read(track_stat, TrackId),
       UpSubs = gtracker_common:send2subs(TrackStat#track_stat.subs, Coord),
@@ -165,7 +197,20 @@ saver_loop() ->
    receive
       Coord ->
          {atomic, _} = mnesia:transaction(fun() -> F(Coord) end),
-         saver_loop()
+         Now = now(),
+         Diff = timer:now_diff(Now, Timestamp),
+         if (Diff >= MetricSendPeriod * 1000) ->
+            [{message_queue_len, MQL}, {memory, M}] = process_info(self(), [message_queue_len, memory]),
+            send_metric(?metric_collector,
+               [
+                  {Name, Now, ?coord_rate, (CoordCount + 1) / MetricSendPeriod * 1000},
+                  {Name, Now, ?message_queue_len, MQL},
+                  {Name, Now, ?memory, M}
+               ]),
+            saver_loop(Name, MetricSendPeriod, now(), 0);
+         true ->
+            saver_loop(Name, MetricSendPeriod, Timestamp, CoordCount + 1)
+         end
    end.
 
 
@@ -219,6 +264,9 @@ datetime_diff(T2, T1) when (T2 == undef) orelse (T1 == undef) ->
    0;
 datetime_diff(T2, T1) ->
    calendar:datetime_to_gregorian_seconds(T2) - calendar:datetime_to_gregorian_seconds(T1).
+
+saver_name({global, Name}) ->
+   mds_utils:list_to_atom(atom_to_list(Name) ++ "_saver").
 
 %=======================================================================================================================
 %  unit testing facilities

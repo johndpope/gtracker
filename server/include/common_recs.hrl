@@ -12,3 +12,4 @@
 -record(trigger, {dev_name, enabled, name, type, email, sms, twitter, text, config, ready = true, executed_at = undef, schedule = allways}).
 -record(coord, {track_id, lat, lon, speed = 0, distance = 0, timestamp}).
 -record(news, {id, date, text}).
+-record(metric, {source, name, value}).

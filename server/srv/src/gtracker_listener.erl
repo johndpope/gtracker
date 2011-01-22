@@ -10,14 +10,14 @@
 -export([start/1, stop/1, on_start/1, on_stop/2, on_msg/3, on_amsg/2, on_info/2]).
 
 -import(mds_utils, [get_param/2, get_param/3]).
--import(gtracker_common, [get_best_process/1, join_pg/2, leave_pg/2]).
+-import(gtracker_common, [get_best_process/1, join_pg/2, leave_pg/2, send_metric/2]).
 
 
 -define(TIMEOUT, 100).
 -define(PORT, 7777).
 -define(ADDRESS, "gtracker.ru").
 
--record(state, {name, group, lsocket, db, protocol, port, host, opts}).
+-record(state, {name, group, timer_ref, metric_send_period, lsocket, db, protocol, port, host, opts, active_clients = 0}).
 
 start(Opts) ->
    SelfOpts = get_param(self, Opts),
@@ -35,10 +35,21 @@ on_start(Opts) ->
    Db = get_param(db, SelfOpts),
    Proto = get_param(protocol, SelfOpts, gtracker_protocol),
    Group = get_param(group, SelfOpts, listener),
+   MetricSendPeriod = get_param(metric_send_period, SelfOpts, ?def_metric_send_period),
    join_pg(Group, self()),
    {ok, ListenSocket} = gen_tcp:listen(Port, [binary, {packet, 1}, {reuseaddr, true}, {active, once}]),
-   State = #state{name = ServName, group = Group, lsocket = ListenSocket, db = Db, protocol = Proto, port = Port, host =
-      Host, opts = Opts},
+   {ok, TimerRef} = timer:send_interval(MetricSendPeriod, self(), send_metric),
+   State = #state{
+      name = ServName,
+      group = Group,
+      metric_send_period = MetricSendPeriod,
+      timer_ref = TimerRef,
+      lsocket = ListenSocket,
+      db = Db,
+      protocol = Proto,
+      port = Port,
+      host = Host,
+      opts = Opts},
    log(State, "Started ~p", [self()]),
    {ok, State, ?TIMEOUT}.
 
@@ -67,7 +78,7 @@ on_amsg({log, LogLevel, Format, Params}, State) ->
 on_amsg(_Msg, State) ->
    {norepy, State, 0}.
 
-on_info(_Msg, State = #state{name = Name, group = Group}) ->
+on_info(_Msg, State = #state{name = Name, group = Group, active_clients = AC}) ->
    ListenSocket = State#state.lsocket,
    case gen_tcp:accept(ListenSocket, 0) of
       {ok, PeerSocket} ->
@@ -76,7 +87,7 @@ on_info(_Msg, State = #state{name = Name, group = Group}) ->
          {ok, BestProcess} = gtracker_common:get_best_process(Group),
          if (BestProcess ==  self()) ->
             apply(State#state.protocol, start_link, [PeerSocket, [{listener, Name}, {opts, State#state.opts}]]),
-            {noreply, State, ?TIMEOUT};
+            {noreply, State#state{active_clients = AC + 1}, ?TIMEOUT};
          true ->
             ConnectionInfo = gen_server:call(BestProcess, get_info),
             apply(State#state.protocol, reconnect_to, [PeerSocket, ConnectionInfo]),
@@ -86,9 +97,22 @@ on_info(_Msg, State = #state{name = Name, group = Group}) ->
          {noreply, State, ?TIMEOUT}
    end;
 
-on_info({'EXIT', Pid, Reason}, State = #state{db = Db}) ->
+on_info({'EXIT', Pid, Reason}, State = #state{db = Db, active_clients = AC}) ->
    log(State, info, "Process ~p exited with status ~p. Db will be notified.", [Pid, Reason]),
    gen_server:cast(Db, {exited, Pid}),
+   {noreply, State#state{active_clients = AC - 1}};
+
+on_info(send_metric, State = #state{name = Name, active_clients = AC}) ->
+   [{message_queue_len, MQL}, {memory, M}] = process_info(self(), [message_queue_len, memory]),
+   CpuUtil = cpu_sup:util(),
+   Now = now(),
+   send_metric(?metric_collector,
+      [
+         {Name, Now, ?message_queue_len, MQL},
+         {Name, Now, ?memory, M},
+         {net_adm:localhost(), Now, ?cpu, CpuUtil},
+         {Name, Now, ?active_clients, AC}
+      ]),
    {noreply, State}.
 
 log(#state{name = N}, LogLevel, Format, Data) ->
