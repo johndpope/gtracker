@@ -1,9 +1,0 @@
-{application, gtracker_db, [
-      {description,  "gtracker database"     },
-      {vsn,          "0.1"                   },
-      {id,           "gtracker_db"           },
-      {registered,   [gtracker_db]           },
-      {applications, [kernel, stdlib, sasl]  },
-      {mod,          {gtracker_app, []}   }
-   ]
-}.

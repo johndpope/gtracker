@@ -1,4 +1,4 @@
--module(gtracker_mnesia).
+-module(gtracker_metadata).
 
 -behaviour(mds_gen_server).
 
@@ -10,7 +10,7 @@
 -include("common_defs.hrl").
 -include("common_recs.hrl").
 
--define(name, {global, gtracker_db}).
+-define(name, {global, gtracker_mt}).
 -define(def_track_nodes, gt_tracks).
 -record(state, {track_group, timer_ref, online_devices = 0}).
 
@@ -438,7 +438,7 @@ dump_state(State) ->
 
 create_track(Device = #device{name = DevName}, #state{track_group = TrackGroup}) ->
    F = fun(Suffix) ->
-         {ok, TrackPid} = get_best_process(TrackGroup),
+         {ok, TrackPid} = get_best_track_node(TrackGroup),
          TrackName = list_to_atom(lists:flatten(io_lib:format("~s_~p", [DevName, Suffix]))),
          TrackSrv = get_process_name(TrackPid),
          NewTrack = #track{id = TrackName, dev_name = DevName, track_server = TrackSrv},
@@ -563,6 +563,25 @@ get_process_name(Pid) ->
    true ->
       {ok, Name} = gen_server:call(Pid, name),
       Name
+   end.
+
+get_best_track_node(GroupName) ->
+   Loads =
+   lists:foldl(
+      fun(Pid, Acc) ->
+         case gen_server:call(Pid, load) of
+            {Name, load, Value} ->
+               [{Name, Value}|Acc];
+            _ ->
+               ok
+         end
+      end,
+      [], pg2:get_members(GroupName)),
+   case lists:sort(fun({_, Val1}, {_, Val2}) -> Val1 =< Val2 end, Loads) of
+      [{Name,_}|_] ->
+         {ok, Name};
+      [] ->
+         undef
    end.
 
 %=======================================================================================================================

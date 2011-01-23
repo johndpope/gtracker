@@ -13,7 +13,7 @@
 -record(state, {
       name,
       pg,
-      db,
+      mt,
       saver = undef,
       timer_ref = undef,
       metric_send_period = 0,
@@ -41,7 +41,7 @@ on_start(Opts) ->
    ServName = get_param(name, SelfOpts),
    ProcGroup = get_param(group, SelfOpts, track),
    MetricSendPeriod = get_param(metric_send_period, SelfOpts, ?def_metric_send_period),
-   Db = get_param(db, SelfOpts),
+   Mt = get_param(mt, SelfOpts),
    mnesia_start(),
    process_flag(trap_exit, true),
    join_pg(ProcGroup, self()),
@@ -50,7 +50,7 @@ on_start(Opts) ->
    State = #state{
       name = ServName,
       pg = ProcGroup,
-      db = Db,
+      mt = Mt,
       saver = SaverPid,
       metric_send_period = MetricSendPeriod,
       timer_ref = TimerRef},
@@ -75,7 +75,7 @@ on_msg(Msg = process_info, _, State) ->
    [{_, Size}] = process_info(self(), [message_queue_len]),
    {reply, Size, State};
 
-on_msg(Msg = {close, TrackId}, _, State = #state{db = Db, active_tracks = AT}) ->
+on_msg(Msg = {close, TrackId}, _, State = #state{mt = Mt, active_tracks = AT}) ->
    log(State, debug, "~p", [Msg]),
    case mnesia:dirty_read(track_stat, TrackId) of
       [] ->
@@ -84,7 +84,7 @@ on_msg(Msg = {close, TrackId}, _, State = #state{db = Db, active_tracks = AT}) -
          UpTrackStat = TrackStat#track_stat{subs = [], status = closed},
          gtracker_common:send2subs(TrackStat#track_stat.subs, UpTrackStat),
          mnesia:dirty_write(UpTrackStat),
-         gen_server:cast(Db, {closed, UpTrackStat}),
+         gen_server:cast(Mt, {closed, UpTrackStat}),
          {reply, ok, State#state{active_tracks = AT - 1}}
    end;
 
@@ -136,6 +136,10 @@ on_msg(Msg = {get_track_stat, TrackId}, _, State) ->
       TrackStat ->
          {reply, TrackStat, State}
    end;
+
+on_msg(Msg = load, _, State = #state{name = Name, active_tracks = AT}) ->
+  log(State, debug, "~p", [Msg]),
+  {reply, {Name, load, AT}, State};
 
 on_msg(Msg, _From, State) ->
    log(State, error, "Unknown sync message ~p.", [Msg]),

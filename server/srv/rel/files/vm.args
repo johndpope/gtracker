@@ -1,6 +1,6 @@
 
 ## Name of the node
--name gtracker_db@127.0.0.1
+-name gtracker2@127.0.0.1
 
 ## Cookie for distributed erlang
 -setcookie nitrogen
@@ -19,4 +19,4 @@
 ## Tweak GC to run more often
 -env ERL_FULLSWEEP_AFTER 10
 
--mnesia dir "'/var/lib/gtracker_db/Mnesia.gtracker_db'"
+-mnesia dir "'/var/lib/gtracker2/Mnesia.gtracker2'"

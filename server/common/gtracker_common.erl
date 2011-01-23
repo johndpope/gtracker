@@ -19,6 +19,7 @@
       ,fill_binary/3
       ,send2subs/2
       ,get_best_process/1
+      ,get_best_process/2
       ,send_metric/2
    ]).
 
@@ -96,15 +97,20 @@ fill_binary(Bin, Size, Val) ->
    fill_binary_aux(Bin, Size - size(Bin), Val).
 
 get_best_process(GroupName) ->
+   get_best_process(GroupName, false).
+
+get_best_process(GroupName, IgnoreSelf) ->
    Values =
    lists:foldl(
-      fun(Pid, Acc) ->
-         case rpc:pinfo(Pid, message_queue_len) of
-            {message_queue_len, Val} ->
-               [{Val, Pid}|Acc];
-            _ ->
-               Acc
-         end
+      fun(Pid, Acc) when (IgnoreSelf == true) andalso (self() == Pid) ->
+            Acc;
+         (Pid, Acc) ->
+            case rpc:pinfo(Pid, links) of
+               {links, LS} ->
+                  [{length(LS), Pid}|Acc];
+               _ ->
+                  Acc
+            end
       end, [], pg2:get_members(GroupName)),
    case lists:sort(fun({Val1, _}, {Val2, _}) -> Val1 =< Val2 end, Values) of
       [{_, Pid}|_] ->

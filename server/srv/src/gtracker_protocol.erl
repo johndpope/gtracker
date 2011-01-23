@@ -16,7 +16,7 @@
                 track = undef,
                 socket,         % device socket
                 listener,       % registered name of gtracker_listener process
-                db,             % registered name for database process
+                mt,             % registered name for metadata process
                 ecnt = 0,       % count of errors
                 last_coord = undef, % last received coordinate
                 calc_speed = false,
@@ -37,7 +37,7 @@ start_link(Socket, Opts) ->
    AllOpts = get_param(opts, Opts),
    ListenerOpts = get_param(self, AllOpts),
    CalcSpeed = get_param(calc_speed, ListenerOpts),
-   Db = get_param(db, ListenerOpts),
+   Mt = get_param(mt, ListenerOpts),
    RefPrefix = get_param(ref_prefix, ListenerOpts, ?DEF_REF_PREFIX),
    % build logger options
    LoggerOpts = dict:from_list(get_param(mds_logger, AllOpts)),
@@ -48,7 +48,7 @@ start_link(Socket, Opts) ->
             process_flag(trap_exit, true),
             loop(#state{
                   socket = Socket,
-                  db = Db,
+                  mt = Mt,
                   listener = Listener,
                   calc_speed = CalcSpeed,
                   ref_prefix = RefPrefix,
@@ -140,8 +140,8 @@ reply(State, Msg, Socket) ->
 %=======================================================================================================================
 unregister(#state{dev = undef}) ->
    ok;
-unregister(#state{db = Db, dev = #device{name = Name}}) ->
-   gtracker_pub:unregister(Db, Name, ?MAX_CALL_TIMEOUT).
+unregister(#state{mt = Mt, dev = #device{name = Name}}) ->
+   gtracker_pub:unregister(Mt, Name, ?MAX_CALL_TIMEOUT).
 
 %=======================================================================================================================
 % returns an error binary
@@ -167,10 +167,10 @@ parsePacket(Msg = <<>>, State = #state{ecnt = ErrCnt}) ->
 % processing of incoming messages
 %=======================================================================================================================
 % device requests new device name
-processMsg(?AUTH_MSG, <<1:?VER>>, State = #state{db = Db, socket = S, dev = undef, ref_prefix = RefPrefix}) ->
+processMsg(?AUTH_MSG, <<1:?VER>>, State = #state{mt = Mt, socket = S, dev = undef, ref_prefix = RefPrefix}) ->
    {ok, PeerName} = inet:peername(S),
    log(State, info, "The device ~p requests a new device name.", [PeerName]),
-   case gtracker_pub:register(Db, ?MAX_CALL_TIMEOUT) of
+   case gtracker_pub:register(Mt, ?MAX_CALL_TIMEOUT) of
       Err = {error, _Reason, _} ->
          log(State, error, "Register error: ~p", [Err]),
          {return_error(?ERROR_SERVER_UNAVAILABLE), State};
@@ -190,7 +190,7 @@ processMsg(?AUTH_MSG, <<1:?VER>>, State) -> % the device already has a name
 processMsg(?AUTH_MSG, <<1:?VER, BinDevName:?BIN_DEV_NAME>>,
    State = #state{socket = S, ref_prefix =RefPrefix, ecnt = ErrCnt}) ->
    DevName = erlang:bitstring_to_list(BinDevName),
-   case gtracker_pub:register(State#state.db, DevName, ?MAX_CALL_TIMEOUT) of
+   case gtracker_pub:register(State#state.mt, DevName, ?MAX_CALL_TIMEOUT) of
       {error, no_such_device, [DevName]} -> % wrong device name, hacker?
          log(State, warning, "Device name ~p not found. Error count ~p.", [DevName, ErrCnt + 1]),
          {return_error(?ERROR_WRONG_DEV_NAME), State#state{ecnt = ErrCnt + 1}};
@@ -212,8 +212,8 @@ processMsg(?COORD_MSG, _Msg, State = #state{socket = S, ecnt = ErrCnt, dev = und
      [inet:peername(S), ErrCnt + 1]),
    {return_error(?ERROR_NOT_AUTH), State#state{ecnt = ErrCnt + 1}};
 
-processMsg(?COORD_MSG, Coord, State = #state{db = Db, calc_speed = CS, dev = #device{name = DevName, subs = Subs}, track = undef, ecnt = ErrCnt}) ->
-   case gtracker_pub:new_track(Db, DevName, false, CS, ?MAX_CALL_TIMEOUT) of
+processMsg(?COORD_MSG, Coord, State = #state{mt = Mt, calc_speed = CS, dev = #device{name = DevName, subs = Subs}, track = undef, ecnt = ErrCnt}) ->
+   case gtracker_pub:new_track(Mt, DevName, false, CS, ?MAX_CALL_TIMEOUT) of
       {error, no_such_device, [DevName]} ->
          {return_error(?ERROR_WRONG_DEV_NAME), State#state{ecnt = ErrCnt + 1}};
       Err = {error, _, _} ->
@@ -256,12 +256,12 @@ processMsg(?RENAME_TRACK, <<BinTrackName/bitstring>>, State = #state{dev = #devi
   log(State, info, "~p wants to rename current track to ~p, but track has not started yet", [DevName, TrackName]),
   {return_error(?ERROR_TRACK_NOT_STARTED), State#state{ecnt = ErrCnt + 1}};
 
-processMsg(?RENAME_TRACK, <<BinTrackName/bitstring>>, State = #state{dev = #device{name = DevName}, db = Db, track =
+processMsg(?RENAME_TRACK, <<BinTrackName/bitstring>>, State = #state{dev = #device{name = DevName}, mt = Mt, track =
       Track})
 when size(BinTrackName) =< 50 ->
   TrackName = erlang:bitstring_to_list(BinTrackName),
   log(State, info, "~p wants to rename current track to ~p", [DevName, TrackName]),
-  case gtracker_pub:update(Db, Track#track{name = TrackName}, [name], ?MAX_CALL_TIMEOUT) of
+  case gtracker_pub:update(Mt, Track#track{name = TrackName}, [name], ?MAX_CALL_TIMEOUT) of
      Err = {error, _, _} ->
         log(State, error, "Unable to rename track ~p", [Err]),
         {return_error(?ERROR_TRACK_RENAME), State};
@@ -286,13 +286,13 @@ processMsg(?START_NEW_TRACK, <<BinTrackName/bitstring>>, State = #state{dev = #d
   log(State, info, "~p wants to start new track ~p, but there was no coordinates received.", [DevName, TrackName]),
   {return_error(?ERROR_TRACK_NOT_STARTED), State#state{ecnt = ErrCnt + 1}};
 
-processMsg(?START_NEW_TRACK, <<BinTrackName/bitstring>>, State = #state{db = Db, calc_speed = CS, dev = #device{name =
+processMsg(?START_NEW_TRACK, <<BinTrackName/bitstring>>, State = #state{mt = Mt, calc_speed = CS, dev = #device{name =
          DevName, subs = Subs}, track = Track, ecnt = ErrCnt})
 when size(BinTrackName) =< 50 ->
    TrackName = erlang:bitstring_to_list(BinTrackName),
    log(State, info, "~p wants to start new track ~p", [DevName, TrackName]),
    gtracker_track_pub:close(Track),
-   case gtracker_pub:new_track(Db, DevName, true, CS, ?MAX_CALL_TIMEOUT) of
+   case gtracker_pub:new_track(Mt, DevName, true, CS, ?MAX_CALL_TIMEOUT) of
       {error, no_such_device, [DevName]} ->
          {return_error(?ERROR_WRONG_DEV_NAME), State#state{ecnt = ErrCnt + 1}};
       Err = {error, _, _} ->

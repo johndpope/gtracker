@@ -1,0 +1,9 @@
+{application, gtracker2, [
+      {description,  "gtracker next gen"     },
+      {vsn,          "2.0"                   },
+      {id,           "gtracker2"             },
+      {registered,   [gtracker_mt]           },
+      {applications, [kernel, stdlib, sasl]  },
+      {mod,          {gtracker_app, []}   }
+   ]
+}.

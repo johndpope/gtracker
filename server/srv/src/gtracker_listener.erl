@@ -17,7 +17,7 @@
 -define(PORT, 7777).
 -define(ADDRESS, "gtracker.ru").
 
--record(state, {name, group, timer_ref, metric_send_period, lsocket, db, protocol, port, host, opts, active_clients = 0}).
+-record(state, {name, group, timer_ref, metric_send_period, lsocket, mt, protocol, port, host, opts, active_clients = 0}).
 
 start(Opts) ->
    SelfOpts = get_param(self, Opts),
@@ -32,7 +32,7 @@ on_start(Opts) ->
    Port = get_param(port, SelfOpts, ?PORT),
    Host = get_param(host, SelfOpts, ?ADDRESS),
    ServName = get_param(name, SelfOpts),
-   Db = get_param(db, SelfOpts),
+   MT = get_param(mt, SelfOpts),
    Proto = get_param(protocol, SelfOpts, gtracker_protocol),
    Group = get_param(group, SelfOpts, listener),
    MetricSendPeriod = get_param(metric_send_period, SelfOpts, ?def_metric_send_period),
@@ -45,7 +45,7 @@ on_start(Opts) ->
       metric_send_period = MetricSendPeriod,
       timer_ref = TimerRef,
       lsocket = ListenSocket,
-      db = Db,
+      mt = MT,
       protocol = Proto,
       port = Port,
       host = Host,
@@ -78,6 +78,19 @@ on_amsg({log, LogLevel, Format, Params}, State) ->
 on_amsg(_Msg, State) ->
    {norepy, State, 0}.
 
+on_info(send_metric, State = #state{name = Name, active_clients = AC}) ->
+   [{message_queue_len, MQL}, {memory, M}] = process_info(self(), [message_queue_len, memory]),
+   CpuUtil = cpu_sup:util(),
+   Now = now(),
+   send_metric(?metric_collector,
+     [
+        {Name, Now, ?message_queue_len, MQL},
+        {Name, Now, ?memory, M},
+        {net_adm:localhost(), Now, ?cpu, CpuUtil},
+        {Name, Now, ?active_clients, AC}
+     ]),
+   {noreply, State};
+
 on_info(_Msg, State = #state{name = Name, group = Group, active_clients = AC}) ->
    ListenSocket = State#state.lsocket,
    case gen_tcp:accept(ListenSocket, 0) of
@@ -97,23 +110,10 @@ on_info(_Msg, State = #state{name = Name, group = Group, active_clients = AC}) -
          {noreply, State, ?TIMEOUT}
    end;
 
-on_info({'EXIT', Pid, Reason}, State = #state{db = Db, active_clients = AC}) ->
-   log(State, info, "Process ~p exited with status ~p. Db will be notified.", [Pid, Reason]),
-   gen_server:cast(Db, {exited, Pid}),
-   {noreply, State#state{active_clients = AC - 1}};
-
-on_info(send_metric, State = #state{name = Name, active_clients = AC}) ->
-   [{message_queue_len, MQL}, {memory, M}] = process_info(self(), [message_queue_len, memory]),
-   CpuUtil = cpu_sup:util(),
-   Now = now(),
-   send_metric(?metric_collector,
-      [
-         {Name, Now, ?message_queue_len, MQL},
-         {Name, Now, ?memory, M},
-         {net_adm:localhost(), Now, ?cpu, CpuUtil},
-         {Name, Now, ?active_clients, AC}
-      ]),
-   {noreply, State}.
+on_info({'EXIT', Pid, Reason}, State = #state{mt = Mt, active_clients = AC}) ->
+   log(State, info, "Process ~p exited with status ~p. Metadata will be notified.", [Pid, Reason]),
+   gen_server:cast(Mt, {exited, Pid}),
+   {noreply, State#state{active_clients = AC - 1}}.
 
 log(#state{name = N}, LogLevel, Format, Data) ->
    mds_gen_server:log(N, LogLevel, Format, Data).
