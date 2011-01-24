@@ -5,7 +5,7 @@
 -define(FieldId(Rec, Field), string:str(record_info(fields, Rec), [Field]) + 1).
 
 
--define(db_ref, {global, gtracker_db}).
+-define(db_ref, {global, gtracker_mt}).
 -define(track_ref, {local, gtracker_track}).
 
 -define(MAX_CALL_TIMEOUT, 30000).
