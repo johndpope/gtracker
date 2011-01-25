@@ -50,7 +50,7 @@ on_start(Opts) ->
       port = Port,
       host = Host,
       opts = Opts},
-   log(State, "Started ~p", [self()]),
+   log(State, info, "Started ~p", [self()]),
    {ok, State, ?TIMEOUT}.
 
 on_stop(Reason, State) ->
