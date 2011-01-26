@@ -13,7 +13,7 @@
 -import(gtracker_common, [get_best_process/1, join_pg/2, leave_pg/2, send_metric/2]).
 
 
--define(TIMEOUT, 100).
+-define(TIMEOUT, 10).
 -define(PORT, 7777).
 -define(ADDRESS, "gtracker.ru").
 
@@ -89,7 +89,7 @@ on_info(send_metric, State = #state{name = Name, active_clients = AC}) ->
         {net_adm:localhost(), Now, ?cpu, CpuUtil},
         {Name, Now, ?active_clients, AC}
      ]),
-   {noreply, State};
+   {noreply, State, ?TIMEOUT};
 
 on_info(_Msg, State = #state{name = Name, group = Group, active_clients = AC}) ->
    ListenSocket = State#state.lsocket,
