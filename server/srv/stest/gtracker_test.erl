@@ -5,7 +5,7 @@
 -include("common_recs.hrl").
 
 start_test() ->
-   application:start(gtracker_db).
+   application:start(gtracker_mt).
 
 device_get_devices_test() ->
    ?assertEqual({ok, []}, gtracker_pub:get_devices()).
@@ -135,4 +135,4 @@ subscribe_test() ->
    end.
 
 stop_test() ->
-   application:stop(gtracker_db).
+   application:stop(gtracker_mt).
