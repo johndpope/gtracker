@@ -60,10 +60,10 @@ stop(Pid) ->
    Pid ! stop.
 
 reconnect_to(Socket, NodeInfo) ->
-   Host = mds_common:get_param(host, NodeInfo),
-   Port = mds_common:get_param(port, NodeInfo),
+   Host = mds_utils:get_param(host, NodeInfo),
+   Port = mds_utils:get_param(port, NodeInfo),
    BinHost = fill_binary(erlang:list_to_binary(Host), ?HOST_LEN, <<0:8>>),
-   gen_tcp:send(Socket, <<?RECONNECT_TO, BinHost/binary, Port:32>>),
+   gen_tcp:send(Socket, <<?RECONNECT_TO, BinHost/binary, Port:?PORT>>),
    gen_tcp:close(Socket).
 
 %=======================================================================================================================

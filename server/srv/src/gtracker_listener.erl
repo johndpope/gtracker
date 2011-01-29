@@ -53,6 +53,7 @@ on_start(Opts) ->
    join_pg(Group, self()),
    {ok, ListenSocket} = gen_tcp:listen(Port, [binary, {packet, 1}, {reuseaddr, true}, {active, once}]),
    {ok, TimerRef} = timer:send_interval(MetricSendPeriod, self(), send_metric),
+   process_flag(trap_exit, true),
    State = #state{
       name = ServName,
       group = Group,
@@ -74,24 +75,24 @@ on_stop(Reason, State) ->
    ok.
 
 on_msg(get_info, _From, State) ->
-   {reply, [{host, State#state.host}, {port, State#state.port}], State};
+   {reply, [{host, State#state.host}, {port, State#state.port}], State, ?TIMEOUT};
 
 on_msg(stop, _From, State) ->
    {stop, normal, stopped, State};
 
 on_msg(_Msg, _Who, State) ->
-   {norepy, State, 0}.
+   {norepy, State, ?TIMEOUT}.
 
 on_amsg({log, LogLevel, Text}, State) ->
    log(State, LogLevel, Text),
-   {noreply, State, 0};
+   {noreply, State, ?TIMEOUT};
 
 on_amsg({log, LogLevel, Format, Params}, State) ->
    log(State, LogLevel, Format, Params),
-   {noreply, State, 0};
+   {noreply, State, ?TIMEOUT};
 
 on_amsg(_Msg, State) ->
-   {norepy, State, 0}.
+   {norepy, State, ?TIMEOUT}.
 
 on_info(send_metric, State = #state{name = Name, active_clients = AC}) ->
    [{message_queue_len, MQL}, {memory, M}] = process_info(self(), [message_queue_len, memory]),
@@ -106,7 +107,12 @@ on_info(send_metric, State = #state{name = Name, active_clients = AC}) ->
      ]),
    {noreply, State, ?TIMEOUT};
 
-on_info(_Msg, State = #state{name = Name, group = Group, is_master = IsMaster, active_clients = AC}) ->
+on_info({'EXIT', Pid, Reason}, State = #state{mt = Mt, active_clients = AC}) ->
+   log(State, info, "Process ~p exited with status ~p. Metadata will be notified.", [Pid, Reason]),
+   gen_server:cast(Mt, {exited, Pid}),
+   {noreply, State#state{active_clients = AC - 1}, ?TIMEOUT};
+
+on_info(timeout, State = #state{name = Name, group = Group, is_master = IsMaster, active_clients = AC}) ->
    ListenSocket = State#state.lsocket,
    case gen_tcp:accept(ListenSocket, 0) of
       {ok, PeerSocket} ->
@@ -118,17 +124,14 @@ on_info(_Msg, State = #state{name = Name, group = Group, is_master = IsMaster, a
             {noreply, State#state{active_clients = AC + 1}, ?TIMEOUT};
          true ->
             ConnectionInfo = gen_server:call(BestProcess, get_info),
+            log(State, info, "Best listener ~p with pid ~p found. The client will  be redirected.", [ConnectionInfo,
+                  BestProcess]),
             apply(State#state.protocol, reconnect_to, [PeerSocket, ConnectionInfo]),
             {noreply, State, ?TIMEOUT}
          end;
       {error, timeout} ->
          {noreply, State, ?TIMEOUT}
-   end;
-
-on_info({'EXIT', Pid, Reason}, State = #state{mt = Mt, active_clients = AC}) ->
-   log(State, info, "Process ~p exited with status ~p. Metadata will be notified.", [Pid, Reason]),
-   gen_server:cast(Mt, {exited, Pid}),
-   {noreply, State#state{active_clients = AC - 1}}.
+   end.
 
 log(#state{name = N}, LogLevel, Format, Data) ->
    mds_gen_server:log(N, LogLevel, Format, Data).

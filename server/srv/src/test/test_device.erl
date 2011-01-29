@@ -2,16 +2,9 @@
 
 -compile([export_all]).
 
--define(TYPE, 8/unsigned-integer).
--define(VER, 8/unsigned-integer).
--define(LAT, 16/signed-little-integer).
--define(LON, 16/signed-little-integer).
--define(LAT_EXP, 32/unsigned-little-integer).
--define(LON_EXP, 32/unsigned-little-integer).
--define(TIMESTAMP, 32/unsigned-little-integer).
--define(SPEED, 16/unsigned-little-integer).
-
 -record(state, {socket = undef, did = undef}).
+
+-include("../../../include/fields.hrl").
 
 stop(Name) ->
    Name ! stop.
@@ -40,6 +33,11 @@ emul_loop([{connect, Host, Port}|Rest], State) ->
       {tcp_closed, _Socket} ->
          io:format("connection closed by server~n"),
          ok;
+      {tcp, _Socket, <<$K:8, BinRHost:?HOST, RPort:?PORT>>} ->
+         RHost = truncate(BinRHost, []),
+         io:format("Redirected to ~p:~p~n", [RHost, RPort]),
+         gen_tcp:close(Socket),
+         emul_loop([{connect, RHost, RPort}|Rest], State);
       {tcp, _Socket, Data} ->
          io:format("Data received from server: ~p~n", [Data]),
          emul_loop(Rest, State#state{socket = Socket})
@@ -172,7 +170,7 @@ wait_auth(Commands, #state{socket = Socket} = State) ->
    receive
       {tcp_closed, Socket} ->
          io:format("Connection closed by server~n");
-      {tcp, _Socket, <<$B:8, BinDID:96/bitstring, BinRef/bitstring>>} ->
+      {tcp, _Socket, <<$B:8, BinDID:?BIN_DEV_NAME, BinRef/bitstring>>} ->
          DID = erlang:bitstring_to_list(BinDID),
          Ref = erlang:bitstring_to_list(BinRef),
          io:format("Authenticated as ~p. Ref = ~p.~n", [DID, Ref]),
@@ -193,3 +191,8 @@ str2tm(StrDate) ->
    Date = {{list_to_integer(YYYY), list_to_integer(M), list_to_integer(DD)},{list_to_integer(HH), list_to_integer(MM),
          list_to_integer(SS)}},
    calendar:datetime_to_gregorian_seconds(Date) - calendar:datetime_to_gregorian_seconds({{1970,1,1},{00,00,00}}).
+
+truncate(<<0:8, _Rest/binary>>, List) ->
+   lists:reverse(List);
+truncate(<<A:8, Rest/binary>>, List) ->
+   truncate(Rest, [A|List]).

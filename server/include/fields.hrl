@@ -8,6 +8,8 @@
 -define(BIN_DEV_NAME, 96/bitstring).
 -define(TRACK_NAME, bitstring).
 -define(SPEED, 16/unsigned-little-integer).
+-define(HOST, 1024/bitstring).
+-define(PORT, 32/unsigned-little-integer).
 
 -define(DEV_NAME_LEN, 12).
 -define(REF_SIZE, 128).
