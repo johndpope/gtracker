@@ -14,11 +14,12 @@ emulate(Name, CommandsFile) ->
    Pid = spawn_link(fun() -> emul_init(Commands) end),
    register(Name, Pid).
 
-mass_start(_CommandsFile, 0) ->
+mass_start(_CommandsFile, 0, _, _) ->
    ok;
-mass_start(CommandsFile, ClientCount) ->
+mass_start(CommandsFile, ClientCount, Portion, Timeout) ->
+   if (ClientCount rem Portion == 0) -> timer:sleep(Timeout); true -> ok end,
    emulate(list_to_atom("ddd" ++ integer_to_list(ClientCount)), CommandsFile),
-   mass_start(CommandsFile, ClientCount - 1).
+   mass_start(CommandsFile, ClientCount - 1, Portion, Timeout).
 
 emul_init(Commands) ->
    emul_loop(Commands, #state{}).
