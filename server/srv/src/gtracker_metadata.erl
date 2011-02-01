@@ -5,7 +5,7 @@
 -export([start/1, stop/0, on_start/1, on_stop/2, on_msg/3, on_amsg/2, on_info/2]).
 
 -import(mds_utils, [get_param/2, get_param/3]).
--import(gtracker_common, [gen_dev_name/0, binary_to_hex/1, get_best_process/1, join_pg/2, leave_pg/2, send_metric/2]).
+-import(gtracker_common, [gen_dev_name/0, binary_to_hex/1, get_best_process/1, leave_pg/2, send_metric/2]).
 
 -include("common_defs.hrl").
 -include("common_recs.hrl").
@@ -37,10 +37,9 @@ on_start(Opts) ->
    {ok, #state{track_group = TrackGroup, timer_ref = TimerRef}}.
 
 on_stop(Reason, State) ->
+   log(info, "Stopped <~p>.", [Reason]),
    timer:cancel(State#state.timer_ref),
    log(info, "Mnesia stopped."),
-   leave_pg(State#state.track_group, self()),
-   log(info, "Stopped <~p>.", [Reason]),
    ok.
 
 on_msg(stop, _From, State) ->
