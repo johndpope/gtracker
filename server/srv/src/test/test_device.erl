@@ -29,6 +29,7 @@ emul_loop([], #state{socket = Socket}) ->
    io:format("Finished~n");
 
 emul_loop([{connect, Host, Port}|Rest], State) ->
+   io:format("Try to connect to ~p:~p~n", [Host, Port]),
    {ok, Socket} = gen_tcp:connect(Host, Port, [binary, {packet, 1}, {send_timeout, 30000}]),
    receive
       {tcp_closed, _Socket} ->
@@ -36,13 +37,13 @@ emul_loop([{connect, Host, Port}|Rest], State) ->
          ok;
       {tcp, _Socket, <<$K:8, BinRHost:?HOST, RPort:?PORT>>} ->
          RHost = truncate(BinRHost, []),
-         io:format("Redirected to ~p:~p~n", [RHost, RPort]),
+         io:format("1 Redirected to ~p:~p~n", [RHost, RPort]),
          gen_tcp:close(Socket),
          emul_loop([{connect, RHost, RPort}|Rest], State);
       {tcp, _Socket, Data} ->
          io:format("Data received from server: ~p~n", [Data]),
          emul_loop(Rest, State#state{socket = Socket})
-   after 50 ->
+   after 10000 ->
       emul_loop(Rest, State#state{socket = Socket})
    end;
 emul_loop([auth|Rest], #state{socket = Socket, did = undef} = State) ->
@@ -176,6 +177,11 @@ wait_auth(Commands, #state{socket = Socket} = State) ->
          Ref = erlang:bitstring_to_list(BinRef),
          io:format("Authenticated as ~p. Ref = ~p.~n", [DID, Ref]),
          emul_loop(Commands, State#state{did = DID});
+      {tcp, _Socket, <<$K:8, BinRHost:?HOST, RPort:?PORT>>} ->
+         RHost = truncate(BinRHost, []),
+         io:format("Redirected to ~p:~p~n", [RHost, RPort]),
+         gen_tcp:close(Socket),
+         emul_loop([{connect, RHost, RPort}|Commands], State);
       {tcp, _Socket, Data} ->
          io:format("Data received from server: ~p~n", [Data]),
          emul_loop(Commands, State);

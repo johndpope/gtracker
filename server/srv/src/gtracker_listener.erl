@@ -13,7 +13,7 @@
 -import(gtracker_common, [get_best_process/1, join_pg/2, leave_pg/2, send_metric/2]).
 
 
--define(TIMEOUT, 10).
+-define(TIMEOUT, 1).
 -define(PORT, 7777).
 -define(ADDRESS, "gtracker.ru").
 
@@ -131,7 +131,11 @@ on_info(timeout, State = #state{name = Name, group = Group, is_master = IsMaster
          end;
       {error, timeout} ->
          {noreply, State, ?TIMEOUT}
-   end.
+   end;
+
+on_info(Msg, State) ->
+   log(State, error, "Unknown message ~p received", [Msg]),
+   {noreply, State, ?TIMEOUT}.
 
 log(#state{name = N}, LogLevel, Format, Data) ->
    mds_gen_server:log(N, LogLevel, Format, Data).
