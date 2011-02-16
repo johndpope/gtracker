@@ -3,12 +3,18 @@
 -export([start/0]).
 
 start() ->
-   Pid = spawn_link(fun() -> loop() end),
+   Pid = spawn_link(fun() -> init() end),
    global:register_name(gt_metrics, Pid).
 
-loop() ->
+init() ->
+   {ok, H} = file:open("/tmp/metrics.log", [write]),
+   loop(H).
+
+loop(H) ->
    receive
+      stop ->
+         io:format(H, "Buy!");
       Msg ->
-         io:format("~p~n", [Msg]),
-         loop()
+         io:format(H, "~p~n", [Msg]),
+         loop(H)
    end.
