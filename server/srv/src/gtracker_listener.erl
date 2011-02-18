@@ -10,7 +10,7 @@
 -export([start/1, stop/1, on_start/1, on_stop/2, on_msg/3, on_amsg/2, on_info/2]).
 
 -import(mds_utils, [get_param/2, get_param/3]).
--import(gtracker_common, [get_best_process/1, join_pg/2, leave_pg/2, send_metric/2]).
+-import(gtracker_common, [join_pg/2, leave_pg/2, send_metric/2]).
 
 
 -define(TIMEOUT, 1).
@@ -29,7 +29,8 @@
       host,                % running host name
       opts,                % all options
       active_clients = 0,  % number of active clients
-      is_master = false    % true  - process can redirect to best node, false - passive
+      is_master = false,   % true  - process can redirect to best node, false - passive
+      statistic = undef    % statistic about active clients of lsteners in group
    }).
 
 start(Opts) ->
@@ -75,7 +76,10 @@ on_stop(Reason, State) ->
    ok.
 
 on_msg(get_info, _From, State) ->
-   {reply, [{host, State#state.host}, {port, State#state.port}], State, ?TIMEOUT};
+   {reply, {ok, [{host, State#state.host}, {port, State#state.port}]}, State, ?TIMEOUT};
+
+on_msg(get_stat, _From, State = #state{statistic = Stat}) ->
+   {reply, {ok, Stat}, State, ?TIMEOUT};
 
 on_msg(stop, _From, State) ->
    {stop, normal, stopped, State};
@@ -94,7 +98,7 @@ on_amsg({log, LogLevel, Format, Params}, State) ->
 on_amsg(_Msg, State) ->
    {norepy, State, ?TIMEOUT}.
 
-on_info(send_metric, State = #state{name = Name, active_clients = AC}) ->
+on_info(send_metric, State = #state{name = Name, group = G, active_clients = AC}) ->
    [{message_queue_len, MQL}, {memory, M}] = process_info(self(), [message_queue_len, memory]),
    CpuUtil = cpu_sup:util(),
    Now = now(),
@@ -104,31 +108,27 @@ on_info(send_metric, State = #state{name = Name, active_clients = AC}) ->
         {Name, Now, ?memory, M},
         {net_adm:localhost(), Now, ?cpu, CpuUtil},
         {Name, Now, ?active_clients, AC}
-     ]),
+     ]
+   ),
+   lists:map(fun(Pid) -> Pid ! {?active_clients, self(), AC} end, pg2:get_members(G)),
    {noreply, State, ?TIMEOUT};
+
+on_info({?active_clients, Pid, AC}, State = #state{statistic = Stat, is_master = IsMaster}) when IsMaster == true ->
+   {noreply, State#state{statistic = lists:keyreplace(Pid, 1, 2, Stat, {Pid, AC})}};
 
 on_info({'EXIT', Pid, Reason}, State = #state{mt = Mt, active_clients = AC}) ->
    log(State, info, "Process ~p exited with status ~p. Metadata will be notified.", [Pid, Reason]),
    gen_server:cast(Mt, {exited, Pid}),
    {noreply, State#state{active_clients = AC - 1}, ?TIMEOUT};
 
-on_info(timeout, State = #state{name = Name, group = Group, is_master = IsMaster, active_clients = AC}) ->
+on_info(timeout, State = #state{name = Name, active_clients = AC}) ->
    ListenSocket = State#state.lsocket,
    case gen_tcp:accept(ListenSocket, 0) of
       {ok, PeerSocket} ->
          {ok, Addr} = inet:peername(PeerSocket),
          log(State, info, "Device connected from ~p.", [Addr]),
-         {ok, BestProcess} = if (IsMaster == true) -> gtracker_common:get_best_process(Group); true -> {ok, self()} end,
-         if (BestProcess ==  self()) ->
-            apply(State#state.protocol, start_link, [PeerSocket, [{listener, Name}, {opts, State#state.opts}]]),
-            {noreply, State#state{active_clients = AC + 1}, ?TIMEOUT};
-         true ->
-            ConnectionInfo = gen_server:call(BestProcess, get_info),
-            log(State, info, "Best listener ~p with pid ~p found. The client will  be redirected.", [ConnectionInfo,
-                  BestProcess]),
-            apply(State#state.protocol, reconnect_to, [PeerSocket, ConnectionInfo]),
-            {noreply, State, ?TIMEOUT}
-         end;
+         apply(State#state.protocol, start_link, [PeerSocket, [{listener, Name}, {opts, State#state.opts}]]),
+         {noreply, State#state{active_clients = AC + 1}, ?TIMEOUT};
       {error, timeout} ->
          {noreply, State, ?TIMEOUT}
    end;

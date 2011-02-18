@@ -43,27 +43,27 @@ emul_loop([{connect, Host, Port}|Rest], State) ->
       {tcp, _Socket, Data} ->
          io:format("Data received from server: ~p~n", [Data]),
          emul_loop(Rest, State#state{socket = Socket})
-   after 10000 ->
+   after 1000 ->
       emul_loop(Rest, State#state{socket = Socket})
    end;
-emul_loop([auth|Rest], #state{socket = Socket, did = undef} = State) ->
+emul_loop(Commands, #state{socket = Socket, did = undef} = State) ->
    gen_tcp:send(Socket, <<$A, 1:8>>),
    io:format("Auth was sent~n"),
-   wait_auth(Rest, State);
-emul_loop([auth|Rest], #state{socket = Socket, did = DID} = State) ->
+   wait_auth(Commands, State);
+emul_loop(C = [auth|Rest], #state{socket = Socket, did = DID} = State) ->
    BinDID = list_to_binary(DID),
    gen_tcp:send(Socket, <<$A, 1:8, BinDID/binary>>),
    io:format("Auth ~p was sent~n", [DID]),
-   wait_auth(Rest, State);
-emul_loop([{auth, DID}|Rest], #state{socket = Socket} = State) ->
+   wait_auth(C, State);
+emul_loop(C = [{auth, DID}|Rest], #state{socket = Socket} = State) ->
    BinDID = list_to_binary(DID),
    gen_tcp:send(Socket, <<$A, 1:8, BinDID/binary>>),
    io:format("Auth ~p was sent~n", [DID]),
-   wait_auth(Rest, State);
-emul_loop([{auth, reset}|Rest], #state{socket = Socket} = State) ->
+   wait_auth(C, State);
+emul_loop(C = [{auth, reset}|Rest], #state{socket = Socket} = State) ->
    gen_tcp:send(Socket, <<$A, 1:8>>),
    io:format("Auth was sent~n"),
-   wait_auth(Rest, State);
+   wait_auth(C, State);
 emul_loop([stop|Rest], #state{socket = Socket} = State) ->
    gen_tcp:close(Socket),
    io:format("Closing...~n"),
@@ -168,7 +168,7 @@ emul_loop([Command|Rest], State) ->
    io:format("Unknown command <~p>. Skipped.", [Command]),
    emul_loop(Rest, State).
 
-wait_auth(Commands, #state{socket = Socket} = State) ->
+wait_auth(Commands = [A|Rest], #state{socket = Socket} = State) ->
    receive
       {tcp_closed, Socket} ->
          io:format("Connection closed by server~n");
@@ -176,15 +176,15 @@ wait_auth(Commands, #state{socket = Socket} = State) ->
          DID = erlang:bitstring_to_list(BinDID),
          Ref = erlang:bitstring_to_list(BinRef),
          io:format("Authenticated as ~p. Ref = ~p.~n", [DID, Ref]),
-         emul_loop(Commands, State#state{did = DID});
+         emul_loop(Rest, State#state{did = DID});
       {tcp, _Socket, <<$K:8, BinRHost:?HOST, RPort:?PORT>>} ->
          RHost = truncate(BinRHost, []),
          io:format("Redirected to ~p:~p~n", [RHost, RPort]),
          gen_tcp:close(Socket),
-         emul_loop([{connect, RHost, RPort}|Commands], State);
+         emul_loop([{connect, RHost, RPort},Commands], State);
       {tcp, _Socket, Data} ->
          io:format("Data received from server: ~p~n", [Data]),
-         emul_loop(Commands, State);
+         emul_loop(Rest, State);
       stop ->
          gen_tcp:close(Socket),
          io:format("Stopped~n")

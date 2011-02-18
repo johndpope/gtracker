@@ -16,6 +16,7 @@
                 track = undef,
                 socket,         % device socket
                 listener,       % registered name of gtracker_listener process
+                lgroup,         % group of listeners
                 mt,             % registered name for metadata process
                 ecnt = 0,       % count of errors
                 last_coord = undef, % last received coordinate
@@ -34,6 +35,7 @@
 %=======================================================================================================================
 start_link(Socket, Opts) ->
    Listener = get_param(listener, Opts),
+   LGroup = get_param(lgroup, Opts),
    AllOpts = get_param(opts, Opts),
    ListenerOpts = get_param(self, AllOpts),
    CalcSpeed = get_param(calc_speed, ListenerOpts),
@@ -50,6 +52,7 @@ start_link(Socket, Opts) ->
                   socket = Socket,
                   mt = Mt,
                   listener = Listener,
+                  lgroup = LGroup,
                   calc_speed = CalcSpeed,
                   ref_prefix = RefPrefix,
                   logger_opts = RootOpts})
@@ -58,13 +61,6 @@ start_link(Socket, Opts) ->
 
 stop(Pid) ->
    Pid ! stop.
-
-reconnect_to(Socket, NodeInfo) ->
-   Host = mds_utils:get_param(host, NodeInfo),
-   Port = mds_utils:get_param(port, NodeInfo),
-   BinHost = fill_binary(erlang:list_to_binary(Host), ?HOST_LEN, <<0:8>>),
-   gen_tcp:send(Socket, <<?RECONNECT_TO, BinHost/binary, Port:?PORT>>),
-   gen_tcp:close(Socket).
 
 %=======================================================================================================================
 % gtracker_protocol main loop
@@ -166,44 +162,28 @@ parsePacket(Msg = <<>>, State = #state{ecnt = ErrCnt}) ->
 %=======================================================================================================================
 % processing of incoming messages
 %=======================================================================================================================
-% device requests new device name
-processMsg(?AUTH_MSG, <<1:?VER>>, State = #state{mt = Mt, socket = S, dev = undef, ref_prefix = RefPrefix}) ->
-   {ok, PeerName} = inet:peername(S),
-   log(State, info, "The device ~p requests a new device name.", [PeerName]),
-   case gtracker_pub:register(Mt, ?MAX_CALL_TIMEOUT) of
-      Err = {error, _Reason, _} ->
-         log(State, error, "Register error: ~p", [Err]),
-         {return_error(?ERROR_SERVER_UNAVAILABLE), State};
-      {ok, Device = #device{name = DevName, reference = Ref}} ->
-         log(State, info, "The device ~p(~p) got a device name ~p.", [PeerName, self(), DevName]),
-         BinDevName = erlang:list_to_bitstring(DevName),
-         BinRef = fill_binary(erlang:list_to_binary(RefPrefix ++ Ref), ?REF_SIZE, <<0:8>>),
-         { <<?AUTH_ACK_MSG, BinDevName:?BIN_DEV_NAME, BinRef/binary>>, State#state{dev = Device} }
-   end;
+processMsg(?AUTH_MSG, Bin, State = #state{lgroup = undef}) ->
+   processMsgAux(Bin, State);
 
-processMsg(?AUTH_MSG, <<1:?VER>>, State) -> % the device already has a name
-   BinDevName = erlang:list_to_bitstring(State#state.dev#device.name),
-   BinRef = fill_binary(erlang:list_to_binary(State#state.ref_prefix ++ State#state.dev#device.reference), ?REF_SIZE, <<0:8>>),
-   { <<?AUTH_ACK_MSG, BinDevName:?BIN_DEV_NAME, BinRef/binary>>, State };
-
-% device has a assigned device name and want to auth with it
-processMsg(?AUTH_MSG, <<1:?VER, BinDevName:?BIN_DEV_NAME>>,
-   State = #state{socket = S, ref_prefix =RefPrefix, ecnt = ErrCnt}) ->
-   DevName = erlang:bitstring_to_list(BinDevName),
-   case gtracker_pub:register(State#state.mt, DevName, ?MAX_CALL_TIMEOUT) of
-      {error, no_such_device, [DevName]} -> % wrong device name, hacker?
-         log(State, warning, "Device name ~p not found. Error count ~p.", [DevName, ErrCnt + 1]),
-         {return_error(?ERROR_WRONG_DEV_NAME), State#state{ecnt = ErrCnt + 1}};
-      Err = {error, _Reason, _} ->
-         log(state, error, "Register error ~p", [Err]),
-         {return_error(?ERROR_SERVER_UNAVAILABLE), State};
-      {ok, Device = #device{reference = Ref}} ->
-         log(State, info, "Device ~p(~p) was registered at ~p.", [inet:peername(S), self(), DevName]),
-         BinRef = fill_binary(erlang:list_to_binary(RefPrefix ++ Ref), ?REF_SIZE, <<0:8>>),
-         {<<?AUTH_ACK_MSG, BinDevName:?BIN_DEV_NAME, BinRef/binary>>, State#state{dev = Device}};
-      Msg ->
-         log(State, error, "Unrecognized msg ~p during auth processing.", [Msg]),
-         {return_error(?ERROR_SERVER_UNAVAILABLE), State}
+processMsg(?AUTH_MSG, Bin, State = #state{listener = L, socket = Socket, lgroup = LGroup}) ->
+   {ok, Stat} = gen_server:call(get_stat, L),
+   Members = pg2:get_members(LGroup),
+   FilteredStat = lists:foldl(
+      fun(I = {Pid, _}, Acc) ->
+         case lists:member(Pid, Members) of
+            true ->
+               [I|Acc];
+            false ->
+               Acc
+         end
+      end, [], Stat),
+   [BestListener|_] = lists:sort(fun({_, AC1}, {_, AC2}) -> AC1 < AC2 end, FilteredStat),
+   case BestListener == global:whereis_name((fun({global, Name}) -> Name end)(L)) of
+      true -> % stay on this node
+         processMsgAux(Bin, State);
+      false ->
+         {ok, NodeInfo} = gen_server:call(BestListener, get_info),
+         reconnect_to(Socket, NodeInfo)
    end;
 
 % <<<<< BEGIN COORD processing >>>>>
@@ -324,3 +304,50 @@ processMsg(?HEARTBEAT_MSG, <<>>, State) ->
 processMsg(Type, Msg, State = #state{ecnt = ErrCnt}) ->
    log(State, error, "Wrong message ~p. Error count ~p.", [<<Type, Msg/binary>>, ErrCnt + 1]),
    {return_error(?ERROR_WRONG_MSG), State#state{ecnt = ErrCnt + 1}}.
+
+reconnect_to(Socket, NodeInfo) ->
+   Host = mds_utils:get_param(host, NodeInfo),
+   Port = mds_utils:get_param(port, NodeInfo),
+   BinHost = fill_binary(erlang:list_to_binary(Host), ?HOST_LEN, <<0:8>>),
+   gen_tcp:send(Socket, <<?RECONNECT_TO, BinHost/binary, Port:?PORT>>),
+   gen_tcp:close(Socket).
+
+% device requests new device name
+processMsgAux(<<1:?VER>>, State = #state{mt = Mt, socket = S, dev = undef, ref_prefix = RefPrefix}) ->
+   {ok, PeerName} = inet:peername(S),
+   log(State, info, "The device ~p requests a new device name.", [PeerName]),
+   case gtracker_pub:register(Mt, ?MAX_CALL_TIMEOUT) of
+      Err = {error, _Reason, _} ->
+         log(State, error, "Register error: ~p", [Err]),
+         {return_error(?ERROR_SERVER_UNAVAILABLE), State};
+      {ok, Device = #device{name = DevName, reference = Ref}} ->
+         log(State, info, "The device ~p(~p) got a device name ~p.", [PeerName, self(), DevName]),
+         BinDevName = erlang:list_to_bitstring(DevName),
+         BinRef = fill_binary(erlang:list_to_binary(RefPrefix ++ Ref), ?REF_SIZE, <<0:8>>),
+         { <<?AUTH_ACK_MSG, BinDevName:?BIN_DEV_NAME, BinRef/binary>>, State#state{dev = Device} }
+   end;
+
+processMsgAux(<<1:?VER>>, State) -> % the device already has a name
+   BinDevName = erlang:list_to_bitstring(State#state.dev#device.name),
+   BinRef = fill_binary(erlang:list_to_binary(State#state.ref_prefix ++ State#state.dev#device.reference), ?REF_SIZE, <<0:8>>),
+   { <<?AUTH_ACK_MSG, BinDevName:?BIN_DEV_NAME, BinRef/binary>>, State };
+
+% device has a assigned device name and want to auth with it
+processMsgAux(<<1:?VER, BinDevName:?BIN_DEV_NAME>>,
+   State = #state{socket = S, ref_prefix =RefPrefix, ecnt = ErrCnt}) ->
+   DevName = erlang:bitstring_to_list(BinDevName),
+   case gtracker_pub:register(State#state.mt, DevName, ?MAX_CALL_TIMEOUT) of
+      {error, no_such_device, [DevName]} -> % wrong device name, hacker?
+         log(State, warning, "Device name ~p not found. Error count ~p.", [DevName, ErrCnt + 1]),
+         {return_error(?ERROR_WRONG_DEV_NAME), State#state{ecnt = ErrCnt + 1}};
+      Err = {error, _Reason, _} ->
+         log(state, error, "Register error ~p", [Err]),
+         {return_error(?ERROR_SERVER_UNAVAILABLE), State};
+      {ok, Device = #device{reference = Ref}} ->
+         log(State, info, "Device ~p(~p) was registered at ~p.", [inet:peername(S), self(), DevName]),
+         BinRef = fill_binary(erlang:list_to_binary(RefPrefix ++ Ref), ?REF_SIZE, <<0:8>>),
+         {<<?AUTH_ACK_MSG, BinDevName:?BIN_DEV_NAME, BinRef/binary>>, State#state{dev = Device}};
+      Msg ->
+         log(State, error, "Unrecognized msg ~p during auth processing.", [Msg]),
+         {return_error(?ERROR_SERVER_UNAVAILABLE), State}
+   end.
