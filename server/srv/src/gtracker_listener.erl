@@ -7,7 +7,7 @@
 -include_lib("stdlib/include/qlc.hrl").
 -include("common_defs.hrl").
 
--export([start/1, stop/1, on_start/1, on_stop/2, on_msg/3, on_amsg/2, on_info/2]).
+-export([start/1, stop/1, on_start/1, on_stop/2, on_msg/3, on_amsg/2, on_info/2, get_info/1, get_stat/1, log/3, log/4]).
 
 -import(mds_utils, [get_param/2, get_param/3]).
 -import(gtracker_common, [join_pg/2, leave_pg/2, send_metric/2]).
@@ -18,19 +18,19 @@
 -define(ADDRESS, "gtracker.ru").
 
 -record(state, {
-      name,                % registred instance name. E.g. {global, Name} see start/1
-      group,               % process grup name
-      timer_ref,           % reference of metric timer
-      metric_send_period,  % period of sending metrics in ms
-      lsocket,             % opened socker handler
-      mt,                  % metadata globally registered name
-      protocol,            % protocol implementation
-      port,                % bind port
-      host,                % running host name
-      opts,                % all options
-      active_clients = 0,  % number of active clients
-      is_master = false,   % true  - process can redirect to best node, false - passive
-      statistic = undef    % statistic about active clients of lsteners in group
+      name,                   % registred instance name. E.g. {global, Name} see start/1
+      group,                  % process grup name
+      timer_ref,              % reference of metric timer
+      metric_send_period,     % period of sending metrics in ms
+      lsocket,                % opened socker handler
+      mt,                     % metadata globally registered name
+      protocol,               % protocol implementation
+      port,                   % bind port
+      host,                   % running host name
+      opts,                   % all options
+      active_clients = 0,     % number of active clients
+      is_master = false,      % true  - process can redirect to best node, false - passive
+      statistic = dict:new()  % statistic about active clients of lsteners in group
    }).
 
 start(Opts) ->
@@ -67,19 +67,19 @@ on_start(Opts) ->
       host = Host,
       is_master = IsMaster,
       opts = Opts},
-   log(State, info, "Started ~p", [self()]),
+   log(ServName, info, "Started ~p", [self()]),
    {ok, State, ?TIMEOUT}.
 
 on_stop(Reason, State) ->
    leave_pg(State#state.group, self()),
-   log(State, info, "Stopped <~p>.", [Reason]),
+   log(State#state.name, info, "Stopped <~p>.", [Reason]),
    ok.
 
 on_msg(get_info, _From, State) ->
    {reply, {ok, [{host, State#state.host}, {port, State#state.port}]}, State, ?TIMEOUT};
 
 on_msg(get_stat, _From, State = #state{statistic = Stat}) ->
-   {reply, {ok, Stat}, State, ?TIMEOUT};
+   {reply, {ok, dict:to_list(Stat)}, State, ?TIMEOUT};
 
 on_msg(stop, _From, State) ->
    {stop, normal, stopped, State};
@@ -88,11 +88,11 @@ on_msg(_Msg, _Who, State) ->
    {norepy, State, ?TIMEOUT}.
 
 on_amsg({log, LogLevel, Text}, State) ->
-   log(State, LogLevel, Text),
+   log(State#state.name, LogLevel, Text),
    {noreply, State, ?TIMEOUT};
 
 on_amsg({log, LogLevel, Format, Params}, State) ->
-   log(State, LogLevel, Format, Params),
+   log(State#state.name, LogLevel, Format, Params),
    {noreply, State, ?TIMEOUT};
 
 on_amsg(_Msg, State) ->
@@ -113,32 +113,48 @@ on_info(send_metric, State = #state{name = Name, group = G, active_clients = AC}
    lists:map(fun(Pid) -> Pid ! {?active_clients, self(), AC} end, pg2:get_members(G)),
    {noreply, State, ?TIMEOUT};
 
-on_info({?active_clients, Pid, AC}, State = #state{statistic = Stat, is_master = IsMaster}) when IsMaster == true ->
-   {noreply, State#state{statistic = lists:keyreplace(Pid, 1, 2, Stat, {Pid, AC})}};
+on_info({?active_clients, Pid, AC}, State = #state{statistic = Stat, is_master = IsMaster}) ->
+   case IsMaster of
+      true ->
+         {noreply, State#state{statistic = dict:store(Pid, AC, Stat)}, ?TIMEOUT};
+      false ->
+         {noreply, State, ?TIMEOUT}
+   end;
 
 on_info({'EXIT', Pid, Reason}, State = #state{mt = Mt, active_clients = AC}) ->
-   log(State, info, "Process ~p exited with status ~p. Metadata will be notified.", [Pid, Reason]),
+   log(State#state.name, info, "Process ~p exited with status ~p. Metadata will be notified.", [Pid, Reason]),
    gen_server:cast(Mt, {exited, Pid}),
    {noreply, State#state{active_clients = AC - 1}, ?TIMEOUT};
 
-on_info(timeout, State = #state{name = Name, active_clients = AC}) ->
+on_info(timeout, State = #state{name = Name, group = Group, is_master = IsMaster, active_clients = AC}) ->
    ListenSocket = State#state.lsocket,
    case gen_tcp:accept(ListenSocket, 0) of
       {ok, PeerSocket} ->
          {ok, Addr} = inet:peername(PeerSocket),
-         log(State, info, "Device connected from ~p.", [Addr]),
-         apply(State#state.protocol, start_link, [PeerSocket, [{listener, Name}, {opts, State#state.opts}]]),
+         log(State#state.name, info, "Device connected from ~p.", [Addr]),
+         apply(
+            State#state.protocol,
+            start_link,
+            [PeerSocket, [if (IsMaster == true) -> {lgroup, Group}; true -> {lgroup, undef} end, {listener, Name}, {opts, State#state.opts}]]),
          {noreply, State#state{active_clients = AC + 1}, ?TIMEOUT};
       {error, timeout} ->
          {noreply, State, ?TIMEOUT}
    end;
 
 on_info(Msg, State) ->
-   log(State, error, "Unknown message ~p received", [Msg]),
+   log(State#state.name, error, "Unknown message ~p received", [Msg]),
    {noreply, State, ?TIMEOUT}.
 
-log(#state{name = N}, LogLevel, Format, Data) ->
-   mds_gen_server:log(N, LogLevel, Format, Data).
+log(Name, LogLevel, Format, Data) ->
+   mds_gen_server:log(Name, LogLevel, Format, Data).
 
-log(#state{name = N}, LogLevel, Text) ->
-   mds_gen_server:log(N, LogLevel, Text).
+log(Name, LogLevel, Text) ->
+   mds_gen_server:log(Name, LogLevel, Text).
+
+get_info(ServerRef) ->
+   {ok, Info} = gen_server:call(ServerRef, get_info),
+   Info.
+
+get_stat(ServerRef) ->
+   {ok, Stat} = gen_server:call(ServerRef, get_stat),
+   Stat.

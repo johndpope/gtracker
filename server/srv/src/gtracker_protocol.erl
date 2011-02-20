@@ -8,7 +8,7 @@
 -include("common_defs.hrl").
 -include("common_recs.hrl").
 
--export([start_link/2, stop/1, reconnect_to/2]).
+-export([start_link/2, stop/1]).
 
 -import(gtracker_common, [unix_seconds_to_datetime/1, ints_to_float/2, send_pg/2, fill_binary/3]).
 
@@ -104,16 +104,18 @@ loop(State = #state{dev = Device, track = Track, socket = Socket}) ->
 %=======================================================================================================================
 % logger for listener
 %=======================================================================================================================
-log(#state{dev = undef, listener = L}, LogLevel, Text) ->
-   mds_gen_server:log(L, LogLevel, Text);
-log(#state{dev = #device{name = Name}, listener = L}, LogLevel, Text) ->
-   FmtText = lists:flatten(io_lib:format("~p: ~p", [Name, Text])),
-   mds_gen_server:log(L, LogLevel, FmtText).
+log(#state{dev = undef, listener = {global, L}}, LogLevel, Text) ->
+   gtracker_listener:log(L, LogLevel, Text);
 
-log(#state{dev = undef, listener = L}, LogLevel, Format, Params) ->
-   mds_gen_server:log(L, LogLevel, Format, Params);
-log(#state{dev = #device{name = Name}, listener = L}, LogLevel, Format, Params) ->
-   mds_gen_server:log(L, LogLevel, "~p: " ++ Format, [Name|Params]).
+log(#state{dev = #device{name = Name}, listener = {global, L}}, LogLevel, Text) ->
+   FmtText = lists:flatten(io_lib:format("~p: ~p", [Name, Text])),
+   gtracker_listener:log(L, LogLevel, FmtText).
+
+log(#state{dev = undef, listener = {global, L}}, LogLevel, Format, Params) ->
+   gtracker_listener:log(L, LogLevel, Format, Params);
+
+log(#state{dev = #device{name = Name}, listener = {global, L}}, LogLevel, Format, Params) ->
+   gtracker_listener:log(L, LogLevel, "~p: " ++ Format, [Name|Params]).
 
 %=======================================================================================================================
 % reply message to device
@@ -126,6 +128,11 @@ reply(State, fuck_off, Socket) ->
 
 reply(_State, noreply, _Socket) ->
    ok;
+
+reply(State, Msg = <<?RECONNECT_TO, _Rest/binary>>, Socket) ->
+   log(State, debug, "Reply packet ~p was sent.", [Msg]),
+   gen_tcp:send(Socket, Msg),
+   self() ! stop;
 
 reply(State, Msg, Socket) ->
    log(State, debug, "Packet ~p was sent.", [Msg]),
@@ -165,8 +172,8 @@ parsePacket(Msg = <<>>, State = #state{ecnt = ErrCnt}) ->
 processMsg(?AUTH_MSG, Bin, State = #state{lgroup = undef}) ->
    processMsgAux(Bin, State);
 
-processMsg(?AUTH_MSG, Bin, State = #state{listener = L, socket = Socket, lgroup = LGroup}) ->
-   {ok, Stat} = gen_server:call(get_stat, L),
+processMsg(?AUTH_MSG, Bin, State = #state{listener = L, lgroup = LGroup}) ->
+   Stat = gtracker_listener:get_stat(L),
    Members = pg2:get_members(LGroup),
    FilteredStat = lists:foldl(
       fun(I = {Pid, _}, Acc) ->
@@ -177,13 +184,15 @@ processMsg(?AUTH_MSG, Bin, State = #state{listener = L, socket = Socket, lgroup 
                Acc
          end
       end, [], Stat),
-   [BestListener|_] = lists:sort(fun({_, AC1}, {_, AC2}) -> AC1 < AC2 end, FilteredStat),
+   [{BestListener,_}|_] = lists:sort(fun({_, AC1}, {_, AC2}) -> AC1 < AC2 end, FilteredStat),
    case BestListener == global:whereis_name((fun({global, Name}) -> Name end)(L)) of
       true -> % stay on this node
          processMsgAux(Bin, State);
       false ->
-         {ok, NodeInfo} = gen_server:call(BestListener, get_info),
-         reconnect_to(Socket, NodeInfo)
+         NodeInfo = gtracker_listener:get_info(BestListener),
+         log(State, info, "Will be redirected to ~p", [NodeInfo]),
+         ReplyBin = reconnect_to(NodeInfo),
+         {ReplyBin, State}
    end;
 
 % <<<<< BEGIN COORD processing >>>>>
@@ -305,12 +314,11 @@ processMsg(Type, Msg, State = #state{ecnt = ErrCnt}) ->
    log(State, error, "Wrong message ~p. Error count ~p.", [<<Type, Msg/binary>>, ErrCnt + 1]),
    {return_error(?ERROR_WRONG_MSG), State#state{ecnt = ErrCnt + 1}}.
 
-reconnect_to(Socket, NodeInfo) ->
+reconnect_to(NodeInfo) ->
    Host = mds_utils:get_param(host, NodeInfo),
    Port = mds_utils:get_param(port, NodeInfo),
    BinHost = fill_binary(erlang:list_to_binary(Host), ?HOST_LEN, <<0:8>>),
-   gen_tcp:send(Socket, <<?RECONNECT_TO, BinHost/binary, Port:?PORT>>),
-   gen_tcp:close(Socket).
+   <<?RECONNECT_TO, BinHost/binary, Port:?PORT>>.
 
 % device requests new device name
 processMsgAux(<<1:?VER>>, State = #state{mt = Mt, socket = S, dev = undef, ref_prefix = RefPrefix}) ->
